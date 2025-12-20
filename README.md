@@ -1,8 +1,16 @@
 # Sanity-Gravity: The Antigravity Sandbox
 
+<p align="center">
+  <img src="assets/logo.jpg" alt="Sanity-Gravity Logo" width="300">
+</p>
+
 [English](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md)
 
 **Sanity-Gravity** is a secure, containerized sandbox environment designed specifically for **Agentic AI IDEs** (like Google Antigravity). It minimizes execution risks by confining the agent's activities within a disposable Docker container while providing a full graphical desktop experience.
+
+## Demo
+
+📺 **Watch the Demo Video**: [YouTube Link](https://youtu.be/x0DGKuHyx2A)
 
 ## Why Sanity-Gravity?
 

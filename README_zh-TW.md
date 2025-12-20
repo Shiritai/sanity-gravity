@@ -1,8 +1,16 @@
 # Sanity-Gravity: The Antigravity Sandbox
 
+<p align="center">
+  <img src="assets/logo.jpg" alt="Sanity-Gravity Logo" width="300">
+</p>
+
 [English](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md)
 
 **Sanity-Gravity** 是一個專為 **Agentic AI IDEs** (如 Google Antigravity) 設計的安全、容器化沙箱環境 (Sandbox)。它的目的是將 AI 代理的活動限制在一個可拋棄的 Docker 容器內，將執行風險降至最低，同時提供完整的圖形桌面體驗。
+
+## 演示 (Demo)
+
+📺 **觀看演示影片**: [YouTube Link](https://youtu.be/x0DGKuHyx2A)
 
 ## 為什麼選擇 Sanity-Gravity?
 
