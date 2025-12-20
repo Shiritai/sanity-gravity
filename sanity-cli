@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+import argparse
+import subprocess
+import os
+import sys
+import shutil
+
+# Configuration
+COMPOSE_FILE = "docker-compose.yml"
+VARIANTS = ["core", "kasm", "vnc"]
+
+# ANSI Colors
+class Colors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+def print_header(msg):
+    print(f"{Colors.HEADER}{Colors.BOLD}>>> {msg}{Colors.ENDC}")
+
+def print_success(msg):
+    print(f"{Colors.OKGREEN}✔ {msg}{Colors.ENDC}")
+
+def print_error(msg):
+    print(f"{Colors.FAIL}✘ {msg}{Colors.ENDC}")
+
+def print_info(msg):
+    print(f"{Colors.OKCYAN}ℹ {msg}{Colors.ENDC}")
+
+def run_command(cmd, cwd=None, capture=False, check=True):
+    """Runs a shell command."""
+    if not capture:
+        print(f"{Colors.OKBLUE}$ {cmd}{Colors.ENDC}")
+    try:
+        if capture:
+            result = subprocess.run(cmd, shell=True, cwd=cwd, check=check, capture_output=True, text=True)
+            return result.stdout.strip()
+        else:
+            subprocess.check_call(cmd, shell=True, cwd=cwd)
+    except subprocess.CalledProcessError as e:
+        if check:
+            print_error(f"Command failed with exit code {e.returncode}")
+            if capture:
+                print(e.stderr)
+            sys.exit(e.returncode)
+        else:
+            raise e
+
+def get_uid_gid_user():
+    """Returns the current user's UID, GID, and Username."""
+    import pwd
+    uid = os.getuid()
+    return uid, os.getgid(), pwd.getpwuid(uid).pw_name
+
+def check_prereqs(args):
+    """Checks if Docker and Docker Compose are installed."""
+    print_header("Checking Prerequisites")
+    
+    # Check Docker
+    if shutil.which("docker"):
+        print_success("Docker is installed")
+    else:
+        print_error("Docker is NOT installed. Please install Docker first.")
+        sys.exit(1)
+
+    # Check Docker Compose
+    try:
+        run_command("docker compose version", capture=True)
+        print_success("Docker Compose is installed")
+    except:
+        print_error("Docker Compose is NOT installed or not accessible.")
+        sys.exit(1)
+        
+    # Check if docker daemon is running
+    try:
+        run_command("docker info", capture=True)
+        print_success("Docker Daemon is running")
+    except:
+        print_error("Docker Daemon is NOT running. Please start Docker.")
+        sys.exit(1)
+
+def build(args):
+    """Builds the specified variant(s)."""
+    targets = args.variant if args.variant else VARIANTS
+    if "all" in targets:
+        targets = VARIANTS
+    
+    print_header(f"Building Variants: {', '.join(targets)}")
+    
+    for target in targets:
+        print_info(f"Building {target}...")
+        run_command(f"docker compose -f {COMPOSE_FILE} build {target}")
+    
+    print_success("Build complete!")
+
+def install(args):
+    """Alias for build, but maybe in future pulls images."""
+    # For now, we build locally.
+    build(args)
+
+def run(args):
+    """Runs the specified variant."""
+    target = args.variant
+    
+    # Check prereqs first
+    if not args.skip_check:
+        check_prereqs(args)
+
+    uid, gid, username = get_uid_gid_user()
+    
+    print_header(f"Starting {target}")
+    print_info(f"Mapping User: {username} (UID={uid}, GID={gid})")
+
+    # Stop other variants to avoid port conflicts? 
+    # Optional, but good for "out-of-the-box" experience.
+    # Let's just warn or try to run. Docker compose handles recreation.
+    
+    ssh_port = args.ssh_port
+    kasm_port = args.kasm_port
+    vnc_port = args.vnc_port
+    novnc_port = args.novnc_port
+    
+    compose_files = f"-f {COMPOSE_FILE}"
+    if args.gpu:
+        if not os.path.exists("docker-compose.gpu.yml"):
+             print_error("docker-compose.gpu.yml not found. Cannot enable GPU.")
+             sys.exit(1)
+        compose_files += " -f docker-compose.gpu.yml"
+        print_info("GPU Support Enabled")
+
+    password = args.password
+
+    try:
+        run_command(f"SSH_HOST_PORT={ssh_port} KASM_PORT={kasm_port} VNC_PORT={vnc_port} NOVNC_PORT={novnc_port} HOST_UID={uid} HOST_GID={gid} HOST_USER={username} HOST_PASSWORD={password} VNC_PW={password} docker compose {compose_files} up -d {target}")
+    except SystemExit:
+        return
+
+    print_success(f"{target} is running.")
+    
+    if target == "kasm":
+        print(f"\n{Colors.BOLD}Access KasmVNC:{Colors.ENDC}")
+        print(f"  URL:      {Colors.UNDERLINE}https://localhost:{kasm_port}{Colors.ENDC}")
+        print(f"  SSH:      ssh -p {ssh_port} {username}@localhost")
+        print(f"  User:     {username}")
+        print(f"  Pass:     {password}")
+    elif target == "vnc":
+        print(f"\n{Colors.BOLD}Access VNC:{Colors.ENDC}")
+        print(f"  VNC Client: localhost:{vnc_port}")
+        print(f"  noVNC Web:  {Colors.UNDERLINE}http://localhost:{novnc_port}/vnc.html{Colors.ENDC}")
+        print(f"  SSH:        ssh -p {ssh_port} {username}@localhost")
+        print(f"  Password:   {password}")
+
+    elif target == "core":
+        print(f"\n{Colors.BOLD}Access Core:{Colors.ENDC}")
+        print(f"  SSH:        ssh -p {ssh_port} {username}@localhost")
+        print(f"  Pass:       {password}")
+        print(f"  Shell:      docker exec -it sanity-gravity-core-1 /bin/bash")
+
+def stop(args):
+    """Stops all sandbox containers."""
+    print_header("Stopping Sandbox")
+    run_command(f"docker compose -f {COMPOSE_FILE} down")
+    print_success("All containers stopped.")
+
+def status(args):
+    """Shows status of sandbox containers."""
+    print_header("Sandbox Status")
+    # List containers associated with our compose project
+    # We assume project name is directory name or 'sanity-gravity'
+    # Better to use docker compose ps
+    try:
+        output = run_command(f"docker compose -f {COMPOSE_FILE} ps", capture=True)
+        print(output)
+    except:
+        print_error("Failed to get status.")
+
+def list_variants(args):
+    """Lists available variants."""
+    print_header("Available Variants")
+    for v in VARIANTS:
+        print(f" - {Colors.BOLD}{v}{Colors.ENDC}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Antigravity Sandbox CLI")
+    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+
+    # Check Command
+    parser_check = subparsers.add_parser("check", help="Check prerequisites")
+    parser_check.set_defaults(func=check_prereqs)
+
+    # Build Command
+    parser_build = subparsers.add_parser("build", help="Build sandbox images")
+    parser_build.add_argument("variant", nargs="*", help="Variant to build (default: all)", default=["all"])
+    parser_build.set_defaults(func=build)
+
+    # Install Command (Alias)
+    parser_install = subparsers.add_parser("install", help="Install/Build sandbox environment")
+    parser_install.add_argument("variant", nargs="*", help="Variant to install (default: all)", default=["all"])
+    parser_install.set_defaults(func=install)
+
+    # Run Command
+    parser_run = subparsers.add_parser("run", help="Run a sandbox variant")
+    parser_run.add_argument("--variant", "-v", required=True, help="Variant to run", choices=VARIANTS)
+    parser_run.add_argument("--ssh-port", "-p", default="2222", help="Host port for SSH (default: 2222)")
+    parser_run.add_argument("--kasm-port", default="8444", help="Host port for KasmVNC (default: 8444)")
+    parser_run.add_argument("--vnc-port", default="5901", help="Host port for VNC (default: 5901)")
+    parser_run.add_argument("--novnc-port", default="6901", help="Host port for noVNC (default: 6901)")
+    parser_run.add_argument("--password", default="antigravity", help="Password for SSH/VNC (default: antigravity)")
+    parser_run.add_argument("--gpu", action="store_true", help="Enable Nvidia GPU support (requires docker-compose.gpu.yml)")
+    parser_run.add_argument("--skip-check", action="store_true", help="Skip prerequisite checks")
+    parser_run.set_defaults(func=run)
+
+    # Stop Command
+    parser_stop = subparsers.add_parser("stop", help="Stop all sandbox containers")
+    parser_stop.set_defaults(func=stop)
+
+    # Status Command
+    parser_status = subparsers.add_parser("status", help="Show sandbox status")
+    parser_status.set_defaults(func=status)
+
+    # List Command
+    parser_list = subparsers.add_parser("list", help="List available variants")
+    parser_list.set_defaults(func=list_variants)
+
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    args.func(args)
+
+if __name__ == "__main__":
+    main()
