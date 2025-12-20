@@ -1,0 +1,57 @@
+services:
+  core:
+    build:
+      context: sandbox
+      dockerfile: variants/core/Dockerfile
+    image: sanity-gravity:core
+    command: [ "/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf" ]
+    environment:
+      - HOST_UID=${HOST_UID:-1000}
+      - HOST_GID=${HOST_GID:-1000}
+      - HOST_USER=${HOST_USER:-developer}
+      - HOST_PASSWORD=${HOST_PASSWORD:-antigravity}
+    volumes:
+      - ./workspace:/home/${HOST_USER:-developer}/workspace
+    ports:
+      - "${SSH_HOST_PORT:-2222}:22"
+    network_mode: bridge
+
+  kasm:
+    build:
+      context: sandbox
+      dockerfile: variants/kasm/Dockerfile
+    image: sanity-gravity:kasm
+    ports:
+      - "${KASM_PORT:-8444}:8444"
+      - "${SSH_HOST_PORT:-2222}:22"
+    environment:
+      - HOST_UID=${HOST_UID:-1000}
+      - HOST_GID=${HOST_GID:-1000}
+      - HOST_USER=${HOST_USER:-developer}
+      - HOST_PASSWORD=${HOST_PASSWORD:-antigravity}
+    volumes:
+      - ./workspace:/home/${HOST_USER:-developer}/workspace
+    shm_size: 512m
+    restart: unless-stopped
+
+  vnc:
+    build:
+      context: sandbox
+      dockerfile: variants/vnc/Dockerfile
+    image: sanity-gravity:vnc
+    ports:
+      - "${VNC_PORT:-5901}:5901"
+      - "${NOVNC_PORT:-6901}:6901"
+      - "${SSH_HOST_PORT:-2222}:22"
+    environment:
+      - HOST_UID=${HOST_UID:-1000}
+      - HOST_GID=${HOST_GID:-1000}
+      - HOST_USER=${HOST_USER:-developer}
+      - HOST_PASSWORD=${HOST_PASSWORD:-antigravity}
+      - VNC_PW=${VNC_PW:-antigravity}
+      - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x720}
+      - VNC_DEPTH=${VNC_DEPTH:-24}
+    volumes:
+      - ./workspace:/home/${HOST_USER:-developer}/workspace
+    shm_size: 512m
+    restart: unless-stopped

@@ -1,0 +1,15 @@
+services:
+  core:
+    deploy: &gpu_deploy
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  kasm:
+    deploy: *gpu_deploy
+
+  vnc:
+    deploy: *gpu_deploy
