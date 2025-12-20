@@ -87,6 +87,21 @@ All variants, **including GUI variants** (Kasm/VNC), have SSH enabled by default
 ssh -p 2222 developer@localhost
 ```
 
+## Project Structure
+
+A quick overview of the repository layout:
+
+```text
+sanity-gravity/
+├── sanity-cli          # 🛠️ Main CLI entry point (Python script)
+├── sandbox/            # 📦 Docker build context and configurations
+│   ├── variants/       #    - Dockerfiles for each variant (core, kasm, vnc)
+│   └── rootfs/         #    - Shared overlay (scripts, configs) applied to all
+├── tests/              # 🧪 Pytest integration suite
+├── workspace/          # 📂 Mounted user directory (persistent data)
+└── .github/            # 🐙 CI/CD workflows and issue templates
+```
+
 ## License
 
 This project is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
