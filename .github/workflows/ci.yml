@@ -24,5 +24,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest requests urllib3
 
+    - name: Build Sandbox Images
+      run: ./sanity-cli build
+
     - name: Run Tests
       run: ./sanity-cli test
