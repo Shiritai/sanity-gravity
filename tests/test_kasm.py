@@ -36,5 +36,8 @@ class TestKasm:
         container_name = clean_container("sanity-test-kasm-ssl")
         docker_cli.run_container(name=container_name, image=DEFAULT_KASM_IMAGE, env=host_env)
         
+        # Wait for entrypoint to finish and kasm to start
+        assert wait_for_log(container_name, "success: kasmvnc", timeout=15)
+        
         groups = docker_cli.exec(container_name, f"groups {host_env['HOST_USER']}").stdout
         assert "ssl-cert" in groups
