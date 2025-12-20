@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Mac
+.DS_Store
+
+# Workspace (User Data)
+workspace/*
+!workspace/.gitkeep
+
+# Logs
+*.log
+
+# Gemini Agent
+.gemini/
