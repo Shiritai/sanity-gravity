@@ -102,6 +102,13 @@ sanity-gravity/
 └── .github/            # 🐙 CI/CD workflows and issue templates
 ```
 
+## What's in a Name?
+
+> **"Sanity-Gravity"** implies: Providing a strong **Gravity** (constraints & grounding) in the wild world of **Antigravity** (AI Agents), to preserve the developer's **Sanity**.
+
+*   **Sanity**: Keeping your host environment **sane**. By confining unpredictable Agentic AI execution to a disposable container, we prevent accidental damage (e.g., `rm -rf /`) and configuration pollution.
+*   **Gravity**: Providing a grounded execution environment for **Antigravity** (Agentic) systems. It gives "floating" AI agents a concrete place to land, interact with tools, and affect the world, while remaining bound by the laws of physics (isolation).
+
 ## License
 
 This project is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
