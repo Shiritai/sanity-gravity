@@ -1,0 +1,116 @@
+# Sanity-Gravity: The Antigravity Sandbox
+
+[English](README.md) | [繁體中文](README_zh-TW.md) | [日本語](README_ja.md)
+
+**Sanity-Gravity** 是一個專為 **Agentic AI IDEs** (如 Google Antigravity) 設計的安全、容器化沙箱環境 (Sandbox)。它的目的是將 AI 代理的活動限制在一個可拋棄的 Docker 容器內，將執行風險降至最低，同時提供完整的圖形桌面體驗。
+
+## 為什麼選擇 Sanity-Gravity?
+
+*   **🛡️ 安全至上 (Safety First)**: 隔離「AI 自主執行」帶來的風險。如果 AI 代理執行了 `rm -rf /` 或惡意代碼，只有容器會受影響，您的本機主機毫髮無傷。
+*   **🖥️ 完整圖形桌面 (Full Desktop GUI)**: 內建 **Ubuntu 22.04 + XFCE4** 與 **KasmVNC**，讓 AI 代理能像真人一樣自然地操作瀏覽器 (Chrome) 和 GUI 應用程式。
+*   **🚀 零配置 (Zero Config)**: 預先安裝了 **Antigravity IDE**、Google Chrome、Git 和必要的開發工具。
+*   **🔌 無縫 IO (Seamless IO)**: 自動映射您的主機使用者 UID/GID，防止在掛載工作區時常見的「root 權限地獄」問題。
+
+## 快速開始
+
+### 前置需求
+*   Docker & Docker Compose (v2.0+)
+*   Python 3.7+ (用於 `sanity-cli`)
+*   *(選用)* **NVIDIA Container Toolkit** (用於 GPU 加速)
+
+### 安裝
+
+1.  複製專案庫 (Repository):
+    ```bash
+    git clone https://github.com/shiritai/sanity-gravity.git
+    cd sanity-gravity
+    ```
+
+2.  建置沙箱環境:
+    ```bash
+    ./sanity-cli build
+    ```
+
+3.  執行 KasmVNC 版本 (推薦):
+    ```bash
+    ./sanity-cli run -v kasm --password mysecret
+    ```
+
+4.  **存取桌面**:
+    打開瀏覽器並前往: **[https://localhost:8444](https://localhost:8444)**
+    *   **使用者**: `(您的主機使用者名稱)`
+    *   **密碼**: `mysecret` (若未指定，預設為 `antigravity`)
+
+> **注意**: 您可能會看到「自簽署憑證」的警告。這在本地沙箱環境中是正常的，請點擊 "進階" -> "繼續"。
+
+## CLI 使用 (`sanity-cli`)
+
+本專案包含一個輔助腳本 `sanity-cli` 來管理生命週期:
+
+```bash
+./sanity-cli list           # 列出可用版本
+./sanity-cli build [name]   # 建置特定版本 (預設: all)
+./sanity-cli run -v [name] [options] # 執行特定版本
+  # 選項:
+  #   --password [pwd]    (設定 SSH/VNC 密碼, 預設: antigravity)
+  #   --ssh-port [port]   (預設: 2222)
+  #   --kasm-port [port]  (預設: 8444)
+  #   --vnc-port [port]   (預設: 5901)
+  #   --novnc-port [port] (預設: 6901)
+  #   --gpu               (啟用 NVIDIA GPU 支援)
+  #   --skip-check        (跳過前置檢查)
+
+./sanity-cli stop           # 停止所有容器
+./sanity-cli status         # 檢查容器狀態
+```
+
+## 版本選擇 (Variants)
+
+| 版本 (Variant) | 技術堆疊         | 最佳用途            | 存取方式                                   |
+| :------------- | :--------------- | :------------------ | :----------------------------------------- |
+| **`kasm`**     | KasmVNC          | **Web 桌面 (推薦)** | `https://localhost:8444`                   |
+| **`vnc`**      | TigerVNC + noVNC | 傳統 VNC 客戶端     | `localhost:5901` / `http://localhost:6901` |
+| **`core`**     | SSH Only         | 無周邊 / 終端機代理 | `ssh -p <port> developer@localhost`        |
+
+## SSH 存取
+
+所有版本，**包含 GUI 版本** (Kasm/VNC)，預設都啟用了 SSH。這能實現強大的混合工作流：
+
+*   **Headless 控制**: 無需打開桌面即可透過 CLI 自動化 GUI 工具。
+*   **通訊埠轉發 (Port Forwarding)**: 將容器內的 Web 應用或除錯器轉發到主機 (例如 `ssh -L 3000:localhost:3000 ...`)。
+*   **檔案傳輸**: 使用 `scp` 或 `sftp` 輕鬆移動建置產物。
+*   **遠端開發**: 當 Agent 在沙箱中執行時，您可以使用本機的 VS Code / JetBrains IDE 透過 SSH 連線進行舒適的 Coding。
+
+**預設通訊埠**: `2222` (可透過 `--ssh-port` 設定)
+**憑證**: 使用者 `(您的主機使用者名稱)` / 密碼 `antigravity` (或自訂)
+
+```bash
+# 範例: 連線到 Kasm 版本
+ssh -p 2222 developer@localhost
+```
+
+## 專案結構
+
+專案佈局的快速總覽：
+
+```text
+sanity-gravity/
+├── sanity-cli          # 🛠️ 主要 CLI 入口 (Python 腳本)
+├── sandbox/            # 📦 Docker 建置環境與設定
+│   ├── variants/       #    - 各版本的 Dockerfile (core, kasm, vnc)
+│   └── rootfs/         #    - 共用的 overlay (腳本, 設定檔)
+├── tests/              # 🧪 Pytest 整合測試套件
+├── workspace/          # 📂 掛載的使用者目錄 (持久化資料)
+└── .github/            # 🐙 CI/CD 工作流與 Issue 模板
+```
+
+## 命名由來 (What's in a Name?)
+
+> **"Sanity-Gravity"** 的寓意：為狂野的 **Antigravity** (反重力/AI 代理) 世界提供一股強大的 **Gravity** (重力/約束)，以維護開發者的 **Sanity** (理智)。
+
+*   **Sanity (理智)**: 讓您的主機環境保持「正常」。透過將不可預測的 Agentic AI 執行限制在可拋棄的容器中，我們防止了意外破壞 (例如 `rm -rf /`) 和設定污染。
+*   **Gravity (重力)**: 為 **Antigravity** 系統提供一個「接地」的執行環境。它給了飄浮的 AI 代理一個具體的著陸點，讓它們能在物理法則（隔離）的約束下與工具互動並影響世界。
+
+## 授權 (License)
+
+本專案採用 **Apache License 2.0** 授權。詳情請見 [LICENSE](LICENSE)。
