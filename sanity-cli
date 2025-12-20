@@ -180,6 +180,31 @@ def status(args):
     except:
         print_error("Failed to get status.")
 
+def test_suite(args):
+    """Runs the test suite using pytest."""
+    try:
+        # Check if pytest is installed
+        import pytest
+    except ImportError:
+        print_error("pytest is not installed. Please run: pip install pytest requests")
+        sys.exit(1)
+        
+    print_header("Running Test Suite")
+    
+    # Nuclear Option: Disable all plugin autoloading to avoid ROS2 environment pollution
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    
+    # Arguments for pytest
+    # -v: Verbose
+    pytest_args = ["-v"]
+    if args.target:
+        pytest_args.append(args.target)
+    
+    # Run pytest
+    exit_code = pytest.main(pytest_args)
+    if exit_code != 0:
+        sys.exit(exit_code)
+
 def list_variants(args):
     """Lists available variants."""
     print_header("Available Variants")
@@ -227,6 +252,11 @@ def main():
     # List Command
     parser_list = subparsers.add_parser("list", help="List available variants")
     parser_list.set_defaults(func=list_variants)
+
+    # Test Command
+    parser_test = subparsers.add_parser("test", help="Run test suite")
+    parser_test.add_argument("target", nargs="?", help="Specific test target (e.g., tests/test_core.py)")
+    parser_test.set_defaults(func=test_suite)
 
     args = parser.parse_args()
     
