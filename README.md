@@ -67,6 +67,7 @@ The project includes a helper script `sanity-cli` to manage the lifecycle:
   #   --novnc-port [port] (Default: 6901)
   #   --gpu               (Enable NVIDIA GPU support)
   #   --skip-check        (Skip prerequisite checks)
+  #   --workspace [path]  (Set custom workspace path, default: ./workspace)
 
 ./sanity-cli stop           # Stop all containers
 ./sanity-cli status         # Check container status

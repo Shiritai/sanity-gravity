@@ -67,6 +67,7 @@
   #   --novnc-port [port] (デフォルト: 6901)
   #   --gpu               (NVIDIA GPU サポートを有効化)
   #   --skip-check        (前提条件のチェックをスキップ)
+  #   --workspace [path]  (カスタムワークスペースパスを設定, デフォルト: ./workspace)
 
 ./sanity-cli stop           # すべてのコンテナを停止
 ./sanity-cli status         # コンテナの状態を確認

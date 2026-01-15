@@ -67,6 +67,7 @@
   #   --novnc-port [port] (預設: 6901)
   #   --gpu               (啟用 NVIDIA GPU 支援)
   #   --skip-check        (跳過前置檢查)
+  #   --workspace [path]  (設定自訂工作區路徑, 預設: ./workspace)
 
 ./sanity-cli stop           # 停止所有容器
 ./sanity-cli status         # 檢查容器狀態
