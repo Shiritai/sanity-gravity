@@ -11,7 +11,7 @@ services:
       - HOST_USER=${HOST_USER:-developer}
       - HOST_PASSWORD=${HOST_PASSWORD:-antigravity}
     volumes:
-      - ./workspace:/home/${HOST_USER:-developer}/workspace
+      - ${WORKSPACE_DIR:-./workspace}:/home/${HOST_USER:-developer}/workspace
     ports:
       - "${SSH_HOST_PORT:-2222}:22"
     network_mode: bridge
@@ -30,7 +30,7 @@ services:
       - HOST_USER=${HOST_USER:-developer}
       - HOST_PASSWORD=${HOST_PASSWORD:-antigravity}
     volumes:
-      - ./workspace:/home/${HOST_USER:-developer}/workspace
+      - ${WORKSPACE_DIR:-./workspace}:/home/${HOST_USER:-developer}/workspace
     shm_size: 512m
     restart: unless-stopped
 
@@ -52,6 +52,6 @@ services:
       - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x720}
       - VNC_DEPTH=${VNC_DEPTH:-24}
     volumes:
-      - ./workspace:/home/${HOST_USER:-developer}/workspace
+      - ${WORKSPACE_DIR:-./workspace}:/home/${HOST_USER:-developer}/workspace
     shm_size: 512m
     restart: unless-stopped

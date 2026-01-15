@@ -136,8 +136,16 @@ def run(args):
 
     password = args.password
 
+
+    env_vars = f"SSH_HOST_PORT={ssh_port} KASM_PORT={kasm_port} VNC_PORT={vnc_port} NOVNC_PORT={novnc_port} HOST_UID={uid} HOST_GID={gid} HOST_USER={username} HOST_PASSWORD={password} VNC_PW={password}"
+
+    if args.workspace:
+        workspace_path = os.path.abspath(args.workspace)
+        env_vars += f" WORKSPACE_DIR={workspace_path}"
+        print_info(f"Using Workspace: {workspace_path}")
+
     try:
-        run_command(f"SSH_HOST_PORT={ssh_port} KASM_PORT={kasm_port} VNC_PORT={vnc_port} NOVNC_PORT={novnc_port} HOST_UID={uid} HOST_GID={gid} HOST_USER={username} HOST_PASSWORD={password} VNC_PW={password} docker compose {compose_files} up -d {target}")
+        run_command(f"{env_vars} docker compose {compose_files} up -d {target}")
     except SystemExit:
         return
 
@@ -239,6 +247,7 @@ def main():
     parser_run.add_argument("--password", default="antigravity", help="Password for SSH/VNC (default: antigravity)")
     parser_run.add_argument("--gpu", action="store_true", help="Enable Nvidia GPU support (requires docker-compose.gpu.yml)")
     parser_run.add_argument("--skip-check", action="store_true", help="Skip prerequisite checks")
+    parser_run.add_argument("--workspace", "-w", default=None, help="Path to workspace directory (default: ./workspace)")
     parser_run.set_defaults(func=run)
 
     # Stop Command
