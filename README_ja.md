@@ -68,9 +68,33 @@
   #   --gpu               (NVIDIA GPU サポートを有効化)
   #   --skip-check        (前提条件のチェックをスキップ)
   #   --workspace [path]  (カスタムワークスペースパスを設定, デフォルト: ./workspace)
+  #   --name [name]       (マルチインスタンス用のプロジェクト名を設定, デフォルト: sanity-gravity)
 
-./sanity-cli stop           # すべてのコンテナを停止
+./sanity-cli up -v core     # コンテナを作成して起動 (エイリアス: run)
+./sanity-cli down           # コンテナを停止して削除
+./sanity-cli stop           # コンテナを停止 (データは保持)
+./sanity-cli start          # 停止したコンテナを起動
+./sanity-cli restart        # コンテナを再起動
 ./sanity-cli status         # コンテナの状態を確認
+```
+
+### マルチインスタンス・サポート
+
+`--name` 引数を使用して一意のプロジェクト名を指定することで、複数の独立したサンドボックス・インスタンスを同時に実行できます。
+
+```bash
+# 'dev-02' という名前の2つ目のインスタンスを開始
+./sanity-cli up -v core --name dev-02 --workspace /tmp/dev02
+```
+
+カスタム名を使用し、ポートを指定しない場合、`sanity-cli` は競合を避けるために利用可能なランダムなポートを自動的に割り当てます。割り当てられたポートは出力に表示されます。
+
+特定のインスタンスを停止またはステータス確認するには：
+
+```bash
+./sanity-cli status --name dev-02
+./sanity-cli stop --name dev-02   # 一時停止 (データ保持)
+./sanity-cli down --name dev-02   # 削除 (コンテナ破棄)
 ```
 
 ## バリアント (Variants)

@@ -68,9 +68,33 @@
   #   --gpu               (啟用 NVIDIA GPU 支援)
   #   --skip-check        (跳過前置檢查)
   #   --workspace [path]  (設定自訂工作區路徑, 預設: ./workspace)
+  #   --name [name]       (設定多重實例的專案名稱, 預設: sanity-gravity)
 
-./sanity-cli stop           # 停止所有容器
+./sanity-cli up -v core     # 建立並啟動容器 (別名: run)
+./sanity-cli down           # 停止並移除容器
+./sanity-cli stop           # 停止容器 (保留資料)
+./sanity-cli start          # 啟動已停止的容器
+./sanity-cli restart        # 重啟容器
 ./sanity-cli status         # 檢查容器狀態
+```
+
+### 多重實例支援 (Multi-Instance)
+
+您可以透過 `--name` 參數指定唯一的專案名稱，同時執行多個獨立的沙箱實例。
+
+```bash
+# 啟動名為 'dev-02' 的第二個實例
+./sanity-cli up -v core --name dev-02 --workspace /tmp/dev02
+```
+
+當使用自訂名稱且未指定 Port 時，`sanity-cli` 會自動分配可用的隨機 Port 以避免衝突。分配到的 Port 將顯示在輸出中。
+
+若要停止或查看特定實例的狀態：
+
+```bash
+./sanity-cli status --name dev-02
+./sanity-cli stop --name dev-02   # 暫停 (保留資料)
+./sanity-cli down --name dev-02   # 銷毀 (移除容器)
 ```
 
 ## 版本選擇 (Variants)

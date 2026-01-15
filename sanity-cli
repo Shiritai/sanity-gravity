@@ -104,8 +104,8 @@ def install(args):
     # For now, we build locally.
     build(args)
 
-def run(args):
-    """Runs the specified variant."""
+def up(args):
+    """Starts the specified variant (docker compose up)."""
     target = args.variant
     
     # Check prereqs first
@@ -137,6 +137,20 @@ def run(args):
     password = args.password
 
 
+    # Auto-Port Assignment Logic
+    # If using a custom name AND ports are default, switch to ephemeral ports (0)
+    if args.name != "sanity-gravity":
+        # Check if user explicitly set ports (simple check against defaults)
+        # Note: This is a heuristic. Ideally we'd check if args were present on CLI.
+        # But argparse defaults make this tricky without checking sys.argv or using default=None.
+        # Let's assume if they are using a custom name, they likely want auto-ports unless specified.
+        # For robustness, let's just use 0 if the user didn't change the default.
+        
+        if args.ssh_port == "2222": ssh_port = "0"
+        if args.kasm_port == "8444": kasm_port = "0"
+        if args.vnc_port == "5901": vnc_port = "0"
+        if args.novnc_port == "6901": novnc_port = "0"
+
     env_vars = f"SSH_HOST_PORT={ssh_port} KASM_PORT={kasm_port} VNC_PORT={vnc_port} NOVNC_PORT={novnc_port} HOST_UID={uid} HOST_GID={gid} HOST_USER={username} HOST_PASSWORD={password} VNC_PW={password}"
 
     if args.workspace:
@@ -144,8 +158,39 @@ def run(args):
         env_vars += f" WORKSPACE_DIR={workspace_path}"
         print_info(f"Using Workspace: {workspace_path}")
 
+    project_name = args.name
+    print_info(f"Project Name: {project_name}")
+
     try:
-        run_command(f"{env_vars} docker compose {compose_files} up -d {target}")
+        run_command(f"{env_vars} docker compose -p {project_name} {compose_files} up -d {target}")
+        
+        # Retrieve actual ports if they were ephemeral
+        if ssh_port == "0" or kasm_port == "0" or vnc_port == "0" or novnc_port == "0":
+            print_info("Resolving ephemeral ports...")
+            # We need to query docker compose port
+            # Service names: core, kasm, vnc
+            # Internal ports: 22, 8444, 5901, 6901
+            
+            def get_port(service, internal):
+                try:
+                    out = run_command(f"docker compose -p {project_name} {compose_files} port {service} {internal}", capture=True)
+                    # Output format: 0.0.0.0:32768
+                    if ":" in out:
+                        return out.split(":")[-1]
+                except:
+                    pass
+                return "?"
+
+            if target in ["core", "kasm", "vnc"]:
+                ssh_port = get_port(target, "22")
+            
+            if target == "kasm":
+                kasm_port = get_port("kasm", "8444")
+            
+            if target == "vnc":
+                vnc_port = get_port("vnc", "5901")
+                novnc_port = get_port("vnc", "6901")
+
     except SystemExit:
         return
 
@@ -170,20 +215,43 @@ def run(args):
         print(f"  Pass:       {password}")
         print(f"  Shell:      docker exec -it sanity-gravity-core-1 /bin/bash")
 
+def down(args):
+    """Stops and removes all sandbox containers (docker compose down)."""
+    project_name = args.name
+    print_header(f"Tearing Down Sandbox ({project_name})")
+    run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} down")
+    print_success("All containers removed.")
+
 def stop(args):
-    """Stops all sandbox containers."""
-    print_header("Stopping Sandbox")
-    run_command(f"docker compose -f {COMPOSE_FILE} down")
-    print_success("All containers stopped.")
+    """Stops sandbox containers without removing them (docker compose stop)."""
+    project_name = args.name
+    print_header(f"Stopping Sandbox ({project_name})")
+    run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} stop")
+    print_success("Containers stopped (data preserved).")
+
+def start(args):
+    """Starts existing stopped containers (docker compose start)."""
+    project_name = args.name
+    print_header(f"Starting Sandbox ({project_name})")
+    run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} start")
+    print_success("Containers started.")
+
+def restart(args):
+    """Restarts sandbox containers (docker compose restart)."""
+    project_name = args.name
+    print_header(f"Restarting Sandbox ({project_name})")
+    run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} restart")
+    print_success("Containers restarted.")
 
 def status(args):
     """Shows status of sandbox containers."""
-    print_header("Sandbox Status")
+    project_name = args.name
+    print_header(f"Sandbox Status ({project_name})")
     # List containers associated with our compose project
     # We assume project name is directory name or 'sanity-gravity'
     # Better to use docker compose ps
     try:
-        output = run_command(f"docker compose -f {COMPOSE_FILE} ps", capture=True)
+        output = run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} ps", capture=True)
         print(output)
     except:
         print_error("Failed to get status.")
@@ -237,8 +305,22 @@ def main():
     parser_install.add_argument("variant", nargs="*", help="Variant to install (default: all)", default=["all"])
     parser_install.set_defaults(func=install)
 
-    # Run Command
-    parser_run = subparsers.add_parser("run", help="Run a sandbox variant")
+    # Up Command (formerly Run)
+    parser_up = subparsers.add_parser("up", help="Create and start sandbox (docker compose up)")
+    parser_up.add_argument("--variant", "-v", required=True, help="Variant to run", choices=VARIANTS)
+    parser_up.add_argument("--ssh-port", "-p", default="2222", help="Host port for SSH (default: 2222)")
+    parser_up.add_argument("--kasm-port", default="8444", help="Host port for KasmVNC (default: 8444)")
+    parser_up.add_argument("--vnc-port", default="5901", help="Host port for VNC (default: 5901)")
+    parser_up.add_argument("--novnc-port", default="6901", help="Host port for noVNC (default: 6901)")
+    parser_up.add_argument("--password", default="antigravity", help="Password for SSH/VNC (default: antigravity)")
+    parser_up.add_argument("--gpu", action="store_true", help="Enable Nvidia GPU support (requires docker-compose.gpu.yml)")
+    parser_up.add_argument("--skip-check", action="store_true", help="Skip prerequisite checks")
+    parser_up.add_argument("--workspace", "-w", default=None, help="Path to workspace directory (default: ./workspace)")
+    parser_up.add_argument("--name", "-n", default="sanity-gravity", help="Project name for multi-instance support (default: sanity-gravity)")
+    parser_up.set_defaults(func=up)
+
+    # Run Command (Alias for Up)
+    parser_run = subparsers.add_parser("run", help="Alias for 'up'")
     parser_run.add_argument("--variant", "-v", required=True, help="Variant to run", choices=VARIANTS)
     parser_run.add_argument("--ssh-port", "-p", default="2222", help="Host port for SSH (default: 2222)")
     parser_run.add_argument("--kasm-port", default="8444", help="Host port for KasmVNC (default: 8444)")
@@ -248,14 +330,32 @@ def main():
     parser_run.add_argument("--gpu", action="store_true", help="Enable Nvidia GPU support (requires docker-compose.gpu.yml)")
     parser_run.add_argument("--skip-check", action="store_true", help="Skip prerequisite checks")
     parser_run.add_argument("--workspace", "-w", default=None, help="Path to workspace directory (default: ./workspace)")
-    parser_run.set_defaults(func=run)
+    parser_run.add_argument("--name", "-n", default="sanity-gravity", help="Project name for multi-instance support (default: sanity-gravity)")
+    parser_run.set_defaults(func=up)
 
-    # Stop Command
-    parser_stop = subparsers.add_parser("stop", help="Stop all sandbox containers")
+    # Down Command (formerly Stop)
+    parser_down = subparsers.add_parser("down", help="Stop and remove containers (docker compose down)")
+    parser_down.add_argument("--name", "-n", default="sanity-gravity", help="Project name (default: sanity-gravity)")
+    parser_down.set_defaults(func=down)
+
+    # Stop Command (New behavior)
+    parser_stop = subparsers.add_parser("stop", help="Stop containers without removing (docker compose stop)")
+    parser_stop.add_argument("--name", "-n", default="sanity-gravity", help="Project name (default: sanity-gravity)")
     parser_stop.set_defaults(func=stop)
+
+    # Start Command
+    parser_start = subparsers.add_parser("start", help="Start stopped containers (docker compose start)")
+    parser_start.add_argument("--name", "-n", default="sanity-gravity", help="Project name (default: sanity-gravity)")
+    parser_start.set_defaults(func=start)
+
+    # Restart Command
+    parser_restart = subparsers.add_parser("restart", help="Restart containers (docker compose restart)")
+    parser_restart.add_argument("--name", "-n", default="sanity-gravity", help="Project name (default: sanity-gravity)")
+    parser_restart.set_defaults(func=restart)
 
     # Status Command
     parser_status = subparsers.add_parser("status", help="Show sandbox status")
+    parser_status.add_argument("--name", "-n", default="sanity-gravity", help="Project name (default: sanity-gravity)")
     parser_status.set_defaults(func=status)
 
     # List Command

@@ -68,9 +68,33 @@ The project includes a helper script `sanity-cli` to manage the lifecycle:
   #   --gpu               (Enable NVIDIA GPU support)
   #   --skip-check        (Skip prerequisite checks)
   #   --workspace [path]  (Set custom workspace path, default: ./workspace)
+  #   --name [name]       (Set project name for multi-instance, default: sanity-gravity)
 
-./sanity-cli stop           # Stop all containers
+./sanity-cli up -v core     # Start/Create containers (alias: run)
+./sanity-cli down           # Stop and REMOVE containers
+./sanity-cli stop           # Stop containers (preserve data)
+./sanity-cli start          # Start stopped containers
+./sanity-cli restart        # Restart containers
 ./sanity-cli status         # Check container status
+```
+
+### Multi-Instance Support
+
+You can run multiple isolated sandbox instances simultaneously by specifying a unique project name using the `--name` argument.
+
+```bash
+# Start a second instance named 'dev-02'
+./sanity-cli up -v core --name dev-02 --workspace /tmp/dev02
+```
+
+When using a custom name without specifying ports, `sanity-cli` will automatically assign available random ports to avoid conflicts. The assigned ports will be displayed in the output.
+
+To stop or check the status of a specific instance:
+
+```bash
+./sanity-cli status --name dev-02
+./sanity-cli stop --name dev-02   # Suspend (preserve data)
+./sanity-cli down --name dev-02   # Destroy (remove container)
 ```
 
 ## Variants
