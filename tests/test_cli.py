@@ -54,4 +54,4 @@ class TestCLI:
         # Test Stop
         res = cli("stop")
         assert res.returncode == 0
-        assert "All containers stopped" in res.stdout
+        assert "Containers stopped (data preserved)" in res.stdout
