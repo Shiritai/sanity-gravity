@@ -255,6 +255,32 @@ def sync_config(project_name, container_name, username):
                 print_success("Copied settings.json")
             else:
                 print_warning("Host settings.json not found, skipping.")
+
+            # Copy installation_id
+            src_install_id = os.path.join(host_gemini_dir, "installation_id")
+            if os.path.exists(src_install_id):
+                shutil.copy2(src_install_id, os.path.join(config_dir, "installation_id"))
+                print_success("Copied installation_id")
+
+            # Copy antigravity/user_settings.pb & antigravity/installation_id
+            host_antigravity_dir = os.path.join(host_gemini_dir, "antigravity")
+            config_antigravity_dir = os.path.join(config_dir, "antigravity")
+            
+            if os.path.exists(host_antigravity_dir):
+                os.makedirs(config_antigravity_dir, exist_ok=True)
+                
+                # user_settings.pb
+                src_pb = os.path.join(host_antigravity_dir, "user_settings.pb")
+                if os.path.exists(src_pb):
+                    shutil.copy2(src_pb, os.path.join(config_antigravity_dir, "user_settings.pb"))
+                    print_success("Copied antigravity/user_settings.pb")
+                
+                # installation_id (inside antigravity dir)
+                src_ag_install_id = os.path.join(host_antigravity_dir, "installation_id")
+                if os.path.exists(src_ag_install_id):
+                    shutil.copy2(src_ag_install_id, os.path.join(config_antigravity_dir, "installation_id"))
+                    print_success("Copied antigravity/installation_id")
+
                 
         elif choice == "b":
             print_info("Creating empty configuration...")
@@ -318,18 +344,84 @@ def restart(args):
     run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} restart")
     print_success("Containers restarted.")
 
+def get_active_projects():
+    """Returns a list of active Sanity-Gravity project names."""
+    try:
+        # List all containers with docker-compose project label AND filter by our image name
+        # We look for containers using images starting with 'sanity-gravity'
+        cmd = "docker ps --filter 'ancestor=sanity-gravity:core' --filter 'ancestor=sanity-gravity:kasm' --filter 'ancestor=sanity-gravity:vnc' --format '{{.Label \"com.docker.compose.project\"}}'"
+        
+        # Note: multiple filters in docker ps are usually AND logic for different keys, but OR logic for same key?
+        # Actually 'ancestor' filter is additive (OR) in newer docker versions? No, usually AND.
+        # Wait, docker ps filters are AND. So we can't filter multiple ancestors in one go if they are mutually exclusive.
+        # We need to run multiple commands or filter in python.
+        
+        # Let's get ALL compose projects first (like before) but then filter them.
+        # Or better: get all containers with their project AND image, then filter in Python.
+        
+        cmd = "docker ps --format '{{.Label \"com.docker.compose.project\"}}|{{.Image}}'"
+        output = run_command(cmd, capture=True, check=False)
+        if not output:
+            return []
+        
+        projects = set()
+        for line in output.splitlines():
+            parts = line.split('|')
+            if len(parts) == 2:
+                project, image = parts
+                if project and image.startswith("sanity-gravity"):
+                    projects.add(project)
+        
+        return sorted(list(projects))
+    except:
+        return []
+
 def status(args):
     """Shows status of sandbox containers."""
-    project_name = args.name
-    print_header(f"Sandbox Status ({project_name})")
-    # List containers associated with our compose project
-    # We assume project name is directory name or 'sanity-gravity'
-    # Better to use docker compose ps
-    try:
-        output = run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} ps", capture=True)
-        print(output)
-    except:
-        print_error("Failed to get status.")
+    target_project = args.name
+    
+    # If the user specifically asked for a name other than default, just show that.
+    # If default, we scan for all.
+    
+    active_projects = get_active_projects()
+    
+    if target_project != "sanity-gravity" and target_project not in active_projects:
+         print_warning(f"Project '{target_project}' not found in active projects.")
+
+    projects_to_show = []
+    if target_project == "sanity-gravity":
+        # Show all active projects
+        if not active_projects:
+             print_info("No active Sanity-Gravity instances found.")
+             return
+        projects_to_show = active_projects
+    else:
+        projects_to_show = [target_project]
+
+    for project in projects_to_show:
+        print_header(f"Sandbox Status ({project})")
+        try:
+            # We use 'docker compose ps' to get a nice table
+            # We need to find the compose file. Assuming it's in current dir as docker-compose.yml
+            # If the project was started from elsewhere, this might fail if we rely on the file for 'ps'
+            # But 'docker compose -p <name> ps' usually works if the project exists in docker engine
+            
+            # Note: 'docker compose ps' might require the compose file to be present to know the service definitions
+            # strictly speaking, but often works for listing. 
+            # Let's try 'docker ps' filtered by project for a more robust generic view if compose ps fails,
+            # but 'docker compose ps' is prettier.
+            
+            output = run_command(f"docker compose -p {project} -f {COMPOSE_FILE} ps", capture=True, check=False)
+            if output:
+                print(output)
+            else:
+                print_info("  No containers running.")
+                
+            # Also try to show ports nicely if possible
+            # This is a bit hacky without full introspection, but 'ps' usually shows ports.
+            print("")
+        except:
+            print_error(f"Failed to get status for {project}")
 
 def test_suite(args):
     """Runs the test suite using pytest."""
