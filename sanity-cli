@@ -215,6 +215,81 @@ def up(args):
         print(f"  Pass:       {password}")
         print(f"  Shell:      docker exec -it sanity-gravity-core-1 /bin/bash")
 
+    # Sync Configuration
+    container_name = f"{project_name}-{target}-1"
+    sync_config(project_name, container_name, username)
+
+def sync_config(project_name, container_name, username):
+    """Syncs Antigravity configuration to the container."""
+    print_header("Configuration Sync")
+    
+    config_dir = "config"
+    host_gemini_dir = os.path.expanduser("~/.gemini")
+    
+    # Check if project config exists
+    if not os.path.exists(config_dir):
+        print_info("No project configuration found in ./config/")
+        print(f"{Colors.BOLD}Select an option to initialize configuration:{Colors.ENDC}")
+        print("  [A] Copy from Host (~/.gemini/) - Recommended")
+        print("  [B] Create Empty (Initialize empty config)")
+        print("  [C] Skip (Use container defaults)")
+        
+        choice = input(f"{Colors.OKBLUE}Enter choice [A/b/c]: {Colors.ENDC}").strip().lower()
+        
+        if choice in ["", "a"]:
+            print_info("Copying configuration from host...")
+            os.makedirs(config_dir, exist_ok=True)
+            
+            # Copy GEMINI.md
+            src_gemini = os.path.join(host_gemini_dir, "GEMINI.md")
+            if os.path.exists(src_gemini):
+                shutil.copy2(src_gemini, os.path.join(config_dir, "GEMINI.md"))
+                print_success("Copied GEMINI.md")
+            else:
+                print_warning("Host GEMINI.md not found, skipping.")
+
+            # Copy settings.json
+            src_settings = os.path.join(host_gemini_dir, "settings.json")
+            if os.path.exists(src_settings):
+                shutil.copy2(src_settings, os.path.join(config_dir, "settings.json"))
+                print_success("Copied settings.json")
+            else:
+                print_warning("Host settings.json not found, skipping.")
+                
+        elif choice == "b":
+            print_info("Creating empty configuration...")
+            os.makedirs(config_dir, exist_ok=True)
+            with open(os.path.join(config_dir, "GEMINI.md"), "w") as f:
+                f.write("# Project GEMINI.md\n")
+            with open(os.path.join(config_dir, "settings.json"), "w") as f:
+                f.write("{}")
+            print_success("Created empty config files.")
+            
+        else:
+            print_info("Skipping configuration sync.")
+            return
+
+    # Perform Sync to Container
+    if os.path.exists(config_dir):
+        print_info(f"Syncing ./config/ to container ({container_name})...")
+        target_dir = f"/home/{username}/.gemini"
+        
+        # Ensure target directory exists
+        run_command(f"docker exec {container_name} mkdir -p {target_dir}")
+        
+        # Copy files
+        # docker cp config/. container:path/
+        # We use '.' to copy contents, not the directory itself if we want to merge
+        run_command(f"docker cp {config_dir}/. {container_name}:{target_dir}/")
+        
+        # Fix permissions
+        run_command(f"docker exec {container_name} chown -R {username}:{username} {target_dir}")
+        
+        print_success("Configuration synced successfully.")
+
+def print_warning(msg):
+    print(f"{Colors.WARNING}⚠ {msg}{Colors.ENDC}")
+
 def down(args):
     """Stops and removes all sandbox containers (docker compose down)."""
     project_name = args.name

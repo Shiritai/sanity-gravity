@@ -79,6 +79,14 @@ The project includes a helper script `sanity-cli` to manage the lifecycle:
 ./sanity-cli status         # Check container status
 ```
 
+### Configuration Sync
+
+`sanity-cli` automatically detects and syncs configuration files to your container for a seamless experience.
+
+1.  **Project Config**: Place `GEMINI.md` or `settings.json` in a `config/` directory at the project root.
+2.  **Interactive Init**: If no config is found, the CLI will ask if you want to copy your host configuration (`~/.gemini/`) or start fresh.
+3.  **Automatic Sync**: Files are copied into the container (`~/.gemini/`) on every start, ensuring your environment is always up-to-date.
+
 ### 🧩 Multi-Instance Support
 
 **Need to run parallel tasks?** Sanity-Gravity supports running multiple isolated sandbox instances simultaneously. Just specify a unique project name using the `--name` argument.
