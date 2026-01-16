@@ -18,6 +18,7 @@
 *   **🖥️ Full Desktop GUI**: Includes **Ubuntu 22.04 + XFCE4** and **KasmVNC**, allowing agents to control a real web browser (Chrome) and GUI applications naturally.
 *   **🚀 Zero Config**: Pre-installed with **Antigravity IDE**, Google Chrome, Git, and essential dev tools.
 *   **🔌 Seamless IO**: Automatically maps your host user's UID/GID, preventing the common "root-owned files" permission hell when mounting workspaces.
+*   **🧩 Multi-Instance Capable**: Run multiple isolated sandboxes simultaneously (e.g., separate environments for Dev, Test, and Prod) with automatic port assignment.
 
 ## Quick Start
 
@@ -78,16 +79,16 @@ The project includes a helper script `sanity-cli` to manage the lifecycle:
 ./sanity-cli status         # Check container status
 ```
 
-### Multi-Instance Support
+### 🧩 Multi-Instance Support
 
-You can run multiple isolated sandbox instances simultaneously by specifying a unique project name using the `--name` argument.
+**Need to run parallel tasks?** Sanity-Gravity supports running multiple isolated sandbox instances simultaneously. Just specify a unique project name using the `--name` argument.
 
 ```bash
 # Start a second instance named 'dev-02'
 ./sanity-cli up -v core --name dev-02 --workspace /tmp/dev02
 ```
 
-When using a custom name without specifying ports, `sanity-cli` will automatically assign available random ports to avoid conflicts. The assigned ports will be displayed in the output.
+**Zero Conflict**: When using a custom name, `sanity-cli` automatically detects and assigns available random ports, so you never have to worry about port collisions. The assigned ports will be displayed clearly in the output.
 
 To stop or check the status of a specific instance:
 

@@ -18,6 +18,7 @@
 *   **🖥️ 完整圖形桌面 (Full Desktop GUI)**: 內建 **Ubuntu 22.04 + XFCE4** 與 **KasmVNC**，讓 AI 代理能像真人一樣自然地操作瀏覽器 (Chrome) 和 GUI 應用程式。
 *   **🚀 零配置 (Zero Config)**: 預先安裝了 **Antigravity IDE**、Google Chrome、Git 和必要的開發工具。
 *   **🔌 無縫 IO (Seamless IO)**: 自動映射您的主機使用者 UID/GID，防止在掛載工作區時常見的「root 權限地獄」問題。
+*   **🧩 支援多重實例 (Multi-Instance Capable)**: 可同時運行多個獨立的沙箱環境 (例如：分別用於開發、測試、生產環境)，並自動處理 Port 分配，互不衝突。
 
 ## 快速開始
 
@@ -78,16 +79,16 @@
 ./sanity-cli status         # 檢查容器狀態
 ```
 
-### 多重實例支援 (Multi-Instance)
+### 🧩 多重實例支援 (Multi-Instance)
 
-您可以透過 `--name` 參數指定唯一的專案名稱，同時執行多個獨立的沙箱實例。
+**需要並行處理多個任務？** Sanity-Gravity 支援同時運行多個完全隔離的沙箱實例。只需透過 `--name` 參數指定不同的專案名稱即可。
 
 ```bash
 # 啟動名為 'dev-02' 的第二個實例
 ./sanity-cli up -v core --name dev-02 --workspace /tmp/dev02
 ```
 
-當使用自訂名稱且未指定 Port 時，`sanity-cli` 會自動分配可用的隨機 Port 以避免衝突。分配到的 Port 將顯示在輸出中。
+**零衝突保證**：當使用自訂名稱時，`sanity-cli` 會自動偵測並分配可用的隨機 Port，您無需擔心 Port 衝突問題。分配到的 Port 會清楚地顯示在輸出資訊中。
 
 若要停止或查看特定實例的狀態：
 
