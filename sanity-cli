@@ -253,35 +253,7 @@ def sync_config(project_name, container_name, username):
             if os.path.exists(src_settings):
                 shutil.copy2(src_settings, os.path.join(config_dir, "settings.json"))
                 print_success("Copied settings.json")
-            else:
-                print_warning("Host settings.json not found, skipping.")
 
-            # Copy installation_id
-            src_install_id = os.path.join(host_gemini_dir, "installation_id")
-            if os.path.exists(src_install_id):
-                shutil.copy2(src_install_id, os.path.join(config_dir, "installation_id"))
-                print_success("Copied installation_id")
-
-            # Copy antigravity/user_settings.pb & antigravity/installation_id
-            host_antigravity_dir = os.path.join(host_gemini_dir, "antigravity")
-            config_antigravity_dir = os.path.join(config_dir, "antigravity")
-            
-            if os.path.exists(host_antigravity_dir):
-                os.makedirs(config_antigravity_dir, exist_ok=True)
-                
-                # user_settings.pb
-                src_pb = os.path.join(host_antigravity_dir, "user_settings.pb")
-                if os.path.exists(src_pb):
-                    shutil.copy2(src_pb, os.path.join(config_antigravity_dir, "user_settings.pb"))
-                    print_success("Copied antigravity/user_settings.pb")
-                
-                # installation_id (inside antigravity dir)
-                src_ag_install_id = os.path.join(host_antigravity_dir, "installation_id")
-                if os.path.exists(src_ag_install_id):
-                    shutil.copy2(src_ag_install_id, os.path.join(config_antigravity_dir, "installation_id"))
-                    print_success("Copied antigravity/installation_id")
-
-                
         elif choice == "b":
             print_info("Creating empty configuration...")
             os.makedirs(config_dir, exist_ok=True)
@@ -298,18 +270,15 @@ def sync_config(project_name, container_name, username):
     # Perform Sync to Container
     if os.path.exists(config_dir):
         print_info(f"Syncing ./config/ to container ({container_name})...")
+        
         target_dir = f"/home/{username}/.gemini"
         
         # Ensure target directory exists
         run_command(f"docker exec {container_name} mkdir -p {target_dir}")
         
-        # Copy files
-        # docker cp config/. container:path/
-        # We use '.' to copy contents, not the directory itself if we want to merge
+        # Copy config files
+        # We copy the whole directory content which now only contains what we put in it (GEMINI.md, settings.json)
         run_command(f"docker cp {config_dir}/. {container_name}:{target_dir}/")
-        
-        # Fix permissions
-        run_command(f"docker exec {container_name} chown -R {username}:{username} {target_dir}")
         
         print_success("Configuration synced successfully.")
 
