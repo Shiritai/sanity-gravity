@@ -228,6 +228,11 @@ def sync_config(project_name, container_name, username):
     
     # Check if project config exists
     if not os.path.exists(config_dir):
+        # Check for non-interactive mode
+        if not sys.stdin.isatty():
+            print_warning("Non-interactive mode detected. Skipping configuration initialization.")
+            return
+
         print_info("No project configuration found in ./config/")
         print(f"{Colors.BOLD}Select an option to initialize configuration:{Colors.ENDC}")
         print("  [A] Copy from Host (~/.gemini/) - Recommended")
