@@ -139,17 +139,24 @@ def up(args):
 
     # Auto-Port Assignment Logic
     # If using a custom name AND ports are default, switch to ephemeral ports (0)
+    # UNLESS the user explicitly passed the port flag.
     if args.name != "sanity-gravity":
-        # Check if user explicitly set ports (simple check against defaults)
-        # Note: This is a heuristic. Ideally we'd check if args were present on CLI.
-        # But argparse defaults make this tricky without checking sys.argv or using default=None.
-        # Let's assume if they are using a custom name, they likely want auto-ports unless specified.
-        # For robustness, let's just use 0 if the user didn't change the default.
+        # Check if user explicitly set ports by looking at sys.argv
+        # This avoids the issue where argparse defaults mask the user's intent.
         
-        if args.ssh_port == "2222": ssh_port = "0"
-        if args.kasm_port == "8444": kasm_port = "0"
-        if args.vnc_port == "5901": vnc_port = "0"
-        if args.novnc_port == "6901": novnc_port = "0"
+        args_str = " ".join(sys.argv)
+        
+        # Helper to check if a flag was used
+        def is_flag_set(flags):
+            for f in flags:
+                if f in sys.argv:
+                    return True
+            return False
+
+        if not is_flag_set(["--ssh-port", "-p"]) and args.ssh_port == "2222": ssh_port = "0"
+        if not is_flag_set(["--kasm-port"]) and args.kasm_port == "8444": kasm_port = "0"
+        if not is_flag_set(["--vnc-port"]) and args.vnc_port == "5901": vnc_port = "0"
+        if not is_flag_set(["--novnc-port"]) and args.novnc_port == "6901": novnc_port = "0"
 
     env_vars = f"SSH_HOST_PORT={ssh_port} KASM_PORT={kasm_port} VNC_PORT={vnc_port} NOVNC_PORT={novnc_port} HOST_UID={uid} HOST_GID={gid} HOST_USER={username} HOST_PASSWORD={password} VNC_PW={password}"
 
@@ -290,33 +297,119 @@ def sync_config(project_name, container_name, username):
 def print_warning(msg):
     print(f"{Colors.WARNING}⚠ {msg}{Colors.ENDC}")
 
+def get_project_env(project_name):
+    """Retrieves environment variables from a running container of the project."""
+    # Try to find any container belonging to this project
+    # We try typical service names: core, kasm, vnc
+    for service in VARIANTS:
+        container_name = f"{project_name}-{service}-1"
+        
+        # Check if container exists (silently)
+        # We use check=False so it doesn't print errors or exit if not found
+        check_res = run_command(f"docker inspect {container_name}", capture=True, check=False)
+        if check_res == "": # If capture=True and fails, run_command might return empty string or error msg depending on impl
+             # Actually run_command implementation:
+             # if capture: return result.stdout.strip()
+             # if check=False, it raises error? No.
+             # Wait, run_command implementation:
+             # if check=False: raise e (if capture=False)
+             # if capture=True: result = subprocess.run(..., check=check ...)
+             pass
+             
+        # Let's look at run_command again.
+        # if capture: result = subprocess.run(..., check=check, ...)
+        # if check=False, subprocess.run won't raise CalledProcessError.
+        # It returns CompletedProcess.
+        # But my run_command implementation returns result.stdout.strip().
+        # So if it fails, it returns stdout (which might be empty).
+        # But stderr is printed? No, capture_output=True captures both.
+        # But I only return stdout.
+        
+        # To be safe and clean, let's just try to inspect and ignore failure.
+        try:
+            # We use a direct subprocess call for existence check to avoid run_command's noise
+            subprocess.check_call(f"docker inspect {container_name}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            continue
+            
+        # If we are here, container exists. Get Env.
+        try:
+            out = run_command(f"docker inspect -f '{{{{range .Config.Env}}}}{{println .}}{{{{end}}}}' {container_name}", capture=True, check=False)
+            if not out: continue
+            
+            env_map = {}
+            for line in out.splitlines():
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    # We only care about our specific variables
+                    if key in ["SSH_HOST_PORT", "KASM_PORT", "VNC_PORT", "NOVNC_PORT", "HOST_UID", "HOST_GID", "HOST_USER", "HOST_PASSWORD", "VNC_PW"]:
+                        env_map[key] = val
+            
+            # If we found relevant vars, return them. 
+            # If not (e.g. empty), keep looking? 
+            if env_map:
+                return env_map
+        except:
+            continue
+            
+    return {}
+
+def run_compose_cmd(args, action, check_existence=False):
+    """Helper to run docker compose commands with recovered environment."""
+    project_name = args.name
+    
+    # Check existence if requested (mainly for 'down')
+    if check_existence:
+        active_projects = get_active_projects()
+        if project_name not in active_projects:
+            print_warning(f"Project '{project_name}' not found.")
+            if active_projects:
+                print(f"Active projects: {', '.join(active_projects)}")
+                print(f"{Colors.OKBLUE}Tip: Use --name <project> to specify a project.{Colors.ENDC}")
+            else:
+                print("No active Sanity-Gravity projects found.")
+            return
+
+    # Recover Env
+    env_vars = get_project_env(project_name)
+    env_str = " ".join([f"{k}={v}" for k, v in env_vars.items()])
+    
+    # If we couldn't find the container (maybe it's already stopped or broken), 
+    # we might still want to try 'down' with default/empty vars just in case.
+    # But for 'down', if we found nothing, maybe there's nothing to down? 
+    # Not necessarily, 'docker compose down' also removes networks/volumes which might exist without containers.
+    # However, without the env vars, 'down' might not work perfectly if config differs.
+    # We'll proceed with what we have.
+    
+    print_header(f"{action.capitalize()}ing Sandbox ({project_name})")
+    
+    cmd = f"{env_str} docker compose -p {project_name} -f {COMPOSE_FILE} {action}"
+    run_command(cmd)
+    
+    if action == "down":
+        print_success("All containers removed.")
+    elif action == "stop":
+        print_success("Containers stopped (data preserved).")
+    elif action == "start":
+        print_success("Containers started.")
+    elif action == "restart":
+        print_success("Containers restarted.")
+
 def down(args):
     """Stops and removes all sandbox containers (docker compose down)."""
-    project_name = args.name
-    print_header(f"Tearing Down Sandbox ({project_name})")
-    run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} down")
-    print_success("All containers removed.")
+    run_compose_cmd(args, "down", check_existence=True)
 
 def stop(args):
     """Stops sandbox containers without removing them (docker compose stop)."""
-    project_name = args.name
-    print_header(f"Stopping Sandbox ({project_name})")
-    run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} stop")
-    print_success("Containers stopped (data preserved).")
+    run_compose_cmd(args, "stop")
 
 def start(args):
     """Starts existing stopped containers (docker compose start)."""
-    project_name = args.name
-    print_header(f"Starting Sandbox ({project_name})")
-    run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} start")
-    print_success("Containers started.")
+    run_compose_cmd(args, "start")
 
 def restart(args):
     """Restarts sandbox containers (docker compose restart)."""
-    project_name = args.name
-    print_header(f"Restarting Sandbox ({project_name})")
-    run_command(f"docker compose -p {project_name} -f {COMPOSE_FILE} restart")
-    print_success("Containers restarted.")
+    run_compose_cmd(args, "restart")
 
 def get_active_projects():
     """Returns a list of active Sanity-Gravity project names."""
