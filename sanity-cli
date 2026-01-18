@@ -292,6 +292,9 @@ def sync_config(project_name, container_name, username):
         # We copy the whole directory content which now only contains what we put in it (GEMINI.md, settings.json)
         run_command(f"docker cp {config_dir}/. {container_name}:{target_dir}/")
         
+        # Fix permissions (docker cp makes it root owned)
+        run_command(f"docker exec {container_name} chown -R {username}:{username} {target_dir}")
+        
         print_success("Configuration synced successfully.")
 
 def print_warning(msg):
