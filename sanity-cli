@@ -4,6 +4,7 @@ import subprocess
 import os
 import sys
 import shutil
+import time
 
 # Configuration
 COMPOSE_FILE = "docker-compose.yml"
@@ -132,7 +133,14 @@ def up(args):
              print_error("docker-compose.gpu.yml not found. Cannot enable GPU.")
              sys.exit(1)
         compose_files += " -f docker-compose.gpu.yml"
+        compose_files += " -f docker-compose.gpu.yml"
         print_info("GPU Support Enabled")
+
+    # Git Context Sharing
+    git_compose = generate_git_compose(username)
+    if git_compose:
+        compose_files += f" -f {git_compose}"
+        print_info("Git Context Sharing Enabled")
 
     password = args.password
 
@@ -220,11 +228,65 @@ def up(args):
         print(f"\n{Colors.BOLD}Access Core:{Colors.ENDC}")
         print(f"  SSH:        ssh -p {ssh_port} {username}@localhost")
         print(f"  Pass:       {password}")
-        print(f"  Shell:      docker exec -it sanity-gravity-core-1 /bin/bash")
+        print(f"  Shell:      docker exec -it -u {username} sanity-gravity-core-1 /bin/bash")
 
     # Sync Configuration
     container_name = f"{project_name}-{target}-1"
     sync_config(project_name, container_name, username)
+
+def generate_git_compose(username):
+    """Generates a docker-compose override to mount git config and ssh agent."""
+    print_info("Checking for Git configuration...")
+    
+    home = os.path.expanduser("~")
+    gitconfig = os.path.join(home, ".gitconfig")
+    ssh_auth_sock = os.environ.get("SSH_AUTH_SOCK")
+    
+    volumes = []
+    environment = {}
+    
+    if os.path.exists(gitconfig):
+        # Mount as read-only to prevent accidental corruption
+        volumes.append(f"      - {gitconfig}:/home/{username}/.gitconfig")
+        print_success(f"Found .gitconfig")
+    else:
+        print_info(".gitconfig not found on host.")
+    
+    if ssh_auth_sock and os.path.exists(ssh_auth_sock):
+        # Mount SSH Agent Socket
+        volumes.append(f"      - {ssh_auth_sock}:/tmp/ssh-agent.sock")
+        environment["SSH_AUTH_SOCK"] = "/tmp/ssh-agent.sock"
+        print_success(f"Found SSH Agent ({ssh_auth_sock})")
+    else:
+        print_warning("SSH Agent not found. Git operations requiring SSH keys might fail.")
+        
+    if not volumes:
+        print_info("Git Context Sharing skipped (no config found).")
+        return None
+        
+    # Generate YAML content manually to avoid dependencies
+    content = "services:\n"
+    for variant in VARIANTS:
+        content += f"  {variant}:\n"
+        
+        if volumes:
+            content += "    volumes:\n"
+            for vol in volumes:
+                content += f"{vol}\n"
+        
+        if environment:
+            content += "    environment:\n"
+            for k, v in environment.items():
+                content += f"      - {k}={v}\n"
+            
+    config_dir = "config"
+    os.makedirs(config_dir, exist_ok=True)
+    output_file = os.path.join(config_dir, "docker-compose.git.yml")
+    
+    with open(output_file, "w") as f:
+        f.write(content)
+        
+    return output_file
 
 def sync_config(project_name, container_name, username):
     """Syncs Antigravity configuration to the container."""
@@ -283,6 +345,20 @@ def sync_config(project_name, container_name, username):
     if os.path.exists(config_dir):
         print_info(f"Syncing ./config/ to container ({container_name})...")
         
+        # Wait for user to be created (Race condition fix)
+        user_ready = False
+        for i in range(30): # Wait up to 30 seconds
+            # Check if user exists inside container
+            # We use check=False to avoid printing errors/exiting if user doesn't exist yet
+            out = run_command(f"docker exec {container_name} id -u {username}", capture=True, check=False)
+            if out and out.strip().isdigit():
+                user_ready = True
+                break
+            time.sleep(1)
+        
+        if not user_ready:
+            print_warning(f"User '{username}' not found in container after 30s. Sync might fail.")
+
         target_dir = f"/home/{username}/.gemini"
         
         # Ensure target directory exists
