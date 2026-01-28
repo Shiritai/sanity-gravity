@@ -87,6 +87,23 @@
 2.  **互動式初始化**: 若偵測不到設定，CLI 會詢問是否要從主機 (`~/.gemini/`) 複製或建立空白設定。
 3.  **自動同步**: 每次啟動時，檔案會自動複製進容器 (`~/.gemini/`)，確保環境設定始終保持最新。
 
+### 🔑 Git Context 共享
+
+Sanity-Gravity 會自動偵測並與容器共享您主機的 Git 設定與 SSH 金鑰 (透過 Agent Forwarding)。這讓您可以在**不暴露私鑰**的情況下，於容器內無縫地使用 `git`。
+
+**準備工作 (Prerequisites):**
+
+1.  **Git 設定**: 確保您的主機上有 `~/.gitconfig`。
+2.  **SSH Agent**: 確保您的 SSH Agent 正在執行，且已加入金鑰：
+    ```bash
+    # 啟動 Agent (若尚未執行)
+    eval $(ssh-agent)
+    # 加入您的金鑰 (例如 id_ed25519 或 id_rsa)
+    ssh-add ~/.ssh/id_ed25519
+    ```
+
+當您執行 `./sanity-cli up` 時，它會自動偵測 Agent 並轉發 Socket。
+
 ### 🧩 多重實例支援 (Multi-Instance)
 
 **需要並行處理多個任務？** Sanity-Gravity 支援同時運行多個完全隔離的沙箱實例。只需透過 `--name` 參數指定不同的專案名稱即可。

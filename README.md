@@ -87,6 +87,23 @@ The project includes a helper script `sanity-cli` to manage the lifecycle:
 2.  **Interactive Init**: If no config is found, the CLI will ask if you want to copy your host configuration (`~/.gemini/`) or start fresh.
 3.  **Automatic Sync**: Files are copied into the container (`~/.gemini/`) on every start, ensuring your environment is always up-to-date.
 
+### 🔑 Git Context Sharing
+
+Sanity-Gravity automatically detects and shares your host's Git configuration and SSH keys (via Agent Forwarding) with the container. This allows you to use `git` inside the container seamlessly **without exposing your private keys**.
+
+**Prerequisites:**
+
+1.  **Git Config**: Ensure you have `~/.gitconfig` on your host.
+2.  **SSH Agent**: Ensure your SSH Agent is running and your keys are added:
+    ```bash
+    # Start agent (if not running)
+    eval $(ssh-agent)
+    # Add your key (e.g., id_ed25519 or id_rsa)
+    ssh-add ~/.ssh/id_ed25519
+    ```
+
+When you run `./sanity-cli up`, it will automatically detect the agent and forward the socket.
+
 ### 🧩 Multi-Instance Support
 
 **Need to run parallel tasks?** Sanity-Gravity supports running multiple isolated sandbox instances simultaneously. Just specify a unique project name using the `--name` argument.
