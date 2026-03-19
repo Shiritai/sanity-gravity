@@ -3,11 +3,11 @@ FROM sanity-gravity:core
 # Install KasmVNC
 # Using a fixed version for stability
 ENV KASM_VERSION=1.4.0
-ENV KASM_DEB=kasmvncserver_noble_${KASM_VERSION}_amd64.deb
-
-RUN curl -L -O https://github.com/kasmtech/KasmVNC/releases/download/v${KASM_VERSION}/${KASM_DEB} && \
-    apt-get update && apt-get install -y ./$KASM_DEB ssl-cert && \
-    rm $KASM_DEB && \
+RUN arch=$(dpkg --print-architecture); \
+    KASM_DEB="kasmvncserver_noble_${KASM_VERSION}_${arch}.deb" && \
+    curl -L -O "https://github.com/kasmtech/KasmVNC/releases/download/v${KASM_VERSION}/${KASM_DEB}" && \
+    apt-get update && apt-get install -y "./${KASM_DEB}" ssl-cert && \
+    rm "${KASM_DEB}" && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     make-ssl-cert generate-default-snakeoil --force-overwrite
 

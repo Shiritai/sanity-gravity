@@ -31,23 +31,43 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Google Chrome
-# Install Google Chrome
-RUN mkdir -p /etc/apt/keyrings && \
-    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && apt-get install -y google-chrome-stable && \
+# Architecture-Agnostic Browser Installation
+RUN arch=$(dpkg --print-architecture); \
+    if [ "$arch" = "amd64" ]; then \
+        mkdir -p /etc/apt/keyrings && \
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+        apt-get update && apt-get install -y google-chrome-stable; \
+    else \
+        # Support for Apple Silicon / ARM64 via Chromium
+        apt-get update && apt-get install -y software-properties-common && \
+        add-apt-repository -y ppa:xtradeb/apps && \
+        apt-get update && apt-get install -y chromium; \
+        ln -sf /usr/bin/chromium /usr/bin/google-chrome && \
+        ln -sf /usr/bin/chromium /usr/bin/google-chrome-stable; \
+    fi && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Add Global Chrome Wrapper (Robust Fix)
-# We create a safe wrapper and redirect ALL common shortcuts to it
-# This ensures xdg-open, menus, and CLI all use the sandboxed version
-RUN echo '#!/bin/bash\nexec /opt/google/chrome/google-chrome --no-sandbox --disable-dev-shm-usage "$@"' > /usr/bin/google-chrome-safe && \
+# Universal Browser Wrapper
+RUN echo '#!/bin/bash\n\
+CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run --no-default-browser-check"\n\
+if [ -f "/usr/bin/chromium" ]; then\n\
+    exec /usr/bin/chromium $CHROME_FLAGS "$@"\n\
+elif [ -f "/opt/google/chrome/google-chrome" ]; then\n\
+    exec /opt/google/chrome/google-chrome $CHROME_FLAGS "$@"\n\
+else\n\
+    echo "No browser executable found!"\n\
+    exit 1\n\
+fi' > /usr/bin/google-chrome-safe && \
     chmod +x /usr/bin/google-chrome-safe && \
     ln -sf /usr/bin/google-chrome-safe /usr/bin/google-chrome && \
     ln -sf /usr/bin/google-chrome-safe /usr/bin/google-chrome-stable && \
     ln -sf /usr/bin/google-chrome-safe /usr/bin/x-www-browser && \
-    sed -i 's|Exec=/usr/bin/google-chrome-stable|Exec=/usr/bin/google-chrome|g' /usr/share/applications/google-chrome.desktop
+    for f in /usr/share/applications/google-chrome.desktop /usr/share/applications/chromium-browser.desktop /usr/share/applications/chromium.desktop; do \
+        if [ -f "$f" ]; then \
+            sed -i 's|Exec=[^ ]*|Exec=/usr/bin/google-chrome|g' "$f"; \
+        fi; \
+    done
 
 # Install Antigravity IDE (Official)
 # Using repository and key verified from host environment
