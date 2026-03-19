@@ -12,13 +12,13 @@ rm -rf "$CHROME_CONFIG/Crashpad"
 rm -rf "$CHROME_CONFIG/Crash Reports"
 rm -f "$CHROME_CONFIG/Last Version"
 
-# 3. Antigravity Agent Profile (CRITICAL: Fixes Agent failure in Snapshots)
-# STRATEGY CHANGE: We must fully destroy the profile to ensure a clean state.
-# Partial cleanup (removing locks) proved insufficient.
+# 3. Antigravity Agent Profile (Fixes Agent failure in Snapshots)
+# We ONLY remove the lock file. Removing the whole profile causes CSRF/TLS issues.
 AGENT_PROFILE="$HOME/.gemini/antigravity-browser-profile"
 if [ -d "$AGENT_PROFILE" ]; then
-    echo "$(date): [chrome-cleanup] Removing Agent Profile at $AGENT_PROFILE" >> /tmp/chrome-cleanup.log
-    rm -rf "$AGENT_PROFILE"
+    echo "$(date): [chrome-cleanup] Cleaning up locks in Agent Profile at $AGENT_PROFILE" >> /tmp/chrome-cleanup.log
+    rm -f "$AGENT_PROFILE/SingletonLock"
+    rm -f "$AGENT_PROFILE/SingletonSocket"
 else
     echo "$(date): [chrome-cleanup] No Agent Profile found at $AGENT_PROFILE" >> /tmp/chrome-cleanup.log
 fi
