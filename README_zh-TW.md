@@ -80,6 +80,7 @@
 * Docker & Docker Compose (v2.0+)
 * Python 3.7+ (用於驅動 `sanity-cli`)
 * *(選用)* **NVIDIA Container Toolkit** (用來支援 GPU 加速)
+* **支援環境**: 已在 **Ubuntu (amd64/arm64)** 以及 **macOS 26.0.1 (Apple Silicon M1)** 上通過完整驗證與測試。
 
 ### 安裝步驟
 

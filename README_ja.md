@@ -77,6 +77,7 @@
 * Docker & Docker Compose (v2.0+)
 * Python 3.7+ (`sanity-cli` 用)
 * *(オプション)* **NVIDIA Container Toolkit** (GPU サポート用)
+* **サポート環境**: **Ubuntu (amd64/arm64)** および **macOS 26.0.1 (Apple Silicon M1)** にて完全な動作検証済みです。
 
 ### インストール手順
 

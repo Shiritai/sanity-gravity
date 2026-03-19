@@ -71,6 +71,7 @@ Your secure desktop is ready, go to **https://localhost:8444**!
 * Docker & Docker Compose (v2.0+)
 * Python 3.7+ (Powers `sanity-cli`)
 * *(Optional)* **NVIDIA Container Toolkit** (For GPU Support)
+* **Supported Environments**: Extensively tested and verified on **Ubuntu (amd64/arm64)** and **macOS 26.0.1 (Apple Silicon M1)**.
 
 ### Installation
 
