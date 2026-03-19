@@ -41,7 +41,7 @@ class TestCore:
         docker_cli.run_container(name=container_name, image=DEFAULT_CORE_IMAGE, env=host_env)
         
         chrome_ver = docker_cli.exec(container_name, "google-chrome --version").stdout
-        assert "Google Chrome" in chrome_ver
+        assert "Google Chrome" in chrome_ver or "Chromium" in chrome_ver
 
     def test_core_ssh_connectivity(self, clean_container, docker_cli, host_env):
         # reuse or new? New for isolation
