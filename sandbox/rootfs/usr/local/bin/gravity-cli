@@ -114,6 +114,7 @@ ensure_chrome_protection() {
     fi
 
     # Always re-write wrapper to ensure --no-sandbox is present
+    mkdir -p /opt/google/chrome
     rm -f /opt/google/chrome/google-chrome || true
     cat << 'EOF' > /opt/google/chrome/google-chrome
 #!/bin/bash
