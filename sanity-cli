@@ -880,7 +880,6 @@ def shell_cmd(args):
          
     # Get user
     env = get_project_env(project_name)
-    env = get_project_env(project_name)
     user = args.user if args.user else env.get("HOST_USER", "developer") 
     
     print_info(f"Entering shell for {project_name} ({container_name}) as {user}...")
