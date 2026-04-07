@@ -132,7 +132,7 @@ Your secure desktop is ready, go to **https://localhost:8444**!
 
 ## Advanced Features
 
-### 🛠️ IDE Management & Safe Upgrade (Gravity-CLI)
+### 🛠 IDE Management & Safe Upgrade (Gravity-CLI)
 
 Sanity-Gravity provides a robust OS-level defense mechanism against accidental IDE or Web Browser uninstallation / crashes caused by `apt upgrade`.
 
