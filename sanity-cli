@@ -1023,7 +1023,7 @@ def snapshot_cmd(args):
         if out and out.strip() != "[]":
              container_id = container_name
         else:
-             print_error(f"無法找到容器：{container_name}。請確認該環境已啟動，或指定正確的 --variant。")
+             print_error(f"Container not found: {container_name}. Please ensure the environment is running or specify the correct --variant.")
              return
     else:
         # Auto-detect
@@ -1035,29 +1035,29 @@ def snapshot_cmd(args):
                 found_variants.append(v)
         
         if not found_variants:
-            print_error(f"在專案「{project_name}」中找不到任何可用的容器。")
-            print_info("提示：此專案可能尚未啟動，請先執行 './sanity-cli up'。")
+            print_error(f"No containers found for project '{project_name}'.")
+            print_info("Tip: This project may not be running yet. Please run './sanity-cli up' first.")
             return
         elif len(found_variants) == 1:
             target_variant = found_variants[0]
             container_id = f"{project_name}-{target_variant}-1"
         else:
-            print_info(f"偵測到多個運行中的環境：{', '.join(found_variants)}")
+            print_info(f"Multiple running environments detected: {', '.join(found_variants)}")
             if not sys.stdin.isatty():
-                print_error("當前為非互動模式，請使用 --variant 明確指定要 snapshot 的環境。")
+                print_error("Non-interactive mode: please use --variant to explicitly specify the environment to snapshot.")
                 return
             
-            print(f"{Colors.BOLD}請選擇要建立 Snapshot 的環境：{Colors.ENDC}")
+            print(f"{Colors.BOLD}Select the environment to snapshot:{Colors.ENDC}")
             for i, v in enumerate(found_variants):
                 print(f"  [{i+1}] {v}")
             
             while True:
-                choice = input(f"{Colors.OKBLUE}請輸入數字 (1-{len(found_variants)}): {Colors.ENDC}").strip()
+                choice = input(f"{Colors.OKBLUE}Enter a number (1-{len(found_variants)}): {Colors.ENDC}").strip()
                 if choice.isdigit() and 1 <= int(choice) <= len(found_variants):
                     target_variant = found_variants[int(choice)-1]
                     container_id = f"{project_name}-{target_variant}-1"
                     break
-                print_warning("無效的輸入，請重新選擇。")
+                print_warning("Invalid input, please try again.")
             
     print_header(f"Snapshotting {container_id} -> {tag}")
     
