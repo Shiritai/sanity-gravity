@@ -906,15 +906,15 @@ def shell_cmd(args):
     env = get_project_env(project_name)
     user = args.user if args.user else env.get("HOST_USER", "developer") 
     
-    print_info(f"Entering shell for {project_name} ({container_name}) as {user}...")
+    print_info(f"Entering shell for {project_name} ({container_name}) as {user} ({args.shell})...")
     
-    # Try zsh first, then bash
-    cmd = f"docker exec -it -u {user} {container_name} zsh"
+    # Try user-selected shell (zsh) first, then bash as fallback
+    cmd = f"docker exec -it -u {user} {container_name} {args.shell}"
     try:
         # Use simple os.system or subprocess.call to ensure TTY builds correctly
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        print_warning("zsh failed, falling back to bash...")
+        print_warning(f"{args.shell} failed, falling back to bash...")
         cmd = f"docker exec -it -u {user} {container_name} bash"
         subprocess.call(cmd, shell=True)
 
@@ -1393,6 +1393,7 @@ def main():
     parser_shell = subparsers.add_parser("shell", help="Enter container shell")
     parser_shell.add_argument("--name", "-n", default="sanity-gravity", help="Project name")
     parser_shell.add_argument("--user", "-u", default=None, help="User to login as (default: developer)")
+    parser_shell.add_argument("--shell", "-s", default="zsh", choices=["zsh", "bash"], help="Shell to use (default: zsh)")
     parser_shell.set_defaults(func=shell_cmd)
 
     # Open Command
