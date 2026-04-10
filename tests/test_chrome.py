@@ -1,5 +1,5 @@
 import pytest
-from tests.conftest import DEFAULT_CORE_IMAGE
+from tests.conftest import DEFAULT_SSH_IMAGE
 
 class TestChrome:
     def test_chrome_launch(self, clean_container, docker_cli, host_env):
@@ -20,7 +20,7 @@ class TestChrome:
             f"docker run --name {container_name} --rm "
             f"{env_flags} "
             f"--shm-size=512m "
-            f"{DEFAULT_CORE_IMAGE} "
+            f"{DEFAULT_SSH_IMAGE} "
             f"google-chrome --headless --dump-dom --disable-gpu http://example.com"
         )
         

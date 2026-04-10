@@ -36,13 +36,14 @@ jobs:
           REPO_LC="${{ inputs.repo_lc }}"
           TRANSIENT_TAG="${{ inputs.transient_tag }}"
           
-          for variant in core kasm vnc; do
+          # Dimension-based tags
+          for variant in ag-xfce-ssh ag-xfce-kasm ag-xfce-vnc; do
             echo "Promoting variant: ${variant}"
-            
+
             # Pull x64 and arm64 transient images
             docker pull ghcr.io/${REPO_LC}-${variant}:${TRANSIENT_TAG}-amd64 || exit 1
             docker pull ghcr.io/${REPO_LC}-${variant}:${TRANSIENT_TAG}-arm64 || exit 1
-            
+
             # Loop over each target tag
             IFS=',' read -ra TAGS <<< "${{ inputs.tags_csv }}"
             for FINAL_TAG in "${TAGS[@]}"; do
@@ -50,7 +51,7 @@ jobs:
               docker manifest create ghcr.io/${REPO_LC}-${variant}:${FINAL_TAG} \
                 ghcr.io/${REPO_LC}-${variant}:${TRANSIENT_TAG}-amd64 \
                 ghcr.io/${REPO_LC}-${variant}:${TRANSIENT_TAG}-arm64
-              
+
               docker manifest push ghcr.io/${REPO_LC}-${variant}:${FINAL_TAG}
             done
 

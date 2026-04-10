@@ -23,8 +23,8 @@ class TestCLI:
     def test_cli_list(self, cli):
         res = cli("list")
         assert res.returncode == 0
-        assert "core" in res.stdout
-        assert "kasm" in res.stdout
+        assert "ag-xfce-kasm" in res.stdout
+        assert "Dimension Matrix" in res.stdout
 
     def test_cli_check(self, cli):
         res = cli("check")
@@ -41,15 +41,11 @@ class TestCLI:
         # Clean up in case
         cli("stop")
         
-        # Test Run (Core is fastest)
-        # Note: 'run' via CLI attaches to foreground if we don't be careful?
+        # Test Run (ag-xfce-ssh is the lightest GUI-less variant)
         # sanity-cli up uses 'docker compose up -d' so it returns.
-        res = cli("run -v core --ssh-port 2299 --skip-check --password testcli")
+        res = cli("run -v ag-xfce-ssh --ssh-port 2299 --skip-check --password testcli")
         assert res.returncode == 0
-        assert "core is running" in res.stdout
-        
-        # Relaxed assertion to handle different directory names (e.g. app-core-1 vs sanity-gravity-core-1)
-        assert "-core-1" in res.stdout or "_core_1" in res.stdout
+        assert "ag-xfce-ssh is running" in res.stdout
         
         # Test Stop
         res = cli("stop")

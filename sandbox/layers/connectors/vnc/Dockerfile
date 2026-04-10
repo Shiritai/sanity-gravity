@@ -1,5 +1,3 @@
-FROM sanity-gravity:core
-
 # Install TigerVNC and noVNC
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tigervnc-standalone-server \
@@ -14,10 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
 # Add Supervisor Config for VNC
-COPY variants/vnc/supervisord.conf /etc/supervisor/conf.d/vnc.conf
+COPY layers/connectors/vnc/supervisord.conf /etc/supervisor/conf.d/vnc.conf
 
 # Add VNC Startup Script
-COPY variants/vnc/startup.sh /usr/local/bin/vnc-startup.sh
+COPY layers/connectors/vnc/startup.sh /usr/local/bin/vnc-startup.sh
 RUN chmod +x /usr/local/bin/vnc-startup.sh
 
 # Expose Ports

@@ -195,7 +195,7 @@ class TestRunResourceArgs:
         mock_gen_res.return_value = "config/docker-compose.resources.yml"
         
         args = MagicMock()
-        args.variant = "core"
+        args.variant = "ag-xfce-ssh"
         args.cpus = "1.5"
         args.memory = "2G"
         # set other defaults
@@ -209,11 +209,11 @@ class TestRunResourceArgs:
         args.gpu = False
         args.password = "pass"
         args.image = None
-        
+
         sanity_cli.up(args)
-        
+
         # Verify generate_resource_compose called
-        mock_gen_res.assert_called_with("1.5", "2G")
+        mock_gen_res.assert_called_with("1.5", "2G", "ag-xfce-ssh")
         
         # Verify docker compose command includes the new file
         # We need to check all calls to run_command
@@ -238,9 +238,9 @@ class TestNewCommands:
             sanity_cli.shell_cmd(args)
 
             # Check if docker exec was called
-            # We assume it finds sanity-gravity-core-1 (first in VARIANTS)
+            # It finds the first running container from VALID_TAGS (ag-xfce-ssh)
             # developer is default user, zsh is default shell
-            expected_cmd = "docker exec -it -u developer sanity-gravity-core-1 zsh"
+            expected_cmd = "docker exec -it -u developer sanity-gravity-ag-xfce-ssh-1 zsh"
             mock_check_call.assert_called_with(expected_cmd, shell=True)
 
     @patch("sanity_cli.run_command")
@@ -255,7 +255,7 @@ class TestNewCommands:
             sanity_cli.shell_cmd(args)
 
             # Verify user passed to docker exec
-            expected_cmd = "docker exec -it -u root sanity-gravity-core-1 zsh"
+            expected_cmd = "docker exec -it -u root sanity-gravity-ag-xfce-ssh-1 zsh"
             mock_check_call.assert_called_with(expected_cmd, shell=True)
 
     @patch("sanity_cli.run_command")
@@ -269,7 +269,7 @@ class TestNewCommands:
         with patch("sanity_cli.get_active_projects", return_value=["sanity-gravity"]):
             sanity_cli.shell_cmd(args)
 
-            expected_cmd = "docker exec -it -u developer sanity-gravity-core-1 bash"
+            expected_cmd = "docker exec -it -u developer sanity-gravity-ag-xfce-ssh-1 bash"
             mock_check_call.assert_called_with(expected_cmd, shell=True)
 
     @patch("sanity_cli.run_command")
@@ -286,10 +286,10 @@ class TestNewCommands:
             sanity_cli.shell_cmd(args)
 
             mock_check_call.assert_any_call(
-                "docker exec -it -u developer sanity-gravity-core-1 zsh", shell=True
+                "docker exec -it -u developer sanity-gravity-ag-xfce-ssh-1 zsh", shell=True
             )
             mock_call.assert_called_once_with(
-                "docker exec -it -u developer sanity-gravity-core-1 bash", shell=True
+                "docker exec -it -u developer sanity-gravity-ag-xfce-ssh-1 bash", shell=True
             )
 
     @patch("sanity_cli.run_command")
@@ -306,7 +306,7 @@ class TestNewCommands:
             sanity_cli.shell_cmd(args)
 
             mock_check_call.assert_any_call(
-                "docker exec -it -u developer sanity-gravity-core-1 zsh", shell=True
+                "docker exec -it -u developer sanity-gravity-ag-xfce-ssh-1 zsh", shell=True
             )
             mock_call.assert_not_called()
 
@@ -314,9 +314,9 @@ class TestNewCommands:
     @patch("webbrowser.open")
     def test_open_command_kasm(self, mock_browser, mock_run):
          def run_side_effect(cmd, **kwargs):
-            if "core-1" in cmd: return "false"
-            if "kasm-1" in cmd: return "true"
-            if "port kasm 8444" in cmd: return "0.0.0.0:12345"
+            if "ag-xfce-kasm-1" in cmd and "inspect" in cmd: return "true"
+            if "inspect" in cmd: return "false"
+            if "port ag-xfce-kasm 8444" in cmd: return "0.0.0.0:12345"
             return ""
          mock_run.side_effect = run_side_effect
          
@@ -334,23 +334,23 @@ class TestSnapshot:
     def test_snapshot_command(self, mock_run):
         args = MagicMock()
         args.name = "my-proj"
-        args.variant = "core"
+        args.variant = "ag-xfce-ssh"
         args.tag = "my-image:v1"
-        
+
         sanity_cli.snapshot_cmd(args)
-        
+
         # Verify docker inspect called
         # Verify docker commit called
-        
+
         # We expect inspect to verify container exists
         inspect_call = [args[0][0] for args in mock_run.call_args_list if "docker inspect" in args[0][0]]
         assert len(inspect_call) > 0
-        
+
         # Check commit
         commit_calls = [args[0][0] for args in mock_run.call_args_list if "docker commit" in args[0][0]]
         assert len(commit_calls) > 0
-        
-        expected_commit = "docker commit my-proj-core-1 my-image:v1"
+
+        expected_commit = "docker commit my-proj-ag-xfce-ssh-1 my-image:v1"
         assert expected_commit in commit_calls[0]
 
     @patch("sanity_cli.run_command")
@@ -363,7 +363,7 @@ class TestSnapshot:
         # Override os.environ to avoid polluting actual env
         with patch.dict(os.environ, {}, clear=True):
             args = MagicMock()
-            args.variant = "core"
+            args.variant = "ag-xfce-ssh"
             # set other defaults
             args.skip_check = True
             args.ssh_port = "2222"
@@ -376,10 +376,10 @@ class TestSnapshot:
             args.password = "pass"
             args.cpus = None
             args.memory = None
-            
+
             # The key arg
             args.image = "my-custom:v1"
-            
+
             sanity_cli.up(args)
-            
-            assert os.environ.get("SANITY_IMAGE_CORE") == "my-custom:v1"
+
+            assert os.environ.get("SANITY_IMAGE_AG_XFCE_SSH") == "my-custom:v1"

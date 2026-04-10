@@ -1,0 +1,41 @@
+# Pinned: ubuntu:24.04 as of 2026-03-30
+FROM ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LC_ALL=C.UTF-8
+
+# Install Core Dependencies
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    supervisor \
+    sudo \
+    vim-tiny \
+    curl \
+    wget \
+    git \
+    zsh \
+    net-tools \
+    locales \
+    tzdata \
+    ca-certificates \
+    openssh-server \
+    openssh-server \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Setup Locales
+RUN locale-gen en_US.UTF-8
+
+# Setup SSH Config
+RUN mkdir /var/run/sshd && \
+    echo 'PermitRootLogin no' >> /etc/ssh/sshd_config && \
+    echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
+
+# Copy Rootfs (Configuration & Scripts)
+# Copying the entire rootfs initially
+COPY rootfs /
+
+# Setup Entrypoint & Scripts
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/chrome-cleanup.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

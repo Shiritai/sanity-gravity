@@ -45,8 +45,8 @@ jobs:
           TAG_VAL="${{ inputs.tag }}"
           ARCH_VAL="${{ inputs.arch }}"
           
-          # Tag all variants (core/kasm/vnc)
-          for variant in core kasm vnc; do
-            docker tag sanity-gravity:${variant} ghcr.io/${REPO_LC}-${variant}:${TAG_VAL}-${ARCH_VAL}
-            docker push ghcr.io/${REPO_LC}-${variant}:${TAG_VAL}-${ARCH_VAL}
+          # Tag and push all built images matching dimension-based tags
+          for tag in $(docker images --format '{{.Tag}}' sanity-gravity | grep -E '^[a-z]{2}-[a-z]+-[a-z]+$'); do
+            docker tag sanity-gravity:${tag} ghcr.io/${REPO_LC}-${tag}:${TAG_VAL}-${ARCH_VAL}
+            docker push ghcr.io/${REPO_LC}-${tag}:${TAG_VAL}-${ARCH_VAL}
           done

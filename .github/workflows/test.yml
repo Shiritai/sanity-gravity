@@ -36,14 +36,11 @@ jobs:
 
       - name: Pull Transient Images
         run: |
-          docker pull ghcr.io/${{ inputs.repo_lc }}-core:${{ inputs.tag }}-${{ inputs.arch }}
-          docker pull ghcr.io/${{ inputs.repo_lc }}-kasm:${{ inputs.tag }}-${{ inputs.arch }}
-          docker pull ghcr.io/${{ inputs.repo_lc }}-vnc:${{ inputs.tag }}-${{ inputs.arch }}
-          
-          # Tag them locally so tests can find them as 'sanity-gravity:core'
-          docker tag ghcr.io/${{ inputs.repo_lc }}-core:${{ inputs.tag }}-${{ inputs.arch }} sanity-gravity:core
-          docker tag ghcr.io/${{ inputs.repo_lc }}-kasm:${{ inputs.tag }}-${{ inputs.arch }} sanity-gravity:kasm
-          docker tag ghcr.io/${{ inputs.repo_lc }}-vnc:${{ inputs.tag }}-${{ inputs.arch }} sanity-gravity:vnc
+          # Pull and tag all dimension-based images
+          for tag in ag-xfce-ssh ag-xfce-kasm ag-xfce-vnc; do
+            docker pull ghcr.io/${{ inputs.repo_lc }}-${tag}:${{ inputs.tag }}-${{ inputs.arch }}
+            docker tag ghcr.io/${{ inputs.repo_lc }}-${tag}:${{ inputs.tag }}-${{ inputs.arch }} sanity-gravity:${tag}
+          done
 
       - name: Set up Python
         uses: actions/setup-python@v6

@@ -1,5 +1,3 @@
-FROM sanity-gravity:core
-
 # Install KasmVNC
 # Using a fixed version for stability with SHA256 integrity verification
 ENV KASM_VERSION=1.4.0
@@ -17,10 +15,10 @@ RUN arch=$(dpkg --print-architecture); \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Add Supervisor Config for Kasm
-COPY variants/kasm/supervisord.conf /etc/supervisor/conf.d/kasm.conf
+COPY layers/connectors/kasm/supervisord.conf /etc/supervisor/conf.d/kasm.conf
 
 # Add Kasm Startup Script
-COPY variants/kasm/startup.sh /usr/local/bin/kasm-startup.sh
+COPY layers/connectors/kasm/startup.sh /usr/local/bin/kasm-startup.sh
 RUN chmod +x /usr/local/bin/kasm-startup.sh
 
 # Expose Port 8444

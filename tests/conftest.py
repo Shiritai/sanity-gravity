@@ -5,10 +5,10 @@ import time
 import socket
 import contextlib
 
-# Global Constants
-DEFAULT_CORE_IMAGE = "sanity-gravity:core"
-DEFAULT_KASM_IMAGE = "sanity-gravity:kasm"
-DEFAULT_VNC_IMAGE = "sanity-gravity:vnc"
+# Global Constants — Dimension-based tags
+DEFAULT_SSH_IMAGE = "sanity-gravity:ag-xfce-ssh"
+DEFAULT_KASM_IMAGE = "sanity-gravity:ag-xfce-kasm"
+DEFAULT_VNC_IMAGE = "sanity-gravity:ag-xfce-vnc"
 
 @pytest.fixture
 def free_port():

@@ -28,7 +28,7 @@ class TestCLIPorts:
         cli(f"down -n {name}")
         
         try:
-            res = cli(f"up -v core -p {port} -n {name} --skip-check")
+            res = cli(f"up -v ag-xfce-ssh -p {port} -n {name} --skip-check")
             assert res.returncode == 0
             
             # Check output for assigned port
@@ -56,7 +56,7 @@ class TestCLIPorts:
         assigned_ports = []
         try:
             # Start with auto-assign (kasm has multiple ports)
-            res = cli(f"up -v kasm -n {name} --skip-check")
+            res = cli(f"up -v ag-xfce-kasm -n {name} --skip-check")
             assert res.returncode == 0
             
             # Extract ports

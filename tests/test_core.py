@@ -1,6 +1,6 @@
 import pytest
 from tests.utils import wait_for_port, wait_for_log, check_http
-from tests.conftest import DEFAULT_CORE_IMAGE
+from tests.conftest import DEFAULT_SSH_IMAGE
 import time
 
 class TestCore:
@@ -11,7 +11,7 @@ class TestCore:
         # Start Core Container
         docker_cli.run_container(
             name=container_name,
-            image=DEFAULT_CORE_IMAGE,
+            image=DEFAULT_SSH_IMAGE,
             ports={str(port): "22"},
             env=host_env
         )
@@ -24,7 +24,7 @@ class TestCore:
         
         docker_cli.run_container(
             name=container_name,
-            image=DEFAULT_CORE_IMAGE,
+            image=DEFAULT_SSH_IMAGE,
             env=host_env
         )
         # Wait for startup
@@ -39,7 +39,7 @@ class TestCore:
 
     def test_core_chrome_installation(self, clean_container, docker_cli, host_env):
         container_name = clean_container("sanity-test-core-chrome")
-        docker_cli.run_container(name=container_name, image=DEFAULT_CORE_IMAGE, env=host_env)
+        docker_cli.run_container(name=container_name, image=DEFAULT_SSH_IMAGE, env=host_env)
         
         chrome_ver = docker_cli.exec(container_name, "google-chrome --version").stdout
         assert "Google Chrome" in chrome_ver or "Chromium" in chrome_ver
@@ -50,7 +50,7 @@ class TestCore:
         port = free_port()
         docker_cli.run_container(
             name=container_name,
-            image=DEFAULT_CORE_IMAGE,
+            image=DEFAULT_SSH_IMAGE,
             ports={str(port): "22"},
             env=host_env
         )

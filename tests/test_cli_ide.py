@@ -33,7 +33,7 @@ class TestIdeCommand:
         
         sanity_cli.ide_cmd(args)
         
-        cname = "sanity-gravity-core-1"
+        cname = "sanity-gravity-ag-xfce-ssh-1"
         base_dir = os.path.dirname(os.path.abspath(sanity_cli.__file__))
         cli_src = os.path.join(base_dir, "sandbox", "rootfs", "usr", "local", "bin", "gravity-cli")
         cleanup_src = os.path.join(base_dir, "sandbox", "rootfs", "usr", "local", "bin", "chrome-cleanup.sh")
@@ -57,11 +57,11 @@ class TestIdeCommand:
         
         sanity_cli.ide_cmd(args)
         
-        cname = "my-project-core-1"
+        cname = "my-project-ag-xfce-ssh-1"
         base_dir = os.path.dirname(os.path.abspath(sanity_cli.__file__))
         cli_src = os.path.join(base_dir, "sandbox", "rootfs", "usr", "local", "bin", "gravity-cli")
         cleanup_src = os.path.join(base_dir, "sandbox", "rootfs", "usr", "local", "bin", "chrome-cleanup.sh")
-        
+
         expected_calls = [
             ((f"docker cp {cli_src} {cname}:/usr/local/bin/gravity-cli",), {"shell": True, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}),
             ((f"docker cp {cleanup_src} {cname}:/usr/local/bin/chrome-cleanup.sh",), {"shell": True, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}),

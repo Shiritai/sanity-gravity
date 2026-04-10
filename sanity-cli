@@ -10,7 +10,40 @@ import webbrowser
 
 # Configuration
 COMPOSE_FILE = "docker-compose.yml"
-VARIANTS = ["core", "kasm", "vnc"]
+SANDBOX_DIR = "sandbox"
+
+# Dimension Registry: {slug: full_name}
+AGENTS = {"ag": "antigravity", "gc": "gemini-cli", "cc": "claude-cli", "bs": "base"}
+CONNECTORS = {"ssh": "ssh", "kasm": "kasm", "vnc": "vnc", "rd": "rustdesk"}
+DESKTOPS = {"xfce": "xfce", "none": "none"}
+
+DEFAULT_TAG = "ag-xfce-kasm"
+
+def parse_tag(tag):
+    """Parses a dimension-based tag (e.g. 'ag-xfce-kasm') into (agent, desktop, connector).
+    Raises ValueError if the tag is invalid."""
+    parts = tag.split("-")
+    if len(parts) != 3:
+        raise ValueError(f"Invalid tag format '{tag}'. Expected {{agent}}-{{desktop}}-{{connector}} (e.g. ag-xfce-kasm)")
+    agent, desktop, connector = parts
+    if agent not in AGENTS:
+        raise ValueError(f"Unknown agent '{agent}'. Valid: {', '.join(AGENTS.keys())}")
+    if desktop not in DESKTOPS:
+        raise ValueError(f"Unknown desktop '{desktop}'. Valid: {', '.join(DESKTOPS.keys())}")
+    if connector not in CONNECTORS:
+        raise ValueError(f"Unknown connector '{connector}'. Valid: {', '.join(CONNECTORS.keys())}")
+    return agent, desktop, connector
+
+def generate_valid_tags():
+    """Returns a list of all valid tag combinations."""
+    tags = []
+    for a in AGENTS:
+        for d in DESKTOPS:
+            for c in CONNECTORS:
+                tags.append(f"{a}-{d}-{c}")
+    return tags
+
+VALID_TAGS = generate_valid_tags()
 # Add lib to path
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 try:
@@ -95,68 +128,177 @@ def check_prereqs(args):
         print_error("Docker Daemon is NOT running. Please start Docker.")
         sys.exit(1)
 
+def build_modular(tag, no_cache=False):
+    """Assembles a Dockerfile from layers and builds the image for the given tag."""
+    import tempfile
+
+    agent, desktop, connector = parse_tag(tag)
+
+    # Layer concatenation order: base → desktop → agent → connector
+    layer_files = [
+        os.path.join(SANDBOX_DIR, "Dockerfile.base"),
+        os.path.join(SANDBOX_DIR, "layers", "desktops", desktop, "Dockerfile"),
+        os.path.join(SANDBOX_DIR, "layers", "agents", agent, "Dockerfile"),
+        os.path.join(SANDBOX_DIR, "layers", "connectors", connector, "Dockerfile"),
+    ]
+
+    # Verify all layer files exist
+    for lf in layer_files:
+        if not os.path.exists(lf):
+            print_error(f"Layer file not found: {lf}")
+            sys.exit(1)
+
+    # Assemble Dockerfile
+    assembled = ""
+    for lf in layer_files:
+        with open(lf, "r") as f:
+            assembled += f"# === Layer: {os.path.relpath(lf, SANDBOX_DIR)} ===\n"
+            assembled += f.read()
+            assembled += "\n\n"
+
+    # Write to temp file inside sandbox dir (so COPY context works)
+    tmp_dockerfile = os.path.join(SANDBOX_DIR, f".Dockerfile.{tag}")
+    with open(tmp_dockerfile, "w") as f:
+        f.write(assembled)
+
+    try:
+        no_cache_flag = " --no-cache" if no_cache else ""
+        image_name = f"sanity-gravity:{tag}"
+        print_info(f"Assembling Dockerfile for {tag}...")
+        print_info(f"Layers: {' → '.join(os.path.basename(os.path.dirname(lf)) for lf in layer_files)}")
+        run_command(f"docker build{no_cache_flag} -f {tmp_dockerfile} -t {image_name} {SANDBOX_DIR}")
+        print_success(f"Built {image_name}")
+    finally:
+        if os.path.exists(tmp_dockerfile):
+            os.remove(tmp_dockerfile)
+
+def generate_compose_for_tag(tag):
+    """Generates a temporary docker-compose YAML for a modular tag."""
+    agent, desktop, connector = parse_tag(tag)
+
+    # Service name is the tag itself (with dashes, valid for compose)
+    service_name = tag
+
+    # Determine ports and settings based on connector
+    ports = ['      - "${SSH_HOST_PORT:-2222}:22"']
+    extra_env = []
+    extra_settings = ""
+
+    if connector == "kasm":
+        ports.append('      - "${KASM_PORT:-8444}:8444"')
+        extra_settings = "    shm_size: 512m\n    restart: unless-stopped\n    stop_grace_period: 30s\n"
+    elif connector == "vnc":
+        ports.append('      - "${VNC_PORT:-5901}:5901"')
+        ports.append('      - "${NOVNC_PORT:-6901}:6901"')
+        extra_env.append("      - VNC_PW=${VNC_PW:-antigravity}")
+        extra_env.append("      - VNC_RESOLUTION=${VNC_RESOLUTION:-1280x720}")
+        extra_env.append("      - VNC_DEPTH=${VNC_DEPTH:-24}")
+        extra_settings = "    shm_size: 512m\n    restart: unless-stopped\n    stop_grace_period: 30s\n"
+
+    ports_str = "\n".join(ports)
+    env_lines = [
+        "      - HOST_UID=${HOST_UID:-1000}",
+        "      - HOST_GID=${HOST_GID:-1000}",
+        "      - HOST_USER=${HOST_USER:-developer}",
+        "      - HOST_PASSWORD=${HOST_PASSWORD:-antigravity}",
+    ] + extra_env
+    env_str = "\n".join(env_lines)
+
+    content = f"""services:
+  {service_name}:
+    image: ${{SANITY_IMAGE_{tag.upper().replace('-', '_')}:-sanity-gravity:{tag}}}
+    command: [ "/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf" ]
+    environment:
+{env_str}
+    volumes:
+      - ${{WORKSPACE_DIR:-./workspace}}:/home/${{HOST_USER:-developer}}/workspace
+    ports:
+{ports_str}
+    network_mode: bridge
+{extra_settings}    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    labels:
+      sanity.gravity.managed: "true"
+"""
+
+    config_dir = "config"
+    os.makedirs(config_dir, exist_ok=True)
+    output_file = os.path.join(config_dir, f"docker-compose.{tag}.yml")
+    with open(output_file, "w") as f:
+        f.write(content)
+
+    return output_file, service_name
+
 def build(args):
-    """Builds the specified variant(s)."""
-    targets = args.variant if args.variant else VARIANTS
+    """Builds the specified tag(s)."""
+    targets = args.variant if args.variant else [DEFAULT_TAG]
     if "all" in targets:
-        targets = VARIANTS
-    
-    print_header(f"Building Variants: {', '.join(targets)}")
-    
-    no_cache_flag = " --no-cache" if getattr(args, "no_cache", False) else ""
+        targets = VALID_TAGS
+
+    print_header(f"Building: {', '.join(targets)}")
+
+    no_cache = getattr(args, "no_cache", False)
     for target in targets:
+        try:
+            parse_tag(target)
+        except ValueError as e:
+            print_error(str(e))
+            sys.exit(1)
         print_info(f"Building {target}...")
-        run_command(f"docker compose -f {COMPOSE_FILE} build{no_cache_flag} {target}")
-    
+        build_modular(target, no_cache=no_cache)
+
     print_success("Build complete!")
 
 def install(args):
     """Alias for build, but maybe in future pulls images."""
-    # For now, we build locally.
     build(args)
 
 def up(args):
-    """Starts the specified variant (docker compose up)."""
+    """Starts the specified tag (docker compose up)."""
     target = args.variant
-    
+
+    # Validate tag
+    try:
+        agent, desktop, connector = parse_tag(target)
+    except ValueError as e:
+        print_error(str(e))
+        sys.exit(1)
+
     # Check prereqs first
     if not args.skip_check:
         check_prereqs(args)
 
     uid, gid, username = get_uid_gid_user()
-    
+
     print_header(f"Starting {target}")
     print_info(f"Mapping User: {username} (UID={uid}, GID={gid})")
 
-    # Stop other variants to avoid port conflicts? 
-    # Optional, but good for "out-of-the-box" experience.
-    # Let's just warn or try to run. Docker compose handles recreation.
-    
     ssh_port = args.ssh_port
     kasm_port = args.kasm_port
     vnc_port = args.vnc_port
     novnc_port = args.novnc_port
-    
-    compose_files = f"-f {COMPOSE_FILE}"
+
+    # Generate compose file for this tag
+    tag_compose, service_name = generate_compose_for_tag(target)
+    compose_files = f"-f {tag_compose}"
+
     if args.gpu:
         if not os.path.exists("docker-compose.gpu.yml"):
              print_error("docker-compose.gpu.yml not found. Cannot enable GPU.")
              sys.exit(1)
         compose_files += " -f docker-compose.gpu.yml"
-        compose_files += " -f docker-compose.gpu.yml"
         print_info("GPU Support Enabled")
 
-        print_info("GPU Support Enabled")
-    
     # Custom Image Support
     if args.image:
-        # Determine which environment variable to set based on variant
-        env_var_name = f"SANITY_IMAGE_{target.upper()}"
+        env_var_name = f"SANITY_IMAGE_{target.upper().replace('-', '_')}"
         os.environ[env_var_name] = args.image
         print_info(f"Using Custom Image: {args.image} for {target}")
 
     # Git Context Sharing
-    git_compose = generate_git_compose(username)
+    git_compose = generate_git_compose(username, target)
     if git_compose:
         compose_files += f" -f {git_compose}"
         print_info("Git Context Sharing Enabled")
@@ -164,20 +306,13 @@ def up(args):
     password = args.password
 
     # Resource Limits (Inject via compose override)
-    resource_compose = None
     if args.cpus or args.memory:
-        resource_compose = generate_resource_compose(args.cpus, args.memory)
+        resource_compose = generate_resource_compose(args.cpus, args.memory, target)
         if resource_compose:
              compose_files += f" -f {resource_compose}"
              print_info("Resource Limits Applied")
 
-
     # Auto-Port Assignment Logic
-    # If using a custom name AND ports are default, switch to ephemeral ports (0)
-    # UNLESS the user explicitly passed the port flag.
-    # ALSO: If using default name (sanity-gravity) but ports are BUSY, switch to 0.
-
-    # Helper to check if a flag was used
     def is_flag_set(flags):
         for f in flags:
             if f in sys.argv:
@@ -190,7 +325,6 @@ def up(args):
         if not is_flag_set(["--vnc-port"]) and args.vnc_port == "5901": vnc_port = "0"
         if not is_flag_set(["--novnc-port"]) and args.novnc_port == "6901": novnc_port = "0"
     else:
-        # Default project: check if default ports are free
         if not is_flag_set(["--ssh-port", "-p"]) and args.ssh_port == "2222" and is_port_in_use(2222):
              print_warning("Default SSH port 2222 is busy. Switching to ephemeral.")
              ssh_port = "0"
@@ -215,64 +349,57 @@ def up(args):
     print_info(f"Project Name: {project_name}")
 
     try:
-        run_command(f"{env_vars} docker compose -p {project_name} {compose_files} up -d {target}")
-        
+        run_command(f"{env_vars} docker compose -p {project_name} {compose_files} up -d {service_name}")
+
         # Retrieve actual ports if they were ephemeral
         if ssh_port == "0" or kasm_port == "0" or vnc_port == "0" or novnc_port == "0":
             print_info("Resolving ephemeral ports...")
-            # We need to query docker compose port
-            # Service names: core, kasm, vnc
-            # Internal ports: 22, 8444, 5901, 6901
-            
+
             def get_port(service, internal):
                 try:
                     out = run_command(f"docker compose -p {project_name} {compose_files} port {service} {internal}", capture=True)
-                    # Output format: 0.0.0.0:32768
                     if ":" in out:
                         return out.split(":")[-1]
                 except:
                     pass
                 return "?"
 
-            if target in ["core", "kasm", "vnc"]:
-                ssh_port = get_port(target, "22")
-            
-            if target == "kasm":
-                kasm_port = get_port("kasm", "8444")
-            
-            if target == "vnc":
-                vnc_port = get_port("vnc", "5901")
-                novnc_port = get_port("vnc", "6901")
+            ssh_port = get_port(service_name, "22")
+
+            if connector == "kasm":
+                kasm_port = get_port(service_name, "8444")
+            elif connector == "vnc":
+                vnc_port = get_port(service_name, "5901")
+                novnc_port = get_port(service_name, "6901")
 
     except SystemExit:
         return
 
     print_success(f"{target} is running.")
-    
-    if target == "kasm":
+
+    if connector == "kasm":
         print(f"\n{Colors.BOLD}Access KasmVNC:{Colors.ENDC}")
         print(f"  URL:      {Colors.UNDERLINE}https://localhost:{kasm_port}{Colors.ENDC}")
         print(f"  SSH:      ssh -p {ssh_port} {username}@localhost")
         print(f"  User:     {username}")
         print(f"  Pass:     {password}")
-    elif target == "vnc":
+    elif connector == "vnc":
         print(f"\n{Colors.BOLD}Access VNC:{Colors.ENDC}")
         print(f"  VNC Client: localhost:{vnc_port}")
         print(f"  noVNC Web:  {Colors.UNDERLINE}http://localhost:{novnc_port}/vnc.html{Colors.ENDC}")
         print(f"  SSH:        ssh -p {ssh_port} {username}@localhost")
         print(f"  Password:   {password}")
-
-    elif target == "core":
-        print(f"\n{Colors.BOLD}Access Core:{Colors.ENDC}")
+    elif connector == "ssh":
+        print(f"\n{Colors.BOLD}Access SSH:{Colors.ENDC}")
         print(f"  SSH:        ssh -p {ssh_port} {username}@localhost")
         print(f"  Pass:       {password}")
-        print(f"  Shell:      docker exec -it -u {username} sanity-gravity-core-1 /bin/bash")
+        print(f"  Shell:      docker exec -it -u {username} {project_name}-{service_name}-1 /bin/bash")
 
     # Sync Configuration
-    container_name = f"{project_name}-{target}-1"
+    container_name = f"{project_name}-{service_name}-1"
     sync_config(project_name, container_name, username)
 
-def generate_git_compose(username):
+def generate_git_compose(username, service_name=None):
     """Generates a docker-compose override to mount git config and ssh agent."""
     print_info("Checking for Git configuration...")
     
@@ -344,51 +471,50 @@ def generate_git_compose(username):
         return None
         
     # Generate YAML content manually to avoid dependencies
+    services = [service_name] if service_name else VALID_TAGS
     content = "services:\n"
-    for variant in VARIANTS:
-        content += f"  {variant}:\n"
-        
+    for svc in services:
+        content += f"  {svc}:\n"
+
         if volumes:
             content += "    volumes:\n"
             for vol in volumes:
                 content += f"{vol}\n"
-        
+
         if environment:
             content += "    environment:\n"
             for k, v in environment.items():
                 content += f"      - {k}={v}\n"
-            
+
     config_dir = "config"
     os.makedirs(config_dir, exist_ok=True)
     output_file = os.path.join(config_dir, "docker-compose.git.yml")
-    
+
     with open(output_file, "w") as f:
         f.write(content)
-        
-    with open(output_file, "w") as f:
-        f.write(content)
-        
+
     return output_file
 
-def generate_resource_compose(cpus, memory):
+def generate_resource_compose(cpus, memory, service_name=None):
     """Generates a docker-compose override to apply resource limits."""
     content = "services:\n"
-    
+
     limits_block = "    deploy:\n      resources:\n        limits:\n"
     has_limits = False
-    
+
     if cpus:
         limits_block += f"          cpus: '{cpus}'\n"
         has_limits = True
     if memory:
         limits_block += f"          memory: '{memory}'\n"
         has_limits = True
-        
+
     if not has_limits:
         return None
-        
-    for variant in VARIANTS:
-        content += f"  {variant}:\n"
+
+    services = [service_name] if service_name else VALID_TAGS
+    for svc in services:
+        content += f"  {svc}:\n"
         content += limits_block
 
     config_dir = "config"
@@ -495,8 +621,7 @@ def print_warning(msg):
 def get_project_env(project_name):
     """Retrieves environment variables from a running container of the project."""
     # Try to find any container belonging to this project
-    # We try typical service names: core, kasm, vnc
-    for service in VARIANTS:
+    for service in VALID_TAGS:
         container_name = f"{project_name}-{service}-1"
         
         # Check if container exists (silently)
@@ -571,7 +696,20 @@ def run_compose_cmd(args, action, check_existence=False):
     
     print_header(f"{action.capitalize()}ing Sandbox ({project_name})")
     
-    cmd = f"{env_str} docker compose -p {project_name} -f {COMPOSE_FILE} {action}"
+    # Find the compose file used by this project (check config dir first, then legacy)
+    config_dir = "config"
+    compose_files = []
+    if os.path.exists(config_dir):
+        for f in os.listdir(config_dir):
+            if f.startswith("docker-compose.") and f.endswith(".yml") and not f.endswith(".git.yml") and not f.endswith(".resources.yml"):
+                compose_files.append(os.path.join(config_dir, f))
+
+    if compose_files:
+        compose_flags = " ".join(f"-f {cf}" for cf in compose_files)
+    else:
+        compose_flags = f"-f {COMPOSE_FILE}"
+
+    cmd = f"{env_str} docker compose -p {project_name} {compose_flags} {action}"
     run_command(cmd)
     
     if action == "down":
@@ -608,7 +746,15 @@ def clean(args):
     # -v: Remove named volumes (clears user config/session)
     # --rmi local: Remove local images
     # --remove-orphans: Remove containers not defined in the compose file
-    cmd = f"docker compose -p {project_name} -f {COMPOSE_FILE} down -v --rmi local --remove-orphans"
+    # Find compose files for this project
+    config_dir = "config"
+    compose_files = []
+    if os.path.exists(config_dir):
+        for f in os.listdir(config_dir):
+            if f.startswith("docker-compose.") and f.endswith(".yml") and not f.endswith(".git.yml") and not f.endswith(".resources.yml"):
+                compose_files.append(os.path.join(config_dir, f))
+    compose_flags = " ".join(f"-f {cf}" for cf in compose_files) if compose_files else f"-f {COMPOSE_FILE}"
+    cmd = f"docker compose -p {project_name} {compose_flags} down -v --rmi local --remove-orphans"
     
     if not args.force:
         print(f"{Colors.WARNING}CAUTION: This will destroy ALL data in volumes for project '{project_name}'.{Colors.ENDC}")
@@ -648,7 +794,7 @@ def get_legacy_projects():
                 parts = line.split('|')
                 if len(parts) == 2:
                     project, service = parts
-                    if project and service in VARIANTS:
+                    if project and service in VALID_TAGS:
                         candidates.add(project)
         
         # 2. Get Managed projects
@@ -766,7 +912,7 @@ def upgrade(args):
             env_str = " ".join([f"{k}={v}" for k, v in env_vars.items()])
 
             for s in services:
-                if s in VARIANTS:
+                if s in VALID_TAGS:
                     print_info(f"Recreating {p} ({s})...")
                     
                     container_name = f"{p}-{s}-1"
@@ -842,7 +988,7 @@ def sync_config_cmd(args):
             # Find running variant container
             # We prioritize variants in order: core, kasm, vnc
             target_variant = None
-            for v in VARIANTS:
+            for v in VALID_TAGS:
                 container_name = f"{project}-{v}-1"
                 # Check if running
                 try:
@@ -887,7 +1033,7 @@ def shell_cmd(args):
     # Find active variant and container
     target_variant = None
     container_name = None
-    for v in VARIANTS:
+    for v in VALID_TAGS:
         cname = f"{project_name}-{v}-1"
         try:
              out = run_command(f"docker inspect -f '{{{{.State.Running}}}}' {cname}", capture=True, check=False)
@@ -945,7 +1091,7 @@ def open_cmd(args):
     # Find active variant
     target_variant = None
     container_name = None
-    for v in VARIANTS:
+    for v in VALID_TAGS:
         cname = f"{project_name}-{v}-1"
         try:
              out = run_command(f"docker inspect -f '{{{{.State.Running}}}}' {cname}", capture=True, check=False)
@@ -984,19 +1130,25 @@ def open_cmd(args):
             pass
         return None
 
-    if target_variant == "kasm":
-        port = resolve_port("kasm", "8444")
+    # Determine connector from the tag
+    try:
+        _, _, connector = parse_tag(target_variant)
+    except ValueError:
+        connector = None
+
+    if connector == "kasm":
+        port = resolve_port(target_variant, "8444")
         if port:
             url = f"https://localhost:{port}"
-            
-    elif target_variant == "vnc":
+
+    elif connector == "vnc":
         # Prefer noVNC
-        port = resolve_port("vnc", "6901")
+        port = resolve_port(target_variant, "6901")
         if port:
             url = f"http://localhost:{port}/vnc.html"
-            
-    elif target_variant == "core":
-        print_warning(f"Variant '{target_variant}' has no web interface.")
+
+    elif connector == "ssh":
+        print_warning(f"Variant '{target_variant}' has no web interface (SSH only).")
         return
 
     if url:
@@ -1040,7 +1192,7 @@ def snapshot_cmd(args):
     else:
         # Auto-detect
         found_variants = []
-        for v in VARIANTS:
+        for v in VALID_TAGS:
             cname = f"{project_name}-{v}-1"
             out = run_command(f"docker inspect {cname}", capture=True, check=False)
             if out and out.strip() != "[]":
@@ -1167,10 +1319,28 @@ def test_suite(args):
         sys.exit(exit_code)
 
 def list_variants(args):
-    """Lists available variants."""
-    print_header("Available Variants")
-    for v in VARIANTS:
-        print(f" - {Colors.BOLD}{v}{Colors.ENDC}")
+    """Lists available tags with dimension matrix."""
+    print_header("Dimension Matrix")
+
+    print(f"\n  {Colors.BOLD}Agents:{Colors.ENDC}")
+    for slug, name in AGENTS.items():
+        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {name}")
+
+    print(f"\n  {Colors.BOLD}Connectors:{Colors.ENDC}")
+    for slug, name in CONNECTORS.items():
+        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {name}")
+
+    print(f"\n  {Colors.BOLD}Desktops:{Colors.ENDC}")
+    for slug, name in DESKTOPS.items():
+        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {name}")
+
+    print(f"\n  {Colors.BOLD}Tag format:{Colors.ENDC} {{agent}}-{{desktop}}-{{connector}}")
+    print(f"  {Colors.BOLD}Default:{Colors.ENDC} {DEFAULT_TAG}")
+
+    print(f"\n  {Colors.BOLD}All valid tags:{Colors.ENDC}")
+    for tag in VALID_TAGS:
+        marker = f" {Colors.OKGREEN}(default){Colors.ENDC}" if tag == DEFAULT_TAG else ""
+        print(f"    {Colors.OKCYAN}{tag}{Colors.ENDC}{marker}")
 
 def proxy_setup_cmd(args):
     """Sets up the SSH Proxy."""
@@ -1259,7 +1429,7 @@ def ide_cmd(args):
     # Find running variant container
     target_variant = None
     container_name = None
-    for v in VARIANTS:
+    for v in VALID_TAGS:
         cname = f"{project_name}-{v}-1"
         try:
              out = run_command(f"docker inspect -f '{{{{.State.Running}}}}' {cname}", capture=True, check=False)
@@ -1313,48 +1483,39 @@ def main():
 
     # Build Command
     parser_build = subparsers.add_parser("build", help="Build sandbox images")
-    parser_build.add_argument("variant", nargs="*", help="Variant to build (default: all)", default=["all"])
+    parser_build.add_argument("variant", nargs="*", help="Tag to build, e.g. ag-xfce-kasm (default: all)", default=["all"])
     parser_build.add_argument("--no-cache", action="store_true", help="Do not use cache when building image")
     parser_build.set_defaults(func=build)
 
     # Install Command (Alias)
     parser_install = subparsers.add_parser("install", help="Install/Build sandbox environment")
-    parser_install.add_argument("variant", nargs="*", help="Variant to install (default: all)", default=["all"])
+    parser_install.add_argument("variant", nargs="*", help="Tag to install (default: all)", default=["all"])
     parser_install.set_defaults(func=install)
 
-    # Up Command (formerly Run)
+    # Shared up/run arguments
+    def add_up_args(p):
+        p.add_argument("--variant", "-v", required=True, help=f"Tag to run (e.g. {DEFAULT_TAG})")
+        p.add_argument("--ssh-port", "-p", default="2222", help="Host port for SSH (default: 2222)")
+        p.add_argument("--kasm-port", default="8444", help="Host port for KasmVNC (default: 8444)")
+        p.add_argument("--vnc-port", default="5901", help="Host port for VNC (default: 5901)")
+        p.add_argument("--novnc-port", default="6901", help="Host port for noVNC (default: 6901)")
+        p.add_argument("--password", default="antigravity", help="Password for SSH/VNC (default: antigravity)")
+        p.add_argument("--gpu", action="store_true", help="Enable Nvidia GPU support (requires docker-compose.gpu.yml)")
+        p.add_argument("--skip-check", action="store_true", help="Skip prerequisite checks")
+        p.add_argument("--workspace", "-w", default=None, help="Path to workspace directory (default: ./workspace)")
+        p.add_argument("--name", "-n", default="sanity-gravity", help="Project name for multi-instance support (default: sanity-gravity)")
+        p.add_argument("--cpus", default=None, help="CPU limit (e.g. 1.5)")
+        p.add_argument("--memory", default=None, help="Memory limit (e.g. 4G)")
+        p.add_argument("--image", default=None, help="Use custom base image (Snapshot)")
+        p.set_defaults(func=up)
+
+    # Up Command
     parser_up = subparsers.add_parser("up", help="Create and start sandbox (docker compose up)")
-    parser_up.add_argument("--variant", "-v", required=True, help="Variant to run", choices=VARIANTS)
-    parser_up.add_argument("--ssh-port", "-p", default="2222", help="Host port for SSH (default: 2222)")
-    parser_up.add_argument("--kasm-port", default="8444", help="Host port for KasmVNC (default: 8444)")
-    parser_up.add_argument("--vnc-port", default="5901", help="Host port for VNC (default: 5901)")
-    parser_up.add_argument("--novnc-port", default="6901", help="Host port for noVNC (default: 6901)")
-    parser_up.add_argument("--password", default="antigravity", help="Password for SSH/VNC (default: antigravity)")
-    parser_up.add_argument("--gpu", action="store_true", help="Enable Nvidia GPU support (requires docker-compose.gpu.yml)")
-    parser_up.add_argument("--skip-check", action="store_true", help="Skip prerequisite checks")
-    parser_up.add_argument("--workspace", "-w", default=None, help="Path to workspace directory (default: ./workspace)")
-    parser_up.add_argument("--name", "-n", default="sanity-gravity", help="Project name for multi-instance support (default: sanity-gravity)")
-    parser_up.add_argument("--cpus", default=None, help="CPU limit (e.g. 1.5)")
-    parser_up.add_argument("--memory", default=None, help="Memory limit (e.g. 4G)")
-    parser_up.add_argument("--image", default=None, help="Use custom base image (Snapshot)")
-    parser_up.set_defaults(func=up)
+    add_up_args(parser_up)
 
     # Run Command (Alias for Up)
     parser_run = subparsers.add_parser("run", help="Alias for 'up'")
-    parser_run.add_argument("--variant", "-v", required=True, help="Variant to run", choices=VARIANTS)
-    parser_run.add_argument("--ssh-port", "-p", default="2222", help="Host port for SSH (default: 2222)")
-    parser_run.add_argument("--kasm-port", default="8444", help="Host port for KasmVNC (default: 8444)")
-    parser_run.add_argument("--vnc-port", default="5901", help="Host port for VNC (default: 5901)")
-    parser_run.add_argument("--novnc-port", default="6901", help="Host port for noVNC (default: 6901)")
-    parser_run.add_argument("--password", default="antigravity", help="Password for SSH/VNC (default: antigravity)")
-    parser_run.add_argument("--gpu", action="store_true", help="Enable Nvidia GPU support (requires docker-compose.gpu.yml)")
-    parser_run.add_argument("--skip-check", action="store_true", help="Skip prerequisite checks")
-    parser_run.add_argument("--workspace", "-w", default=None, help="Path to workspace directory (default: ./workspace)")
-    parser_run.add_argument("--name", "-n", default="sanity-gravity", help="Project name for multi-instance support (default: sanity-gravity)")
-    parser_run.add_argument("--cpus", default=None, help="CPU limit (e.g. 1.5)")
-    parser_run.add_argument("--memory", default=None, help="Memory limit (e.g. 4G)")
-    parser_run.add_argument("--image", default=None, help="Use custom base image (Snapshot)")
-    parser_run.set_defaults(func=up)
+    add_up_args(parser_run)
 
     # Down Command (formerly Stop)
     parser_down = subparsers.add_parser("down", help="Stop and remove containers (docker compose down)")
@@ -1388,7 +1549,7 @@ def main():
     parser_status.set_defaults(func=status)
 
     # List Command
-    parser_list = subparsers.add_parser("list", help="List available variants")
+    parser_list = subparsers.add_parser("list", help="List available tags and dimension matrix")
     parser_list.set_defaults(func=list_variants)
 
     # Upgrade Command (Legacy warning added)
@@ -1416,7 +1577,7 @@ def main():
     # Snapshot Command
     parser_snapshot = subparsers.add_parser("snapshot", help="Create a perfect copy (snapshot) of a container")
     parser_snapshot.add_argument("--name", "-n", default="sanity-gravity", help="Project name")
-    parser_snapshot.add_argument("--variant", "-v", default=None, choices=VARIANTS, help="Variant to snapshot (optional if only one)")
+    parser_snapshot.add_argument("--variant", "-v", default=None, help="Tag to snapshot (optional if only one running)")
     parser_snapshot.add_argument("--tag", "-t", required=True, help="Tag for the new image (e.g. my-backup:v1)")
     parser_snapshot.set_defaults(func=snapshot_cmd)
     

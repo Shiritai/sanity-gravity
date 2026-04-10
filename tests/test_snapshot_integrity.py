@@ -6,7 +6,7 @@ import shutil
 
 # Configuration
 PROJECT_NAME = "sanity-test-integrity"
-VARIANT = "kasm"
+VARIANT = "ag-xfce-kasm"
 IMAGE_TAG = "sanity-test:integrity"
 CLI = "./sanity-cli"
 
