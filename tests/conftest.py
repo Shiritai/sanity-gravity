@@ -10,6 +10,10 @@ DEFAULT_SSH_IMAGE = "sanity-gravity:ag-xfce-ssh"
 DEFAULT_KASM_IMAGE = "sanity-gravity:ag-xfce-kasm"
 DEFAULT_VNC_IMAGE = "sanity-gravity:ag-xfce-vnc"
 
+# Headless CLI agent images
+GC_SSH_IMAGE = "sanity-gravity:gc-none-ssh"
+CC_SSH_IMAGE = "sanity-gravity:cc-none-ssh"
+
 @pytest.fixture
 def free_port():
     """Fixture to find a free port."""

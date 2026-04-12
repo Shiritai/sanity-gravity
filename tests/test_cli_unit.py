@@ -23,6 +23,139 @@ def load_sanity_cli():
 
 sanity_cli = load_sanity_cli()
 
+class TestDimensionConstraints:
+    """Tests for dimension-based tag constraint filtering."""
+
+    def test_valid_tags_count(self):
+        """11 valid combinations: ag(3) + gc(4) + cc(4)."""
+        assert len(sanity_cli.VALID_TAGS) == 11
+
+    def test_bs_agent_removed(self):
+        """bs (base) agent should not exist."""
+        assert "bs" not in sanity_cli.AGENTS
+
+    def test_ag_requires_gui_desktop(self):
+        """ag (antigravity) must have a GUI desktop."""
+        with pytest.raises(ValueError, match="requires a GUI desktop"):
+            sanity_cli.parse_tag("ag-none-ssh")
+
+    def test_gui_connector_requires_gui_desktop(self):
+        """kasm/vnc connectors must have a GUI desktop."""
+        for connector in ["kasm", "vnc"]:
+            with pytest.raises(ValueError, match="requires a GUI desktop"):
+                sanity_cli.parse_tag(f"gc-none-{connector}")
+
+    def test_headless_cli_agents_valid(self):
+        """gc and cc can run headless with SSH."""
+        for agent in ["gc", "cc"]:
+            a, d, c = sanity_cli.parse_tag(f"{agent}-none-ssh")
+            assert a == agent
+            assert d == "none"
+            assert c == "ssh"
+
+    def test_all_ag_tags_have_xfce(self):
+        """Every ag tag must use xfce desktop."""
+        ag_tags = [t for t in sanity_cli.VALID_TAGS if t.startswith("ag-")]
+        assert len(ag_tags) == 3
+        for tag in ag_tags:
+            assert "-xfce-" in tag
+
+    def test_no_headless_gui_connector_in_valid_tags(self):
+        """No *-none-kasm/vnc should appear in VALID_TAGS."""
+        for tag in sanity_cli.VALID_TAGS:
+            _, desktop, connector = tag.split("-")
+            if desktop == "none":
+                assert connector == "ssh", f"Invalid combo in VALID_TAGS: {tag}"
+
+    def test_registry_attributes(self):
+        """Registries should have correct attribute structure."""
+        for slug, info in sanity_cli.AGENTS.items():
+            assert "name" in info
+            assert "requires_gui" in info
+        for slug, info in sanity_cli.CONNECTORS.items():
+            assert "name" in info
+            assert "requires_gui" in info
+        for slug, info in sanity_cli.DESKTOPS.items():
+            assert "name" in info
+            assert "has_gui" in info
+
+    def test_unknown_agent_rejected(self):
+        with pytest.raises(ValueError, match="Unknown agent"):
+            sanity_cli.parse_tag("bs-xfce-ssh")
+
+    def test_invalid_format_rejected(self):
+        with pytest.raises(ValueError, match="Invalid tag format"):
+            sanity_cli.parse_tag("ag-xfce")
+        with pytest.raises(ValueError, match="Invalid tag format"):
+            sanity_cli.parse_tag("ag-xfce-kasm-extra")
+
+
+class TestLayeredBuildSystem:
+    """Tests for FROM-chained layered build system."""
+
+    def test_resolve_build_chain_length(self):
+        """Build chain always has 4 steps: base → desktop → agent → connector."""
+        chain = sanity_cli.resolve_build_chain("ag-xfce-kasm")
+        assert len(chain) == 4
+
+    def test_resolve_build_chain_names(self):
+        chain = sanity_cli.resolve_build_chain("gc-none-ssh")
+        names = [step[1] for step in chain]
+        assert names == ["_base", "_base-none", "_gc-none", "gc-none-ssh"]
+
+    def test_resolve_build_chain_parents(self):
+        chain = sanity_cli.resolve_build_chain("ag-xfce-vnc")
+        parents = [step[2] for step in chain]
+        assert parents == [None, "_base", "_base-xfce", "_ag-xfce"]
+
+    def test_resolve_parent(self):
+        assert sanity_cli.resolve_parent("ag-xfce-kasm") == "_ag-xfce"
+        assert sanity_cli.resolve_parent("gc-none-ssh") == "_gc-none"
+        assert sanity_cli.resolve_parent("cc-xfce-vnc") == "_cc-xfce"
+
+    def test_generate_intermediates(self):
+        intermediates = sanity_cli.generate_intermediates()
+        assert "_base" in intermediates
+        assert "_base-xfce" in intermediates
+        assert "_base-none" in intermediates
+        assert "_ag-xfce" in intermediates
+        assert "_gc-none" in intermediates
+        assert "_cc-xfce" in intermediates
+        # No final tags in intermediates
+        for name in intermediates:
+            assert name.startswith("_"), f"Non-intermediate in list: {name}"
+
+    def test_intermediates_count(self):
+        """8 intermediates: 1 base + 2 desktops + 5 agent-desktop pairs."""
+        assert len(sanity_cli.generate_intermediates()) == 8
+
+    def test_shared_intermediates(self):
+        """ag-xfce-kasm and ag-xfce-vnc share the same parent."""
+        assert sanity_cli.resolve_parent("ag-xfce-kasm") == sanity_cli.resolve_parent("ag-xfce-vnc")
+
+    def test_build_chain_dockerfiles_exist(self):
+        """All Dockerfiles referenced in build chains must exist."""
+        for tag in sanity_cli.VALID_TAGS:
+            chain = sanity_cli.resolve_build_chain(tag)
+            for dockerfile, _, _ in chain:
+                assert os.path.exists(dockerfile), f"Missing: {dockerfile} (for {tag})"
+
+    def test_layer_dockerfiles_have_from(self):
+        """All non-base layer Dockerfiles must have ARG BASE_IMAGE and FROM."""
+        import glob
+        layer_dir = os.path.join(os.path.dirname(__file__), "..", "sandbox", "layers")
+        for df in glob.glob(os.path.join(layer_dir, "**", "Dockerfile"), recursive=True):
+            content = open(df).read()
+            assert "ARG BASE_IMAGE" in content, f"Missing ARG BASE_IMAGE in {df}"
+            assert "FROM ${BASE_IMAGE}" in content, f"Missing FROM in {df}"
+
+    def test_rd_connector_removed(self):
+        """rd connector should not exist."""
+        assert "rd" not in sanity_cli.CONNECTORS
+        rd_dir = os.path.join(os.path.dirname(__file__), "..", "sandbox", "layers", "connectors", "rd")
+        assert not os.path.exists(rd_dir)
+
+
 class TestStatusDiscovery:
     """Tests for get_active_projects function."""
 

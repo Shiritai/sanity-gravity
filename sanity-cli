@@ -12,16 +12,27 @@ import webbrowser
 COMPOSE_FILE = "docker-compose.yml"
 SANDBOX_DIR = "sandbox"
 
-# Dimension Registry: {slug: full_name}
-AGENTS = {"ag": "antigravity", "gc": "gemini-cli", "cc": "claude-cli", "bs": "base"}
-CONNECTORS = {"ssh": "ssh", "kasm": "kasm", "vnc": "vnc", "rd": "rustdesk"}
-DESKTOPS = {"xfce": "xfce", "none": "none"}
+# Dimension Registry: {slug: {name, requires_gui}}
+AGENTS = {
+    "ag": {"name": "antigravity", "requires_gui": True},
+    "gc": {"name": "gemini-cli",  "requires_gui": False},
+    "cc": {"name": "claude-cli",  "requires_gui": False},
+}
+CONNECTORS = {
+    "ssh":  {"name": "ssh",      "requires_gui": False},
+    "kasm": {"name": "kasm",     "requires_gui": True},
+    "vnc":  {"name": "vnc",      "requires_gui": True},
+}
+DESKTOPS = {
+    "xfce": {"name": "xfce", "has_gui": True},
+    "none": {"name": "none", "has_gui": False},
+}
 
 DEFAULT_TAG = "ag-xfce-kasm"
 
 def parse_tag(tag):
     """Parses a dimension-based tag (e.g. 'ag-xfce-kasm') into (agent, desktop, connector).
-    Raises ValueError if the tag is invalid."""
+    Raises ValueError if the tag is invalid or violates constraints."""
     parts = tag.split("-")
     if len(parts) != 3:
         raise ValueError(f"Invalid tag format '{tag}'. Expected {{agent}}-{{desktop}}-{{connector}} (e.g. ag-xfce-kasm)")
@@ -32,14 +43,26 @@ def parse_tag(tag):
         raise ValueError(f"Unknown desktop '{desktop}'. Valid: {', '.join(DESKTOPS.keys())}")
     if connector not in CONNECTORS:
         raise ValueError(f"Unknown connector '{connector}'. Valid: {', '.join(CONNECTORS.keys())}")
+    # Constraint: GUI connector requires GUI desktop
+    if CONNECTORS[connector]["requires_gui"] and not DESKTOPS[desktop]["has_gui"]:
+        raise ValueError(f"Connector '{connector}' requires a GUI desktop, but '{desktop}' is headless")
+    # Constraint: GUI agent requires GUI desktop
+    if AGENTS[agent]["requires_gui"] and not DESKTOPS[desktop]["has_gui"]:
+        raise ValueError(f"Agent '{agent}' requires a GUI desktop, but '{desktop}' is headless")
     return agent, desktop, connector
 
 def generate_valid_tags():
-    """Returns a list of all valid tag combinations."""
+    """Returns a list of all valid tag combinations, filtered by constraints."""
     tags = []
-    for a in AGENTS:
-        for d in DESKTOPS:
-            for c in CONNECTORS:
+    for a, a_info in AGENTS.items():
+        for d, d_info in DESKTOPS.items():
+            for c, c_info in CONNECTORS.items():
+                # Rule 1: GUI connector needs GUI desktop
+                if c_info["requires_gui"] and not d_info["has_gui"]:
+                    continue
+                # Rule 2: GUI agent needs GUI desktop
+                if a_info["requires_gui"] and not d_info["has_gui"]:
+                    continue
                 tags.append(f"{a}-{d}-{c}")
     return tags
 
@@ -128,49 +151,205 @@ def check_prereqs(args):
         print_error("Docker Daemon is NOT running. Please start Docker.")
         sys.exit(1)
 
-def build_modular(tag, no_cache=False):
-    """Assembles a Dockerfile from layers and builds the image for the given tag."""
-    import tempfile
+# ---------------------------------------------------------------------------
+# Layered Build System
+# ---------------------------------------------------------------------------
+# Build chain: base → desktop → agent → connector
+# Each layer is a standalone Dockerfile with ARG BASE_IMAGE / FROM ${BASE_IMAGE}.
+# Intermediate images are tagged with _ prefix (e.g. sanity-gravity:_base).
 
+IMAGE_PREFIX = "sanity-gravity"
+
+def _image_tag(name):
+    return f"{IMAGE_PREFIX}:{name}"
+
+def _image_exists(tag):
+    """Check if a Docker image exists locally."""
+    r = subprocess.run(f"docker image inspect {tag}", shell=True,
+                       capture_output=True, text=True)
+    return r.returncode == 0
+
+def _get_unique_agent_desktop_pairs():
+    """Returns unique (agent, desktop) pairs from VALID_TAGS."""
+    pairs = set()
+    for tag in VALID_TAGS:
+        a, d, _ = tag.split("-")
+        pairs.add((a, d))
+    return sorted(pairs)
+
+def resolve_build_chain(tag):
+    """Returns the build chain for a final tag as list of (dockerfile, image_name, parent_image_name|None).
+    The chain includes all intermediate layers needed."""
     agent, desktop, connector = parse_tag(tag)
-
-    # Layer concatenation order: base → desktop → agent → connector
-    layer_files = [
-        os.path.join(SANDBOX_DIR, "Dockerfile.base"),
-        os.path.join(SANDBOX_DIR, "layers", "desktops", desktop, "Dockerfile"),
-        os.path.join(SANDBOX_DIR, "layers", "agents", agent, "Dockerfile"),
-        os.path.join(SANDBOX_DIR, "layers", "connectors", connector, "Dockerfile"),
+    return [
+        (os.path.join(SANDBOX_DIR, "Dockerfile.base"),
+         "_base", None),
+        (os.path.join(SANDBOX_DIR, "layers", "desktops", desktop, "Dockerfile"),
+         f"_base-{desktop}", "_base"),
+        (os.path.join(SANDBOX_DIR, "layers", "agents", agent, "Dockerfile"),
+         f"_{agent}-{desktop}", f"_base-{desktop}"),
+        (os.path.join(SANDBOX_DIR, "layers", "connectors", connector, "Dockerfile"),
+         tag, f"_{agent}-{desktop}"),
     ]
 
-    # Verify all layer files exist
-    for lf in layer_files:
-        if not os.path.exists(lf):
-            print_error(f"Layer file not found: {lf}")
-            sys.exit(1)
+def resolve_parent(tag):
+    """Returns the immediate parent intermediate image name for a final tag."""
+    agent, desktop, _ = parse_tag(tag)
+    return f"_{agent}-{desktop}"
 
-    # Assemble Dockerfile
-    assembled = ""
-    for lf in layer_files:
-        with open(lf, "r") as f:
-            assembled += f"# === Layer: {os.path.relpath(lf, SANDBOX_DIR)} ===\n"
-            assembled += f.read()
-            assembled += "\n\n"
+def generate_intermediates():
+    """Returns ordered list of all intermediate image names to build."""
+    intermediates = ["_base"]
+    desktops_needed = set()
+    for a, d in _get_unique_agent_desktop_pairs():
+        desktops_needed.add(d)
+    for d in sorted(desktops_needed):
+        intermediates.append(f"_base-{d}")
+    for a, d in _get_unique_agent_desktop_pairs():
+        intermediates.append(f"_{a}-{d}")
+    return intermediates
 
-    # Write to temp file inside sandbox dir (so COPY context works)
-    tmp_dockerfile = os.path.join(SANDBOX_DIR, f".Dockerfile.{tag}")
-    with open(tmp_dockerfile, "w") as f:
-        f.write(assembled)
+def _resolve_intermediate_chain(target):
+    """Returns the build chain for an intermediate image."""
+    # _base
+    if target == "_base":
+        return [(os.path.join(SANDBOX_DIR, "Dockerfile.base"), "_base", None)]
+    # _base-{desktop}
+    if target.startswith("_base-"):
+        desktop = target[len("_base-"):]
+        return [
+            (os.path.join(SANDBOX_DIR, "Dockerfile.base"), "_base", None),
+            (os.path.join(SANDBOX_DIR, "layers", "desktops", desktop, "Dockerfile"),
+             target, "_base"),
+        ]
+    # _{agent}-{desktop}
+    if target.startswith("_"):
+        parts = target[1:].split("-")
+        if len(parts) == 2:
+            agent, desktop = parts
+            return [
+                (os.path.join(SANDBOX_DIR, "Dockerfile.base"), "_base", None),
+                (os.path.join(SANDBOX_DIR, "layers", "desktops", desktop, "Dockerfile"),
+                 f"_base-{desktop}", "_base"),
+                (os.path.join(SANDBOX_DIR, "layers", "agents", agent, "Dockerfile"),
+                 target, f"_base-{desktop}"),
+            ]
+    raise ValueError(f"Unknown intermediate target: {target}")
 
-    try:
-        no_cache_flag = " --no-cache" if no_cache else ""
-        image_name = f"sanity-gravity:{tag}"
-        print_info(f"Assembling Dockerfile for {tag}...")
-        print_info(f"Layers: {' → '.join(os.path.basename(os.path.dirname(lf)) for lf in layer_files)}")
-        run_command(f"docker build{no_cache_flag} -f {tmp_dockerfile} -t {image_name} {SANDBOX_DIR}")
-        print_success(f"Built {image_name}")
-    finally:
-        if os.path.exists(tmp_dockerfile):
-            os.remove(tmp_dockerfile)
+def _build_single(dockerfile, image_name, parent_name, no_cache=False, base_image_override=None):
+    """Build a single layer image."""
+    tag = _image_tag(image_name)
+    if not os.path.exists(dockerfile):
+        print_error(f"Layer file not found: {dockerfile}")
+        sys.exit(1)
+
+    build_args = ""
+    if parent_name is not None:
+        if base_image_override:
+            build_args = f"--build-arg BASE_IMAGE={base_image_override}"
+        else:
+            build_args = f"--build-arg BASE_IMAGE={_image_tag(parent_name)}"
+
+    no_cache_flag = " --no-cache" if no_cache else ""
+    run_command(f"docker build{no_cache_flag} {build_args} -f {dockerfile} -t {tag} {SANDBOX_DIR}")
+
+def build_layered(tag, no_cache=False, base_image=None):
+    """Build a final image using FROM-chained layers, skipping cached intermediates."""
+    chain = resolve_build_chain(tag)
+    total = len(chain)
+    for i, (dockerfile, image_name, parent_name) in enumerate(chain, 1):
+        full_tag = _image_tag(image_name)
+        # Skip cached intermediates (not the final image)
+        if image_name != tag and not no_cache and _image_exists(full_tag):
+            print_info(f"  [{i}/{total}] Cache hit: {full_tag}")
+            continue
+        layer_label = os.path.relpath(dockerfile, SANDBOX_DIR)
+        print_info(f"  [{i}/{total}] Building {full_tag} ({layer_label})")
+        # For the final layer, allow base_image override
+        override = base_image if image_name == tag else None
+        _build_single(dockerfile, image_name, parent_name, no_cache=no_cache,
+                       base_image_override=override)
+    print_success(f"Built {_image_tag(tag)}")
+
+def build_intermediates(no_cache=False):
+    """Build all intermediate images in dependency order."""
+    intermediates = generate_intermediates()
+    total = len(intermediates)
+    for i, name in enumerate(intermediates, 1):
+        full_tag = _image_tag(name)
+        if not no_cache and _image_exists(full_tag):
+            print_info(f"  [{i}/{total}] Cache hit: {full_tag}")
+            continue
+        chain = _resolve_intermediate_chain(name)
+        # Only build the last step (parents already built or cached)
+        dockerfile, image_name, parent_name = chain[-1]
+        layer_label = os.path.relpath(dockerfile, SANDBOX_DIR)
+        print_info(f"  [{i}/{total}] Building {full_tag} ({layer_label})")
+        _build_single(dockerfile, image_name, parent_name, no_cache=no_cache)
+    print_success(f"Built {total} intermediate images")
+
+def build_layer_target(layer_type, target=None, no_cache=False):
+    """Build up to a specific layer type. Used by --layer flag.
+    layer_type: 'base', 'desktop', 'agent', 'connector' (connector = all finals)
+    target: optional specific target within that layer (e.g. 'xfce', 'ag-xfce')
+    """
+    if layer_type == "base":
+        chain = _resolve_intermediate_chain("_base")
+        dockerfile, image_name, parent_name = chain[-1]
+        print_info(f"Building {_image_tag(image_name)}")
+        _build_single(dockerfile, image_name, parent_name, no_cache=no_cache)
+        print_success(f"Built {_image_tag(image_name)}")
+        return
+
+    if layer_type == "desktop":
+        # Build base first
+        build_layer_target("base", no_cache=no_cache)
+        desktops = [target] if target else list(DESKTOPS.keys())
+        for d in desktops:
+            name = f"_base-{d}"
+            if not no_cache and _image_exists(_image_tag(name)):
+                print_info(f"  Cache hit: {_image_tag(name)}")
+                continue
+            chain = _resolve_intermediate_chain(name)
+            dockerfile, image_name, parent_name = chain[-1]
+            print_info(f"Building {_image_tag(image_name)}")
+            _build_single(dockerfile, image_name, parent_name, no_cache=no_cache)
+        print_success("Desktop layer(s) built")
+        return
+
+    if layer_type == "agent":
+        # Build base + desktops first
+        build_layer_target("desktop", no_cache=no_cache)
+        if target:
+            # target format: "ag-xfce" or "gc-none"
+            pairs = [tuple(target.split("-"))]
+        else:
+            pairs = _get_unique_agent_desktop_pairs()
+        for a, d in pairs:
+            name = f"_{a}-{d}"
+            if not no_cache and _image_exists(_image_tag(name)):
+                print_info(f"  Cache hit: {_image_tag(name)}")
+                continue
+            chain = _resolve_intermediate_chain(name)
+            dockerfile, image_name, parent_name = chain[-1]
+            print_info(f"Building {_image_tag(image_name)}")
+            _build_single(dockerfile, image_name, parent_name, no_cache=no_cache)
+        print_success("Agent layer(s) built")
+        return
+
+    if layer_type == "connector":
+        # This is equivalent to build all
+        build_intermediates(no_cache=no_cache)
+        for tag in VALID_TAGS:
+            chain = resolve_build_chain(tag)
+            dockerfile, image_name, parent_name = chain[-1]
+            print_info(f"Building {_image_tag(tag)} (connector)")
+            _build_single(dockerfile, image_name, parent_name, no_cache=no_cache)
+        print_success("All images built")
+        return
+
+    print_error(f"Unknown layer type: {layer_type}. Valid: base, desktop, agent, connector")
+    sys.exit(1)
 
 def generate_compose_for_tag(tag):
     """Generates a temporary docker-compose YAML for a modular tag."""
@@ -232,22 +411,50 @@ def generate_compose_for_tag(tag):
     return output_file, service_name
 
 def build(args):
-    """Builds the specified tag(s)."""
-    targets = args.variant if args.variant else [DEFAULT_TAG]
-    if "all" in targets:
-        targets = VALID_TAGS
-
-    print_header(f"Building: {', '.join(targets)}")
+    """Builds the specified tag(s) using FROM-chained layered system."""
+    import json as _json
 
     no_cache = getattr(args, "no_cache", False)
+
+    # --list-intermediates: output intermediate image names and exit
+    if getattr(args, "list_intermediates", False):
+        names = generate_intermediates()
+        if getattr(args, "json_output", False):
+            print(_json.dumps(names))
+        else:
+            for n in names:
+                print(n)
+        return
+
+    # --layer: build up to a specific layer
+    layer = getattr(args, "layer", None)
+    if layer:
+        layer_target = getattr(args, "layer_target", None)
+        print_header(f"Building layer: {layer}" + (f" ({layer_target})" if layer_target else ""))
+        build_layer_target(layer, target=layer_target, no_cache=no_cache)
+        return
+
+    # Normal tag build
+    targets = args.variant if args.variant else [DEFAULT_TAG]
+    if "all" in targets:
+        print_header(f"Building all {len(VALID_TAGS)} images")
+        print_info("Phase 1: Building intermediate layers...")
+        build_intermediates(no_cache=no_cache)
+        print_info("Phase 2: Building final images...")
+        for tag in VALID_TAGS:
+            build_layered(tag, no_cache=no_cache)
+        print_success("All builds complete!")
+        return
+
+    print_header(f"Building: {', '.join(targets)}")
     for target in targets:
         try:
             parse_tag(target)
         except ValueError as e:
             print_error(str(e))
             sys.exit(1)
-        print_info(f"Building {target}...")
-        build_modular(target, no_cache=no_cache)
+        base_image = getattr(args, "base_image", None)
+        build_layered(target, no_cache=no_cache, base_image=base_image)
 
     print_success("Build complete!")
 
@@ -1320,19 +1527,27 @@ def test_suite(args):
 
 def list_variants(args):
     """Lists available tags with dimension matrix."""
+    import json as _json
+    if getattr(args, "json_output", False):
+        print(_json.dumps(VALID_TAGS))
+        return
+
     print_header("Dimension Matrix")
 
     print(f"\n  {Colors.BOLD}Agents:{Colors.ENDC}")
-    for slug, name in AGENTS.items():
-        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {name}")
+    for slug, info in AGENTS.items():
+        gui_tag = f" {Colors.WARNING}(requires GUI){Colors.ENDC}" if info["requires_gui"] else ""
+        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {info['name']}{gui_tag}")
 
     print(f"\n  {Colors.BOLD}Connectors:{Colors.ENDC}")
-    for slug, name in CONNECTORS.items():
-        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {name}")
+    for slug, info in CONNECTORS.items():
+        gui_tag = f" {Colors.WARNING}(requires GUI){Colors.ENDC}" if info["requires_gui"] else ""
+        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {info['name']}{gui_tag}")
 
     print(f"\n  {Colors.BOLD}Desktops:{Colors.ENDC}")
-    for slug, name in DESKTOPS.items():
-        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {name}")
+    for slug, info in DESKTOPS.items():
+        gui_tag = f" {Colors.OKGREEN}(GUI){Colors.ENDC}" if info["has_gui"] else f" {Colors.WARNING}(headless){Colors.ENDC}"
+        print(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {info['name']}{gui_tag}")
 
     print(f"\n  {Colors.BOLD}Tag format:{Colors.ENDC} {{agent}}-{{desktop}}-{{connector}}")
     print(f"  {Colors.BOLD}Default:{Colors.ENDC} {DEFAULT_TAG}")
@@ -1485,6 +1700,14 @@ def main():
     parser_build = subparsers.add_parser("build", help="Build sandbox images")
     parser_build.add_argument("variant", nargs="*", help="Tag to build, e.g. ag-xfce-kasm (default: all)", default=["all"])
     parser_build.add_argument("--no-cache", action="store_true", help="Do not use cache when building image")
+    parser_build.add_argument("--layer", choices=["base", "desktop", "agent", "connector"],
+                              help="Build only up to a specific layer (CI use)")
+    parser_build.add_argument("--layer-target", help="Specific target within --layer (e.g. xfce, ag-xfce)")
+    parser_build.add_argument("--base-image", help="Override parent image for final layer (CI use)")
+    parser_build.add_argument("--list-intermediates", action="store_true",
+                              help="List intermediate image names and exit")
+    parser_build.add_argument("--json", dest="json_output", action="store_true",
+                              help="Output in JSON format (for --list-intermediates)")
     parser_build.set_defaults(func=build)
 
     # Install Command (Alias)
@@ -1550,7 +1773,16 @@ def main():
 
     # List Command
     parser_list = subparsers.add_parser("list", help="List available tags and dimension matrix")
+    parser_list.add_argument("--json", dest="json_output", action="store_true",
+                             help="Output valid tags as JSON array")
     parser_list.set_defaults(func=list_variants)
+
+    # Resolve-parent Command (CI helper)
+    def resolve_parent_cmd(args):
+        print(resolve_parent(args.tag))
+    parser_rp = subparsers.add_parser("resolve-parent", help="Print parent intermediate image name for a tag (CI use)")
+    parser_rp.add_argument("tag", help="Final tag (e.g. ag-xfce-kasm)")
+    parser_rp.set_defaults(func=resolve_parent_cmd)
 
     # Upgrade Command (Legacy warning added)
     parser_upgrade = subparsers.add_parser("upgrade", help="[Legacy] Upgrade legacy containers to managed status (Host Side Only)")
