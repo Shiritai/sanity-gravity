@@ -12,9 +12,14 @@ on:
       tag:
         required: true
         type: string
+      tags:
+        required: true
+        type: string
+        description: "JSON array of final tags to pull for testing"
 
 jobs:
   test:
+    name: Integration Tests (${{ inputs.arch }})
     runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     permissions:
       contents: read
@@ -34,12 +39,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull Transient Images
+      - name: Pull all final images
         run: |
-          # Pull and tag all dimension-based images
-          for tag in ag-xfce-ssh ag-xfce-kasm ag-xfce-vnc; do
-            docker pull ghcr.io/${{ inputs.repo_lc }}-${tag}:${{ inputs.tag }}-${{ inputs.arch }}
-            docker tag ghcr.io/${{ inputs.repo_lc }}-${tag}:${{ inputs.tag }}-${{ inputs.arch }} sanity-gravity:${tag}
+          REPO_LC="${{ inputs.repo_lc }}"
+          TAG_VAL="${{ inputs.tag }}"
+          ARCH_VAL="${{ inputs.arch }}"
+
+          for image_tag in $(echo '${{ inputs.tags }}' | jq -r '.[]'); do
+            echo "Pulling ${image_tag}..."
+            docker pull ghcr.io/${REPO_LC}-${image_tag}:${TAG_VAL}-${ARCH_VAL}
+            docker tag ghcr.io/${REPO_LC}-${image_tag}:${TAG_VAL}-${ARCH_VAL} sanity-gravity:${image_tag}
           done
 
       - name: Set up Python

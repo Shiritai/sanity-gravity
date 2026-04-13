@@ -1,0 +1,45 @@
+name: Reusable Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        required: true
+        type: string
+      repo_lc:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+      tags:
+        required: true
+        type: string
+        description: "JSON array of final tags to scan"
+
+jobs:
+  scan:
+    name: Trivy ${{ matrix.image_tag }} (${{ inputs.arch }})
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        image_tag: ${{ fromJson(inputs.tags) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Security Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ inputs.repo_lc }}-${{ matrix.image_tag }}:${{ inputs.tag }}-${{ inputs.arch }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'

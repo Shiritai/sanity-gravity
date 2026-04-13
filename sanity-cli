@@ -244,17 +244,29 @@ def _build_single(dockerfile, image_name, parent_name, no_cache=False, base_imag
         sys.exit(1)
 
     build_args = ""
-    if parent_name is not None:
-        if base_image_override:
-            build_args = f"--build-arg BASE_IMAGE={base_image_override}"
-        else:
-            build_args = f"--build-arg BASE_IMAGE={_image_tag(parent_name)}"
+    if base_image_override:
+        build_args = f"--build-arg BASE_IMAGE={base_image_override}"
+    elif parent_name is not None:
+        build_args = f"--build-arg BASE_IMAGE={_image_tag(parent_name)}"
 
     no_cache_flag = " --no-cache" if no_cache else ""
     run_command(f"docker build{no_cache_flag} {build_args} -f {dockerfile} -t {tag} {SANDBOX_DIR}")
 
 def build_layered(tag, no_cache=False, base_image=None):
-    """Build a final image using FROM-chained layers, skipping cached intermediates."""
+    """Build a final image using FROM-chained layers, skipping cached intermediates.
+    If base_image is provided, skip all intermediates and only build the final
+    connector layer FROM the given base (CI mode: parent intermediate already pulled).
+    """
+    if base_image:
+        # CI shortcut: only build the connector layer on top of the provided parent
+        agent, desktop, connector = parse_tag(tag)
+        dockerfile = os.path.join(SANDBOX_DIR, "layers", "connectors", connector, "Dockerfile")
+        print_info(f"  Building {_image_tag(tag)} (connector only, from {base_image})")
+        _build_single(dockerfile, tag, None, no_cache=no_cache,
+                       base_image_override=base_image)
+        print_success(f"Built {_image_tag(tag)}")
+        return
+
     chain = resolve_build_chain(tag)
     total = len(chain)
     for i, (dockerfile, image_name, parent_name) in enumerate(chain, 1):
@@ -265,10 +277,7 @@ def build_layered(tag, no_cache=False, base_image=None):
             continue
         layer_label = os.path.relpath(dockerfile, SANDBOX_DIR)
         print_info(f"  [{i}/{total}] Building {full_tag} ({layer_label})")
-        # For the final layer, allow base_image override
-        override = base_image if image_name == tag else None
-        _build_single(dockerfile, image_name, parent_name, no_cache=no_cache,
-                       base_image_override=override)
+        _build_single(dockerfile, image_name, parent_name, no_cache=no_cache)
     print_success(f"Built {_image_tag(tag)}")
 
 def build_intermediates(no_cache=False):
@@ -453,8 +462,7 @@ def build(args):
         except ValueError as e:
             print_error(str(e))
             sys.exit(1)
-        base_image = getattr(args, "base_image", None)
-        build_layered(target, no_cache=no_cache, base_image=base_image)
+        build_layered(target, no_cache=no_cache)
 
     print_success("Build complete!")
 
@@ -1703,7 +1711,6 @@ def main():
     parser_build.add_argument("--layer", choices=["base", "desktop", "agent", "connector"],
                               help="Build only up to a specific layer (CI use)")
     parser_build.add_argument("--layer-target", help="Specific target within --layer (e.g. xfce, ag-xfce)")
-    parser_build.add_argument("--base-image", help="Override parent image for final layer (CI use)")
     parser_build.add_argument("--list-intermediates", action="store_true",
                               help="List intermediate image names and exit")
     parser_build.add_argument("--json", dest="json_output", action="store_true",
@@ -1776,13 +1783,6 @@ def main():
     parser_list.add_argument("--json", dest="json_output", action="store_true",
                              help="Output valid tags as JSON array")
     parser_list.set_defaults(func=list_variants)
-
-    # Resolve-parent Command (CI helper)
-    def resolve_parent_cmd(args):
-        print(resolve_parent(args.tag))
-    parser_rp = subparsers.add_parser("resolve-parent", help="Print parent intermediate image name for a tag (CI use)")
-    parser_rp.add_argument("tag", help="Final tag (e.g. ag-xfce-kasm)")
-    parser_rp.set_defaults(func=resolve_parent_cmd)
 
     # Upgrade Command (Legacy warning added)
     parser_upgrade = subparsers.add_parser("upgrade", help="[Legacy] Upgrade legacy containers to managed status (Host Side Only)")

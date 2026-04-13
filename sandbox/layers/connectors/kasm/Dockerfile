@@ -1,3 +1,6 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
 # Install KasmVNC
 # Using a fixed version for stability with SHA256 integrity verification
 ENV KASM_VERSION=1.4.0

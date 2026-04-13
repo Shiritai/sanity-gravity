@@ -1,18 +1,9 @@
-name: Sanity Gravity CI/CD
+name: Release Pipeline
 
 on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
-    paths-ignore:
-      - 'README.md'
-      - 'README_*.md'
-      - 'CONTRIBUTING.md'
-      - 'LICENSE'
-      - 'SECURITY.md'
-      - 'assets/**'
-  pull_request:
-    branches: [ main, feat/*, fix/* ]
     paths-ignore:
       - 'README.md'
       - 'README_*.md'
@@ -28,44 +19,43 @@ permissions:
   packages: write
 
 jobs:
-  # 0. Global Setup
   setup:
     runs-on: ubuntu-latest
     outputs:
       short_sha: ${{ steps.vars.outputs.short_sha }}
-      tags: ${{ steps.vars.outputs.tags }}
+      tags_csv: ${{ steps.vars.outputs.tags_csv }}
+      tags_json: ${{ steps.meta.outputs.tags_json }}
       repo_lc: ${{ steps.lowercase.outputs.repo_lc }}
     steps:
-      - name: Checkout Code (Full History)
+      - name: Checkout Code
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - id: lowercase
         run: echo "repo_lc=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
-      - name: Generate Multi-Tag Metadata
+      - name: Discover valid tags from sanity-cli
+        id: meta
+        run: |
+          chmod +x ./sanity-cli
+          echo "tags_json=$(./sanity-cli list --json)" >> $GITHUB_OUTPUT
+
+      - name: Generate publish tag metadata
         id: vars
         run: |
           SHA_SHORT=$(git rev-parse --short HEAD)
           echo "short_sha=${SHA_SHORT}" >> $GITHUB_OUTPUT
-          
-          # Initialize variables
+
           TAG_LIST="sha-${SHA_SHORT}"
-          
-          # Check if this is a Tag Push (e.g. v0.1.0) or a GitHub Release
           if [[ "${{ github.ref_type }}" == "tag" && "${{ github.ref_name }}" == v* ]]; then
             TAG_LIST="${TAG_LIST},latest,${{ github.ref_name }}"
           elif [[ "${{ github.event_name }}" == "release" ]]; then
             TAG_LIST="${TAG_LIST},latest,${{ github.event.release.tag_name }}"
           fi
-          
-          echo "tags=${TAG_LIST}" >> $GITHUB_OUTPUT
+          echo "tags_csv=${TAG_LIST}" >> $GITHUB_OUTPUT
 
-  # 1. Parallel Build Phase
   build-x64:
     needs: [setup]
-    uses: ./.github/workflows/build-arch.yml
+    uses: ./.github/workflows/_build.yml
     with:
       arch: amd64
       repo_lc: ${{ needs.setup.outputs.repo_lc }}
@@ -74,58 +64,60 @@ jobs:
 
   build-arm64:
     needs: [setup]
-    uses: ./.github/workflows/build-arch.yml
+    uses: ./.github/workflows/_build.yml
     with:
       arch: arm64
-      repo_lc: ${{ needs.setup.outputs.repo_lc }}
-      tag: sha-${{ needs.setup.outputs.short_sha }}
-    secrets: inherit
-
-  # 2. Parallel Test & Check Phase
-  test-x64:
-    needs: [setup, build-x64]
-    uses: ./.github/workflows/test.yml
-    with:
-      arch: amd64
       repo_lc: ${{ needs.setup.outputs.repo_lc }}
       tag: sha-${{ needs.setup.outputs.short_sha }}
     secrets: inherit
 
   check-x64:
     needs: [setup, build-x64]
-    uses: ./.github/workflows/check.yml
+    uses: ./.github/workflows/_check.yml
     with:
       arch: amd64
       repo_lc: ${{ needs.setup.outputs.repo_lc }}
       tag: sha-${{ needs.setup.outputs.short_sha }}
-    secrets: inherit
-
-  test-arm64:
-    needs: [setup, build-arm64]
-    uses: ./.github/workflows/test.yml
-    with:
-      arch: arm64
-      repo_lc: ${{ needs.setup.outputs.repo_lc }}
-      tag: sha-${{ needs.setup.outputs.short_sha }}
+      tags: ${{ needs.setup.outputs.tags_json }}
     secrets: inherit
 
   check-arm64:
     needs: [setup, build-arm64]
-    uses: ./.github/workflows/check.yml
+    uses: ./.github/workflows/_check.yml
     with:
       arch: arm64
       repo_lc: ${{ needs.setup.outputs.repo_lc }}
       tag: sha-${{ needs.setup.outputs.short_sha }}
+      tags: ${{ needs.setup.outputs.tags_json }}
     secrets: inherit
 
-  # 3. Final Multi-arch Publish Phase (Only if all tests and security checks pass)
+  test-x64:
+    needs: [setup, build-x64]
+    uses: ./.github/workflows/_test.yml
+    with:
+      arch: amd64
+      repo_lc: ${{ needs.setup.outputs.repo_lc }}
+      tag: sha-${{ needs.setup.outputs.short_sha }}
+      tags: ${{ needs.setup.outputs.tags_json }}
+    secrets: inherit
+
+  test-arm64:
+    needs: [setup, build-arm64]
+    uses: ./.github/workflows/_test.yml
+    with:
+      arch: arm64
+      repo_lc: ${{ needs.setup.outputs.repo_lc }}
+      tag: sha-${{ needs.setup.outputs.short_sha }}
+      tags: ${{ needs.setup.outputs.tags_json }}
+    secrets: inherit
+
   publish:
-    # SOTA: Only publish Multi-arch manifest when a version tag (v*) is pushed or a release is created
     if: github.event_name == 'release' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     needs: [setup, test-x64, test-arm64, check-x64, check-arm64]
-    uses: ./.github/workflows/publish.yml
+    uses: ./.github/workflows/_publish.yml
     with:
       repo_lc: ${{ needs.setup.outputs.repo_lc }}
       transient_tag: sha-${{ needs.setup.outputs.short_sha }}
-      tags_csv: ${{ needs.setup.outputs.tags }}
+      tags_csv: ${{ needs.setup.outputs.tags_csv }}
+      image_tags: ${{ needs.setup.outputs.tags_json }}
     secrets: inherit

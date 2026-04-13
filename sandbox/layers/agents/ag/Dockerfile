@@ -1,6 +1,10 @@
+ARG BASE_IMAGE=sanity-gravity:_base-xfce
+FROM ${BASE_IMAGE}
+
 # Architecture-Agnostic Browser Installation
 RUN arch=$(dpkg --print-architecture); \
     if [ "$arch" = "amd64" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends gnupg && \
         mkdir -p /etc/apt/keyrings && \
         wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
         echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \

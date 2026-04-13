@@ -1,0 +1,70 @@
+name: Reusable Publish
+
+on:
+  workflow_call:
+    inputs:
+      repo_lc:
+        required: true
+        type: string
+      transient_tag:
+        required: true
+        type: string
+      tags_csv:
+        required: true
+        type: string
+      image_tags:
+        required: true
+        type: string
+        description: "JSON array of final image tags to publish"
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.image_tag }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image_tag: ${{ fromJson(inputs.image_tags) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote and Publish Multi-arch
+        run: |
+          REPO_LC="${{ inputs.repo_lc }}"
+          TRANSIENT_TAG="${{ inputs.transient_tag }}"
+          VARIANT="${{ matrix.image_tag }}"
+
+          # Pull x64 and arm64 transient images
+          docker pull ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-amd64 || exit 1
+          docker pull ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-arm64 || exit 1
+
+          # Loop over each target tag
+          IFS=',' read -ra TAGS <<< "${{ inputs.tags_csv }}"
+          for FINAL_TAG in "${TAGS[@]}"; do
+            echo "Creating manifest for ${VARIANT}:${FINAL_TAG}"
+            docker manifest create ghcr.io/${REPO_LC}-${VARIANT}:${FINAL_TAG} \
+              ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-amd64 \
+              ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-arm64
+
+            docker manifest push ghcr.io/${REPO_LC}-${VARIANT}:${FINAL_TAG}
+          done
+
+          # Tag per-arch images with persistent tags so they won't be garbage-collected
+          for FINAL_TAG in "${TAGS[@]}"; do
+            for arch in amd64 arm64; do
+              docker tag ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-${arch} \
+                ghcr.io/${REPO_LC}-${VARIANT}:${FINAL_TAG}-${arch}
+              docker push ghcr.io/${REPO_LC}-${VARIANT}:${FINAL_TAG}-${arch}
+            done
+          done

@@ -1,0 +1,55 @@
+name: "Build + Verify (PR)"
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        description: "Target architecture (amd64 or arm64)"
+        required: true
+        type: string
+      tags:
+        description: "JSON array of final image tags"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Build all images
+        run: chmod +x ./sanity-cli && ./sanity-cli build all
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y socat
+          pip install pytest requests urllib3 PyYAML pytest-timeout
+
+      - name: Run integration tests
+        run: ./sanity-cli test
+
+      - name: Install Trivy CLI
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Security scan all images
+        run: |
+          FAILED=0
+          for tag in $(echo '${{ inputs.tags }}' | jq -r '.[]'); do
+            echo "::group::Scanning ${tag}"
+            trivy image --exit-code 1 --ignore-unfixed \
+              --vuln-type os,library --severity CRITICAL,HIGH \
+              "sanity-gravity:${tag}" || FAILED=1
+            echo "::endgroup::"
+          done
+          exit $FAILED

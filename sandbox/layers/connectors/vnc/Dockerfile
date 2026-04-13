@@ -1,3 +1,6 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
 # Install TigerVNC and noVNC
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tigervnc-standalone-server \

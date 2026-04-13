@@ -1,3 +1,6 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
 # Claude Code Agent Layer
 # Installs Anthropic Claude Code CLI via official installer
 

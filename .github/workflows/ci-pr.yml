@@ -1,0 +1,44 @@
+name: PR Pipeline
+
+on:
+  pull_request:
+    branches: [ main, feat/*, fix/* ]
+    paths-ignore:
+      - 'README.md'
+      - 'README_*.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE'
+      - 'SECURITY.md'
+      - 'assets/**'
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      tags_json: ${{ steps.meta.outputs.tags_json }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Discover valid tags from sanity-cli
+        id: meta
+        run: |
+          chmod +x ./sanity-cli
+          echo "tags_json=$(./sanity-cli list --json)" >> $GITHUB_OUTPUT
+
+  verify-x64:
+    needs: [setup]
+    uses: ./.github/workflows/_build-and-verify.yml
+    with:
+      arch: amd64
+      tags: ${{ needs.setup.outputs.tags_json }}
+
+  verify-arm64:
+    needs: [setup]
+    uses: ./.github/workflows/_build-and-verify.yml
+    with:
+      arch: arm64
+      tags: ${{ needs.setup.outputs.tags_json }}

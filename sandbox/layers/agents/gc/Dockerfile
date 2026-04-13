@@ -1,3 +1,6 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
 # Gemini CLI Agent Layer
 # Installs Node.js LTS and Google Gemini CLI
 

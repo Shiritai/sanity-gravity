@@ -1,3 +1,6 @@
+ARG BASE_IMAGE=sanity-gravity:_base
+FROM ${BASE_IMAGE}
+
 # Install XFCE4 and Desktop Utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4 \

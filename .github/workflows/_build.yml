@@ -14,10 +14,10 @@ on:
         type: string
 
 jobs:
-  build-native:
-    name: Build Native (${{ inputs.arch }})
+  build-all:
+    name: Build All (${{ inputs.arch }})
     runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 20 # Actual build timeout
+    timeout-minutes: 40
     permissions:
       contents: read
       packages: write
@@ -34,19 +34,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build via Sanity CLI
+      - name: Build all images (layered, single runner)
         run: |
           chmod +x ./sanity-cli
-          ./sanity-cli build
+          ./sanity-cli build all
 
-      - name: Tag and Push (Transient Tag)
+      - name: Push final images
         run: |
           REPO_LC="${{ inputs.repo_lc }}"
           TAG_VAL="${{ inputs.tag }}"
           ARCH_VAL="${{ inputs.arch }}"
-          
-          # Tag and push all built images matching dimension-based tags
-          for tag in $(docker images --format '{{.Tag}}' sanity-gravity | grep -E '^[a-z]{2}-[a-z]+-[a-z]+$'); do
+
+          for tag in $(./sanity-cli list --json | python3 -c "import sys,json; [print(t) for t in json.load(sys.stdin)]"); do
             docker tag sanity-gravity:${tag} ghcr.io/${REPO_LC}-${tag}:${TAG_VAL}-${ARCH_VAL}
             docker push ghcr.io/${REPO_LC}-${tag}:${TAG_VAL}-${ARCH_VAL}
           done
