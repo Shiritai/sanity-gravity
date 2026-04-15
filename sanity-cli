@@ -555,10 +555,10 @@ def up(args):
 
     env_vars = f"SSH_HOST_PORT={ssh_port} KASM_PORT={kasm_port} VNC_PORT={vnc_port} NOVNC_PORT={novnc_port} HOST_UID={uid} HOST_GID={gid} HOST_USER={username} HOST_PASSWORD={password} VNC_PW={password}"
 
-    if args.workspace:
-        workspace_path = os.path.abspath(args.workspace)
-        env_vars += f" WORKSPACE_DIR={workspace_path}"
-        print_info(f"Using Workspace: {workspace_path}")
+    workspace_path = os.path.abspath(args.workspace) if args.workspace else os.path.abspath("workspace")
+    os.makedirs(workspace_path, exist_ok=True)
+    env_vars += f" WORKSPACE_DIR={workspace_path}"
+    print_info(f"Using Workspace: {workspace_path}")
 
     project_name = args.name
     print_info(f"Project Name: {project_name}")
