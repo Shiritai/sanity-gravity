@@ -1,4 +1,5 @@
-ARG BASE_IMAGE
+# Default is unused; always overridden by --build-arg. Set to suppress Docker warning.
+ARG BASE_IMAGE=ubuntu:24.04
 FROM ${BASE_IMAGE}
 
 # Gemini CLI Agent Layer

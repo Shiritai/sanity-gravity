@@ -50,6 +50,17 @@ class TestGeminiCLIAgent:
         assert uid == host_env["HOST_UID"]
         assert gid == host_env["HOST_GID"]
 
+    def test_gc_gemini_accessible_as_user(self, clean_container, docker_cli, host_env):
+        """gemini binary must be executable by non-root user (not just root)."""
+        container_name = clean_container("sanity-test-gc-user-exec")
+        docker_cli.run_container(name=container_name, image=GC_SSH_IMAGE, env=host_env)
+        time.sleep(2)
+
+        result = docker_cli.exec(container_name, "gemini --version", user=host_env["HOST_USER"])
+        version = result.stdout.strip()
+        assert version, "gemini --version returned empty as non-root user"
+        assert version[0].isdigit(), f"Unexpected version output: {version}"
+
     def test_gc_headless_no_display(self, clean_container, docker_cli, host_env):
         """gc-none-ssh should have DISPLAY unset (headless)."""
         container_name = clean_container("sanity-test-gc-headless")
@@ -106,6 +117,17 @@ class TestClaudeCodeAgent:
         gid = docker_cli.exec(container_name, f"id -g {host_env['HOST_USER']}").stdout.strip()
         assert uid == host_env["HOST_UID"]
         assert gid == host_env["HOST_GID"]
+
+    def test_cc_claude_accessible_as_user(self, clean_container, docker_cli, host_env):
+        """claude binary must be executable by non-root user (not just root)."""
+        container_name = clean_container("sanity-test-cc-user-exec")
+        docker_cli.run_container(name=container_name, image=CC_SSH_IMAGE, env=host_env)
+        time.sleep(2)
+
+        result = docker_cli.exec(container_name, "claude --version", user=host_env["HOST_USER"])
+        version = result.stdout.strip()
+        assert version, "claude --version returned empty as non-root user"
+        assert "Claude Code" in version or version[0].isdigit(), f"Unexpected version output: {version}"
 
     def test_cc_headless_no_display(self, clean_container, docker_cli, host_env):
         """cc-none-ssh should have DISPLAY unset (headless)."""
