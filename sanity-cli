@@ -499,13 +499,6 @@ def up(args):
     tag_compose, service_name = generate_compose_for_tag(target)
     compose_files = f"-f {tag_compose}"
 
-    if args.gpu:
-        if not os.path.exists("docker-compose.gpu.yml"):
-             print_error("docker-compose.gpu.yml not found. Cannot enable GPU.")
-             sys.exit(1)
-        compose_files += " -f docker-compose.gpu.yml"
-        print_info("GPU Support Enabled")
-
     # Custom Image Support
     if args.image:
         env_var_name = f"SANITY_IMAGE_{target.upper().replace('-', '_')}"
@@ -1024,18 +1017,6 @@ def get_active_projects():
     """Returns a list of active Sanity-Gravity project names (Strict Mode)."""
     return get_managed_projects()
 
-def check_gpu_enabled(container_name):
-    """Checks if a container has GPU capabilities enabled."""
-    try:
-        # Check for DeviceRequests with nvidia driver
-        cmd = f"docker inspect -f '{{{{json .HostConfig.DeviceRequests}}}}' {container_name}"
-        output = run_command(cmd, capture=True, check=False)
-        if output and "nvidia" in output.lower():
-            return True
-    except:
-        pass
-    return False
-
 def is_port_in_use(port):
     """Checks if a port is currently in use on localhost."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -1134,14 +1115,8 @@ def upgrade(args):
                     
                     # Prepare Compose Files
                     compose_files = f"-f {COMPOSE_FILE}"
-                    
-                    # 1. GPU Support
-                    if check_gpu_enabled(container_name) and os.path.exists("docker-compose.gpu.yml"):
-                        compose_files += " -f docker-compose.gpu.yml"
-                        compose_files += " -f docker-compose.gpu.yml" # Duplicate just in case as per original code style
-                        print_info("  - GPU Support: Enabled")
 
-                    # 2. Git Context
+                    # Git Context
                     git_compose = generate_git_compose(username)
                     if git_compose:
                         compose_files += f" -f {git_compose}"
@@ -1332,9 +1307,9 @@ def open_cmd(args):
     # The container itself thinks it's 0? Yes.
     # So we must query `docker port` to find the real host port.
     
-    compose_file_arg = f"-f {COMPOSE_FILE}" 
-    # Determine gpu/git files? Just using base file usually works for port query if project name matches
-    
+    compose_file_arg = f"-f {COMPOSE_FILE}"
+    # Just using base file usually works for port query if project name matches
+
     def resolve_port(service, internal):
         try:
             # We must use project name
@@ -1730,7 +1705,6 @@ def main():
         p.add_argument("--vnc-port", default="5901", help="Host port for VNC (default: 5901)")
         p.add_argument("--novnc-port", default="6901", help="Host port for noVNC (default: 6901)")
         p.add_argument("--password", default="antigravity", help="Password for SSH/VNC (default: antigravity)")
-        p.add_argument("--gpu", action="store_true", help="Enable Nvidia GPU support (requires docker-compose.gpu.yml)")
         p.add_argument("--skip-check", action="store_true", help="Skip prerequisite checks")
         p.add_argument("--workspace", "-w", default=None, help="Path to workspace directory (default: ./workspace)")
         p.add_argument("--name", "-n", default="sanity-gravity", help="Project name for multi-instance support (default: sanity-gravity)")

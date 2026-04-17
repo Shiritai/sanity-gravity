@@ -339,7 +339,6 @@ class TestRunResourceArgs:
         args.novnc_port = "6901"
         args.workspace = None
         args.name = "sanity-gravity"
-        args.gpu = False
         args.password = "pass"
         args.image = None
 
@@ -505,7 +504,6 @@ class TestSnapshot:
             args.novnc_port = "6901"
             args.workspace = None
             args.name = "sanity-gravity"
-            args.gpu = False
             args.password = "pass"
             args.cpus = None
             args.memory = None
