@@ -11,6 +11,7 @@ on:
       - 'LICENSE'
       - 'SECURITY.md'
       - 'assets/**'
+      - 'docs/**'
   release:
     types: [ published ]
 

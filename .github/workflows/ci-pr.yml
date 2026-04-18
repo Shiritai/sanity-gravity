@@ -10,6 +10,7 @@ on:
       - 'LICENSE'
       - 'SECURITY.md'
       - 'assets/**'
+      - 'docs/**'
 
 permissions:
   contents: read
