@@ -1,4 +1,6 @@
+import argparse
 import pytest
+import subprocess
 import sys
 import os
 import importlib.util
@@ -229,17 +231,15 @@ class TestNewCommands:
     def test_shell_command(self, mock_check_call, mock_run):
         # Mock finding container
         mock_run.return_value = "true" # docker inspect running
-        
-        args = MagicMock()
-        args.name = "sanity-gravity"
-        args.user = None # Default behavior
-        
+
+        args = argparse.Namespace(name="sanity-gravity", user=None)
+
         with patch("sanity_cli.get_active_projects", return_value=["sanity-gravity"]):
             sanity_cli.shell_cmd(args)
-            
+
             # Check if docker exec was called
             # We assume it finds sanity-gravity-core-1 (first in VARIANTS)
-            # developer is default user
+            # developer is default user, zsh is default shell
             expected_cmd = "docker exec -it -u developer sanity-gravity-core-1 zsh"
             mock_check_call.assert_called_with(expected_cmd, shell=True)
 
@@ -247,18 +247,68 @@ class TestNewCommands:
     @patch("subprocess.check_call")
     def test_shell_command_with_user(self, mock_check_call, mock_run):
         # Mock finding container
-        mock_run.return_value = "true" 
-        
-        args = MagicMock()
-        args.name = "sanity-gravity"
-        args.user = "root" # Custom user
-        
+        mock_run.return_value = "true"
+
+        args = argparse.Namespace(name="sanity-gravity", user="root")
+
         with patch("sanity_cli.get_active_projects", return_value=["sanity-gravity"]):
             sanity_cli.shell_cmd(args)
-            
+
             # Verify user passed to docker exec
             expected_cmd = "docker exec -it -u root sanity-gravity-core-1 zsh"
             mock_check_call.assert_called_with(expected_cmd, shell=True)
+
+    @patch("sanity_cli.run_command")
+    @patch("subprocess.check_call")
+    def test_shell_command_with_use_bash(self, mock_check_call, mock_run):
+        # User explicitly selects bash via --use
+        mock_run.return_value = "true"
+
+        args = argparse.Namespace(name="sanity-gravity", user=None, use="bash")
+
+        with patch("sanity_cli.get_active_projects", return_value=["sanity-gravity"]):
+            sanity_cli.shell_cmd(args)
+
+            expected_cmd = "docker exec -it -u developer sanity-gravity-core-1 bash"
+            mock_check_call.assert_called_with(expected_cmd, shell=True)
+
+    @patch("sanity_cli.run_command")
+    @patch("subprocess.check_call")
+    @patch("subprocess.call")
+    def test_shell_command_zsh_fallback_to_bash(self, mock_call, mock_check_call, mock_run):
+        # No --use specified: zsh fails, should fall back to bash
+        mock_run.return_value = "true"
+        mock_check_call.side_effect = subprocess.CalledProcessError(1, "zsh")
+
+        args = argparse.Namespace(name="sanity-gravity", user=None)
+
+        with patch("sanity_cli.get_active_projects", return_value=["sanity-gravity"]):
+            sanity_cli.shell_cmd(args)
+
+            mock_check_call.assert_any_call(
+                "docker exec -it -u developer sanity-gravity-core-1 zsh", shell=True
+            )
+            mock_call.assert_called_once_with(
+                "docker exec -it -u developer sanity-gravity-core-1 bash", shell=True
+            )
+
+    @patch("sanity_cli.run_command")
+    @patch("subprocess.check_call")
+    @patch("subprocess.call")
+    def test_shell_command_no_fallback_when_use_specified(self, mock_call, mock_check_call, mock_run):
+        # --use specified: failure should NOT fall back to bash
+        mock_run.return_value = "true"
+        mock_check_call.side_effect = subprocess.CalledProcessError(1, "zsh")
+
+        args = argparse.Namespace(name="sanity-gravity", user=None, use="zsh")
+
+        with patch("sanity_cli.get_active_projects", return_value=["sanity-gravity"]):
+            sanity_cli.shell_cmd(args)
+
+            mock_check_call.assert_any_call(
+                "docker exec -it -u developer sanity-gravity-core-1 zsh", shell=True
+            )
+            mock_call.assert_not_called()
 
     @patch("sanity_cli.run_command")
     @patch("webbrowser.open")
