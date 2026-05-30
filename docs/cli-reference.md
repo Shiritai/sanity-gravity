@@ -45,6 +45,17 @@ Print all valid tags and the dimension matrix.
 
 ## Lifecycle Commands
 
+### `pull`
+
+Explicitly fetch pre-built sandbox images from GitHub Container Registry (GHCR) and retag them for local use (Local Tag Normalization). 
+By default, `up` will automatically invoke this if a local image is missing.
+
+```bash
+./sanity-cli pull                 # Pull all variants
+./sanity-cli pull agy-xfce-ssh    # Pull a specific variant
+./sanity-cli pull agy-none-ssh --tag v0.3.0-rc.3  # Pull a specific version
+```
+
 ### `up`
 
 Create and start a sandbox container.
@@ -57,6 +68,7 @@ Create and start a sandbox container.
 | Flag | Default | Description |
 |:-----|:--------|:------------|
 | `-v, --variant <tag>` | *(required)* | Tag to run (e.g. `ag-xfce-kasm`) |
+| `--pull` | off | Force pull latest GHCR image before starting |
 | `-p, --ssh-port <port>` | `2222` | Host port for SSH |
 | `--kasm-port <port>` | `8444` | Host port for KasmVNC |
 | `--vnc-port <port>` | `5901` | Host port for VNC |
