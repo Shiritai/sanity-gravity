@@ -75,6 +75,18 @@ def up(args):
     if not args.skip_check:
         check_prereqs(args)
 
+    from sanity_gravity.verbs.pull import pull
+    if getattr(args, "pull", False):
+        pull(args)
+    elif not getattr(args, "dry_run", False):
+        check_img = run_command(
+            ("docker", "image", "inspect", f"sanity-gravity:{target}"),
+            capture=True, check=False,
+        )
+        if not check_img or check_img.strip() == "[]" or "Error: No such image" in check_img:
+            print_warning(f"Local image sanity-gravity:{target} not found. Auto-pulling from GHCR...")
+            pull(args)
+
     uid, gid, username = get_uid_gid_user()
     print_header(f"Starting {target}")
     print_info(f"Mapping User: {username} (UID={uid}, GID={gid})")

@@ -23,6 +23,7 @@ from sanity_gravity.verbs.shell import shell_cmd
 from sanity_gravity.verbs.snapshot import snapshot_cmd
 from sanity_gravity.verbs.status import list_variants, plugins_list, status
 from sanity_gravity.verbs.sync import sync_config_cmd
+from sanity_gravity.verbs.pull import pull
 from sanity_gravity.verbs.test_suite import test_suite
 from sanity_gravity.verbs.up import up
 from sanity_gravity.verbs.upgrade import upgrade
@@ -57,6 +58,8 @@ def _add_up_args(p):
                    help="Use custom base image (Snapshot)")
     p.add_argument("--recreate", action="store_true",
                    help="Force recreate if sandbox already exists")
+    p.add_argument("--pull", action="store_true",
+                   help="Force pull the latest image from GHCR before starting")
     p.set_defaults(func=up)
 
 
@@ -196,6 +199,19 @@ def build_parser():
         help="Shell to use (default: zsh, with fallback to bash)",
     )
     p_shell.set_defaults(func=shell_cmd)
+
+    # pull
+    p_pull = subparsers.add_parser("pull", help="Pull sandbox images from GHCR")
+    p_pull.add_argument(
+        "variant", nargs="*",
+        help="Tag to pull, e.g. ag-xfce-kasm (default: all)",
+        default=["all"],
+    )
+    p_pull.add_argument(
+        "--tag", default=None,
+        help="Explicit version tag to pull (default: auto-detected from git)",
+    )
+    p_pull.set_defaults(func=pull)
 
     # open
     p_open = subparsers.add_parser("open", help="Open web interface")
