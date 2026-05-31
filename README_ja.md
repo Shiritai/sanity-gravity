@@ -30,10 +30,10 @@
 git clone https://github.com/shiritai/sanity-gravity.git
 cd sanity-gravity
 
-# 2. イメージを構築（初回のみ）
-./sanity-cli build
+# 2. (任意) GHCRから取得する代わりにローカルでイメージを構築する
+# ./sanity-cli build
 
-# 3. 推奨サンドボックスを起動
+# 3. サンドボックスを起動（不足しているイメージはGHCRから自動取得！）
 ./sanity-cli up -v ag-xfce-kasm --password mysecret
 ```
 

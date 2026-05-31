@@ -30,10 +30,10 @@
 git clone https://github.com/shiritai/sanity-gravity.git
 cd sanity-gravity
 
-# 2. Build the images (one-time)
-./sanity-cli build
+# 2. (Optional) Build locally instead of pulling from GHCR
+# ./sanity-cli build
 
-# 3. Launch the recommended sandbox
+# 3. Launch the sandbox (Auto-pulls missing images from GHCR!)
 ./sanity-cli up -v ag-xfce-kasm --password mysecret
 ```
 

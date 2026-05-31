@@ -30,10 +30,10 @@
 git clone https://github.com/shiritai/sanity-gravity.git
 cd sanity-gravity
 
-# 2. 建置映像檔（僅需一次）
-./sanity-cli build
+# 2. (可選) 本地建置映像檔（若不想依賴 GHCR 自動拉取）
+# ./sanity-cli build
 
-# 3. 啟動推薦的沙箱
+# 3. 啟動沙箱（若本地無映像檔，會自動從 GHCR 拉取！）
 ./sanity-cli up -v ag-xfce-kasm --password mysecret
 ```
 
