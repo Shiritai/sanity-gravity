@@ -607,6 +607,8 @@ class TestSnapshot:
             args.memory = None
 
             args.image = "my-custom:v1"
+            args.pull = False
+            args.dry_run = True
 
             up_mod.up(args)
 
