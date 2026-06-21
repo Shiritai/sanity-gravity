@@ -65,6 +65,9 @@ class ComposeService:
     shm_size: str | None = None
     restart: str | None = None
     stop_grace_period: str | None = None
+    cap_drop: list[str] | None = None
+    cap_add: list[str] | None = None
+    pids_limit: int | None = None
     ulimits: dict[str, dict[str, int]] = field(default_factory=dict)
     labels: dict[str, str] = field(default_factory=dict)
     deploy: dict[str, Any] | None = None
@@ -96,6 +99,12 @@ class ComposeService:
             out["restart"] = self.restart
         if self.stop_grace_period:
             out["stop_grace_period"] = self.stop_grace_period
+        if self.cap_drop is not None:
+            out["cap_drop"] = list(self.cap_drop)
+        if self.cap_add is not None:
+            out["cap_add"] = list(self.cap_add)
+        if self.pids_limit is not None:
+            out["pids_limit"] = self.pids_limit
         if self.ulimits:
             out["ulimits"] = {k: dict(v) for k, v in self.ulimits.items()}
         if self.labels:

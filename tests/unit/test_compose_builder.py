@@ -216,7 +216,14 @@ def test_snapshot_generate_compose_for_tag_kasm(tmp_path, monkeypatch):
     assert svc["restart"] == "unless-stopped"
     assert svc["stop_grace_period"] == "30s"
     # ulimits + labels carried over from the legacy template.
-    assert svc["ulimits"] == {"nofile": {"soft": 65536, "hard": 65536}}
+    assert svc["cap_drop"] == ["ALL"]
+    assert "CHOWN" in svc["cap_add"]
+    assert "SYS_CHROOT" in svc["cap_add"]
+    assert svc["pids_limit"] == 2048
+    assert svc["ulimits"] == {
+        "nofile": {"soft": 65536, "hard": 65536},
+        "core": {"soft": 0, "hard": 0},
+    }
     assert svc["labels"] == {
         "sanity.gravity.managed": "true",
         "sanity.gravity.home-volume": "true",
