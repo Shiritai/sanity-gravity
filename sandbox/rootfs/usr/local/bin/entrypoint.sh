@@ -1,10 +1,17 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Defaults (Relies on upstream)
 HOST_UID=${HOST_UID}
 HOST_GID=${HOST_GID}
 export USER_NAME=${HOST_USER}
+
+# Prevent WSL/Docker Desktop from materializing enormous host-side crash dumps
+# when Chromium/Electron native code segfaults. Docker also sets this via
+# compose ulimits; doing it here keeps the policy inherited by supervisord and
+# every GUI/SSH child process even if the container is run without compose.
+ulimit -S -c 0 2>/dev/null || true
+ulimit -H -c 0 2>/dev/null || true
 
 # Defence-in-depth: validate identity inputs before they reach sed/useradd/chown.
 # Mirrors validate_username / validate_project_name in sanity-cli; a malformed
@@ -18,6 +25,12 @@ if ! [[ "$HOST_UID" =~ ^[0-9]+$ ]] || ! [[ "$HOST_GID" =~ ^[0-9]+$ ]]; then
     echo "ERROR: HOST_UID/HOST_GID must be numeric (got UID='$HOST_UID' GID='$HOST_GID')" >&2
     exit 1
 fi
+case "$HOST_PASSWORD" in
+    *[$'\n\r':]*|"")
+        echo "ERROR: invalid HOST_PASSWORD" >&2
+        exit 1
+        ;;
+esac
 
 echo "Starting Antigravity Sandbox..."
 echo "Configuring user '$USER_NAME' with UID=$HOST_UID, GID=$HOST_GID..."
@@ -69,10 +82,13 @@ fi
 # system login and stay whatever was baked into the image. KASM is unaffected
 # only because kasm/startup.sh re-runs vncpasswd every boot — this brings
 # system auth in line with that.
-echo "$USER_NAME:$HOST_PASSWORD" | chpasswd
+printf '%s:%s\n' "$USER_NAME" "$HOST_PASSWORD" | chpasswd
 
 # Passwordless Sudo
+# NOTE: Password protects SSH & VNC login only.
+# Passwordless sudo is intentional for developer sandbox use.
 echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-developer
+chmod 0440 /etc/sudoers.d/90-developer
 
 # Fix permissions for home directory
 chown -R "$HOST_UID":"$HOST_GID" /home/"$USER_NAME"
@@ -81,6 +97,18 @@ chown -R "$HOST_UID":"$HOST_GID" /home/"$USER_NAME"
 if [ -d "/home/$USER_NAME/workspace" ]; then
     chown "$HOST_UID":"$HOST_GID" /home/"$USER_NAME/workspace"
 fi
+
+# Setup SSH Public Key Authentication if provided
+if [ -n "${SSH_PUBLIC_KEY:-}" ]; then
+    echo "Setting up SSH public key authentication for '$USER_NAME'..."
+    SSH_DIR="/home/$USER_NAME/.ssh"
+    mkdir -p "$SSH_DIR"
+    printf '%s\n' "$SSH_PUBLIC_KEY" > "$SSH_DIR/authorized_keys"
+    chmod 700 "$SSH_DIR"
+    chmod 600 "$SSH_DIR/authorized_keys"
+    chown -R "$HOST_UID":"$HOST_GID" "$SSH_DIR"
+fi
+
 
 # Setup Zsh (Optional: install oh-my-zsh if not present)
 # We can do this in Dockerfile to save startup time, but here we ensure ownership.
@@ -105,12 +133,6 @@ if command -v dbus-uuidgen >/dev/null 2>&1; then
     fi
 
     mkdir -p /var/run/dbus
-    if [ -f /var/run/dbus/pid ]; then
-        rm /var/run/dbus/pid
-    fi
-
-    echo "Starting DBus System Daemon..."
-    dbus-daemon --system --fork
 else
     echo "DBus not installed, skipping (headless mode)."
 fi
@@ -121,25 +143,32 @@ if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
     ssh-keygen -A
 fi
 
-# Graceful shutdown handler: close Antigravity via Ctrl+Q before stopping supervisord.
-# Triggered by Docker stop/host shutdown (SIGTERM to PID 1).
-# Works with docker-compose stop_grace_period: 30s to allow full state persistence.
+SUPERVISOR_PID=""
+SHUTTING_DOWN=0
+
 graceful_shutdown() {
+    if [ "$SHUTTING_DOWN" -eq 1 ]; then
+        return
+    fi
+    SHUTTING_DOWN=1
+
     echo "[shutdown] Graceful shutdown initiated..."
-    
-    # Execute plugin shutdown hooks
+
     if [ -d "/etc/shutdown.d" ]; then
         for f in /etc/shutdown.d/*.sh; do
-            if [ -x "$f" ]; then
+            if [ -f "$f" ] && [ -x "$f" ]; then
                 echo "Running shutdown hook $f..."
-                "$f"
+                timeout 15s "$f" || echo "[shutdown] Hook $f failed with $?"
             fi
         done
     fi
 
-    # Forward SIGTERM to supervisord
-    kill -TERM "$SUPERVISOR_PID" 2>/dev/null
-    wait "$SUPERVISOR_PID"
+    if [ -n "$SUPERVISOR_PID" ] && kill -0 "$SUPERVISOR_PID" 2>/dev/null; then
+        kill -TERM "$SUPERVISOR_PID" 2>/dev/null || true
+        wait "$SUPERVISOR_PID" 2>/dev/null || true
+    fi
+
+    exit 0
 }
 
 # Execute plugin entrypoint hooks
@@ -153,7 +182,11 @@ if [ -d "/etc/entrypoint.d" ]; then
 fi
 
 # Execute CMD (Supervisord) in background so we can trap signals
+trap graceful_shutdown SIGTERM SIGINT
 "$@" &
 SUPERVISOR_PID=$!
-trap graceful_shutdown SIGTERM SIGINT
+set +e
 wait "$SUPERVISOR_PID"
+SUPERVISOR_STATUS=$?
+set -e
+exit "$SUPERVISOR_STATUS"
