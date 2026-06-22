@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 # chrome-cleanup.sh
 # Shared cleanup logic for Chrome & Antigravity Agent to ensure Snapshot stability.
 
@@ -35,7 +34,7 @@ rm -rf "$CHROME_CONFIG/GrShaderCache"
 rm -rf "$CHROME_CONFIG/Default/GPUCache"
 
 # 5. IPC & Shared Memory Debris in /tmp
-find /tmp -name ".org.chromium.Chromium*" -user "$USER" -delete 2>/dev/null || true
+find /tmp -name ".org.chromium.Chromium*" -user "${USER:-$(id -un)}" -delete 2>/dev/null || true
 
 # 6. Antigravity Singleton Sockets (Prevent Stale Locks on Restart)
 # Only clean these up at container/desktop startup to avoid interfering
@@ -45,4 +44,4 @@ rm -f "$HOME/.config/Antigravity/SingletonSocket"
 rm -f "$HOME/.config/Antigravity/SingletonCookie"
 rm -f "$HOME/.config/Antigravity/singleton-cookie"
 
-echo "$(date): [chrome-cleanup] Cleanup completed for user $USER" >> /tmp/chrome-cleanup.log
+echo "$(date): [chrome-cleanup] Cleanup completed for user ${USER:-$(id -un)}" >> /tmp/chrome-cleanup.log
