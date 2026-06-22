@@ -133,6 +133,12 @@ if command -v dbus-uuidgen >/dev/null 2>&1; then
     fi
 
     mkdir -p /var/run/dbus
+    if [ -f /var/run/dbus/pid ]; then
+        rm /var/run/dbus/pid
+    fi
+
+    echo "Starting DBus System Daemon..."
+    dbus-daemon --system --fork
 else
     echo "DBus not installed, skipping (headless mode)."
 fi
