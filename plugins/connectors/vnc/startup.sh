@@ -5,7 +5,9 @@ set -e
 VNC_RESOLUTION=${VNC_RESOLUTION}
 VNC_DEPTH=${VNC_DEPTH}
 VNC_PW=${VNC_PW}
-# Dynamic HOME
+# Dynamic identity (parity with kasm/startup.sh; keeps USER exported for
+# sourced helpers like chrome-cleanup.sh)
+export USER=${USER}
 export HOME=${HOME}
 
 # Cleanup locks
