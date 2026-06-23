@@ -164,7 +164,10 @@ graceful_shutdown() {
         for f in /etc/shutdown.d/*.sh; do
             if [ -f "$f" ] && [ -x "$f" ]; then
                 echo "Running shutdown hook $f..."
-                timeout 15s "$f" || echo "[shutdown] Hook $f failed with $?"
+                # Must cover the slowest hook: 10-ag-shutdown.sh can take ~20s
+                # (12s GUI-quit wait + 8s post-SIGTERM wait). Still well inside
+                # the 30s compose stop_grace_period, leaving room for supervisord.
+                timeout 22s "$f" || echo "[shutdown] Hook $f failed with $?"
             fi
         done
     fi
