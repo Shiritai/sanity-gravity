@@ -180,7 +180,7 @@ class TestCliEnumeration:
 
 
 class TestBuildAllTierFilter:
-    def _run_build_all(self):
+    def _run_build(self, **ctx_kwargs):
         from sanity_gravity.core.eventbus import EventBus
         from sanity_gravity.core.orchestrator import (
             BuildContext,
@@ -193,12 +193,15 @@ class TestBuildAllTierFilter:
         bus = EventBus()
         register_builtin_build_hooks(bus)
         ctx = BuildContext(
-            targets=["all"],
             reporter=Reporter(sinks=[], run_id="test"),
             dry_run=True,
+            **ctx_kwargs,
         )
         Orchestrator(bus, ctx.reporter).run(_BUILD_PHASES, ctx)
         return ctx
+
+    def _run_build_all(self):
+        return self._run_build(targets=["all"])
 
     def test_build_all_plans_only_official_tags(self, monkeypatch):
         import sanity_gravity.hooks.build as build_hooks
@@ -218,6 +221,28 @@ class TestBuildAllTierFilter:
         ctx = self._run_build_all()
         finals = [n for _, n, _ in ctx.plan if not n.startswith("_")]
         assert finals == list(OFFICIAL_TAGS)
+
+    def test_layer_desktop_follows_official_tier(self, monkeypatch):
+        import sanity_gravity.hooks.build as build_hooks
+
+        monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
+        ctx = self._run_build(targets=[], layer_target="desktop")
+        planned = [n for _, n, _ in ctx.plan]
+        assert "_base-none" in planned
+        # xfce exists in the registry, but no official tag references it
+        # in this scenario: the default enumeration must skip it, same
+        # as the agent / connector layer branches.
+        assert "_base-xfce" not in planned
+
+    def test_layer_desktop_explicit_target_ignores_tier(self, monkeypatch):
+        import sanity_gravity.hooks.build as build_hooks
+
+        monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
+        ctx = self._run_build(
+            targets=[], layer_target="desktop", layer_target_specific="xfce",
+        )
+        planned = [n for _, n, _ in ctx.plan]
+        assert "_base-xfce" in planned
 
 
 # ---------------------------------------------------------------------------

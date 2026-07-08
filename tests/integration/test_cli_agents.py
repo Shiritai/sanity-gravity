@@ -7,13 +7,18 @@ from tests.conftest import GC_SSH_IMAGE, CC_SSH_IMAGE
 
 
 def _image_exists(image: str) -> bool:
-    return (
-        subprocess.run(
-            ("docker", "image", "inspect", image),
-            capture_output=True,
-        ).returncode
-        == 0
-    )
+    # Runs at collection time (skipif); a machine without a docker
+    # binary must skip, not fail the whole collection.
+    try:
+        return (
+            subprocess.run(
+                ("docker", "image", "inspect", image),
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+    except OSError:
+        return False
 
 
 # gc is tier=deprecated: CI's ``build all`` no longer produces its

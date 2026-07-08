@@ -23,13 +23,18 @@ OC_SSH_IMAGE = "sanity-gravity:oc-none-ssh"
 
 
 def _image_exists(image: str) -> bool:
-    return (
-        subprocess.run(
-            ("docker", "image", "inspect", image),
-            capture_output=True,
-        ).returncode
-        == 0
-    )
+    # Runs at collection time (skipif); a machine without a docker
+    # binary must skip, not fail the whole collection.
+    try:
+        return (
+            subprocess.run(
+                ("docker", "image", "inspect", image),
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+    except OSError:
+        return False
 
 
 pytestmark = pytest.mark.skipif(

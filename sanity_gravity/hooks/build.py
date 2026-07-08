@@ -19,7 +19,6 @@ import subprocess
 import sys
 
 from sanity_gravity.cli.registry import (
-    DESKTOPS,
     OFFICIAL_TAGS,
     get_registry,
     parse_tag,
@@ -193,7 +192,14 @@ def _plan_layer(ctx, layer_type: str, target: str | None, no_cache: bool) -> Non
         return
     if layer_type == "desktop":
         ctx.plan.extend(_resolve_intermediate_chain("_base"))
-        desktops = [target] if target else list(DESKTOPS.keys())
+        # Enumeration follows the official tier like the agent /
+        # connector branches: only desktops referenced by official tags
+        # are built by default; other tiers still build when explicitly
+        # targeted.
+        if target:
+            desktops = [target]
+        else:
+            desktops = sorted({d for _, d in _get_unique_agent_desktop_pairs()})
         for d in desktops:
             name = f"_base-{d}"
             if not no_cache and not ctx.dry_run and _image_exists(_image_tag(name)):
