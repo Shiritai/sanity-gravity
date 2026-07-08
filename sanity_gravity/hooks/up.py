@@ -16,6 +16,7 @@ from sanity_gravity.effects.actions import RunSubprocess
 from sanity_gravity.core.command import CommandBuilder
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
 from sanity_gravity.domain.phase import Phase
+from sanity_gravity.plugins.manifest import PortSpec
 from sanity_gravity.plugins.registry import default_registry
 
 
@@ -51,44 +52,68 @@ def gen_resource_compose(ctx) -> None:
         ctx.reporter.info("Resource Limits Applied")
 
 
+def _port_specs_by_slug() -> dict[str, PortSpec]:
+    """Union of every plugin-declared port spec, keyed by runtime slug.
+
+    The slug is ``PortSpec.legacy_slug`` (or the label when unset) — the
+    key ``auto_port_alloc`` writes into ``resolved_ports`` and the
+    announce hook reads back. First declaration wins on duplicates; the
+    only duplicated slug today is ``ssh``, declared identically by every
+    connector.
+    """
+    out: dict[str, PortSpec] = {}
+    for manifest in default_registry().all_manifests():
+        for spec in manifest.ports:
+            out.setdefault(spec.legacy_slug or spec.label, spec)
+    return out
+
+
 def auto_port_alloc(ctx) -> None:
     """UP_PORT_ALLOC: explicit / ephemeral / auto-fallback decision.
 
     Mirrors legacy logic exactly: a custom ``--name`` switches every
     non-explicit default to ``"0"``; the default project switches only
-    when the default port is already taken (with a warning).
+    when the default port is already taken (with a warning). The slug
+    set, default values, and env var names come from the plugin
+    manifests (:class:`PortSpec`), not a kernel-side table, so a new
+    connector's ports participate without kernel changes.
+
+    Every known slug is allocated regardless of the active tag (legacy
+    behaviour): unused env vars are simply ignored by the tag's compose
+    file.
     """
-    rp = ctx.requested_ports
-    ssh, kasm, vnc, novnc = rp.ssh, rp.kasm, rp.vnc, rp.novnc
+    specs = _port_specs_by_slug()
+    requested = ctx.requested_ports.entries
     is_busy = ctx.deps.is_port_in_use
 
-    if ctx.project != "sanity-gravity":
-        if not rp.ssh_explicit and ssh == "2222":
-            ssh = "0"
-        if not rp.kasm_explicit and kasm == "8444":
-            kasm = "0"
-        if not rp.vnc_explicit and vnc == "5901":
-            vnc = "0"
-        if not rp.novnc_explicit and novnc == "6901":
-            novnc = "0"
-    else:
-        if not rp.ssh_explicit and ssh == "2222" and is_busy(2222):
-            ctx.reporter.warning("Default SSH port 2222 is busy. Switching to ephemeral.")
-            ssh = "0"
-        if not rp.kasm_explicit and kasm == "8444" and is_busy(8444):
-            ctx.reporter.warning("Default Kasm port 8444 is busy. Switching to ephemeral.")
-            kasm = "0"
-        if not rp.vnc_explicit and vnc == "5901" and is_busy(5901):
-            ctx.reporter.warning("Default VNC port 5901 is busy. Switching to ephemeral.")
-            vnc = "0"
-        if not rp.novnc_explicit and novnc == "6901" and is_busy(6901):
-            ctx.reporter.warning("Default noVNC port 6901 is busy. Switching to ephemeral.")
-            novnc = "0"
+    # CLI-requested slugs first (stable legacy ordering), then any
+    # manifest-declared slugs the CLI has no flag for — those start at
+    # their manifest default.
+    slugs = list(requested) + [s for s in specs if s not in requested]
 
-    ctx.resolved_ports = {"ssh": ssh, "kasm": kasm, "vnc": vnc, "novnc": novnc}
+    resolved: dict[str, str] = {}
+    for slug in slugs:
+        spec = specs.get(slug)
+        req = requested.get(slug)
+        value = req.value if req is not None else str(spec.default)
+        explicit = req.explicit if req is not None else False
+        # A requested slug with no manifest spec has no known default to
+        # auto-swap from (and no env var to export): pass it through.
+        if spec is not None and not explicit and value == str(spec.default):
+            if ctx.project != "sanity-gravity":
+                value = "0"
+            elif is_busy(spec.default):
+                ctx.reporter.warning(
+                    f"Default {slug} port {spec.default} is busy. "
+                    "Switching to ephemeral."
+                )
+                value = "0"
+        resolved[slug] = value
+        if spec is not None:
+            ctx.env[spec.env_var] = value
+
+    ctx.resolved_ports = resolved
     ctx.env.update({
-        "SSH_HOST_PORT": ssh, "KASM_PORT": kasm,
-        "VNC_PORT": vnc, "NOVNC_PORT": novnc,
         "HOST_UID": str(ctx.host_uid), "HOST_GID": str(ctx.host_gid),
         "HOST_USER": ctx.host_user, "HOST_PASSWORD": ctx.password,
         "VNC_PW": ctx.password, "WORKSPACE_DIR": str(ctx.workspace),
@@ -127,9 +152,15 @@ def resolve_ephemeral(ctx) -> None:
     Declared ``skip_in_dry_run=True`` at subscription time so the
     orchestrator drops the hook entirely in dry-run — no docker probe,
     no leftover ``"0"`` ports for announce to print.
+
+    The ports to probe come from the tag's own manifests (connector,
+    then agent, then desktop): only those are actually published on the
+    container. Once any requested port is ephemeral, every published
+    port is re-probed (legacy behaviour) so the announced values always
+    reflect what Docker really bound.
     """
     rp = ctx.resolved_ports
-    if "0" not in (rp.get("ssh"), rp.get("kasm"), rp.get("vnc"), rp.get("novnc")):
+    if "0" not in rp.values():
         return
 
     ctx.reporter.info("Resolving ephemeral ports...")
@@ -147,12 +178,22 @@ def resolve_ephemeral(ctx) -> None:
             )
         return "?"
 
-    ctx.resolved_ports["ssh"] = _get("22")
-    if ctx.tag.connector == "kasm":
-        ctx.resolved_ports["kasm"] = _get("8444")
-    elif ctx.tag.connector == "vnc":
-        ctx.resolved_ports["vnc"] = _get("5901")
-        ctx.resolved_ports["novnc"] = _get("6901")
+    reg = default_registry()
+    manifests = (
+        reg.connectors.get(ctx.tag.connector),
+        reg.agents.get(ctx.tag.agent),
+        reg.desktops.get(ctx.tag.desktop),
+    )
+    seen: set[str] = set()
+    for manifest in manifests:
+        if manifest is None:
+            continue
+        for spec in manifest.ports:
+            slug = spec.legacy_slug or spec.label
+            if slug in seen or slug not in rp:
+                continue
+            seen.add(slug)
+            rp[slug] = _get(str(spec.internal))
 
 
 def sync_config_hook(ctx) -> None:

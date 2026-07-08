@@ -18,18 +18,26 @@ from sanity_gravity.domain.phase import Phase
 from sanity_gravity.domain.tags import Tag
 
 
+@dataclass(frozen=True)
+class RequestedPort:
+    """One requested host port + whether an explicit CLI flag set it."""
+
+    value: str
+    explicit: bool = False
+
+
 @dataclass
 class PortRequest:
-    """User's desired ports + whether each was passed explicitly on CLI."""
+    """User's desired host ports, keyed by runtime port slug.
 
-    ssh: str
-    ssh_explicit: bool
-    kasm: str
-    kasm_explicit: bool
-    vnc: str
-    vnc_explicit: bool
-    novnc: str
-    novnc_explicit: bool
+    Slugs match ``PortSpec.legacy_slug`` (or the port label when the
+    manifest omits it). The CLI adapter in ``verbs/up.py`` maps its
+    static ``--*-port`` flags onto slugs; ``auto_port_alloc`` merges
+    these requests with the manifest-declared port specs, so the kernel
+    itself carries no per-connector port table.
+    """
+
+    entries: dict[str, RequestedPort] = field(default_factory=dict)
 
 
 @dataclass

@@ -25,12 +25,15 @@ from sanity_gravity.core.orchestrator import (  # noqa: E402
     Deps,
     Orchestrator,
     PortRequest,
+    RequestedPort,
     UpContext,
     _UP_PHASES,
 )
+from sanity_gravity.hooks import up as up_hooks  # noqa: E402
 from sanity_gravity.hooks.up import register_builtin_up_hooks  # noqa: E402
 from sanity_gravity.domain.phase import Phase  # noqa: E402
 from sanity_gravity.domain.tags import Tag  # noqa: E402
+from sanity_gravity.plugins.manifest import PluginManifest, PortSpec  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -96,12 +99,12 @@ def _make_ctx(deps, *, project="sanity-gravity", connector="kasm",
         password="antigravity",
         workspace=Path("/tmp/ws"),
         image_override=None,
-        requested_ports=PortRequest(
-            ssh="2222", ssh_explicit=ssh_explicit,
-            kasm="8444", kasm_explicit=False,
-            vnc="5901", vnc_explicit=False,
-            novnc="6901", novnc_explicit=False,
-        ),
+        requested_ports=PortRequest(entries={
+            "ssh": RequestedPort("2222", explicit=ssh_explicit),
+            "kasm": RequestedPort("8444"),
+            "vnc": RequestedPort("5901"),
+            "novnc": RequestedPort("6901"),
+        }),
         deps=deps,
         reporter=_RecorderReporter(),
     )
@@ -258,6 +261,103 @@ def test_explicit_port_flag_disables_auto_swap():
     # Custom project would normally flip ssh to "0"; explicit flag pins it.
     assert snap["ssh"] == "2222"
     assert snap["kasm"] == "0"
+
+
+class _StubRegistry:
+    """Registry stand-in exposing only what the up hooks consult."""
+
+    def __init__(self, *manifests):
+        self.agents = {m.slug: m for m in manifests if m.kind == "agent"}
+        self.desktops = {m.slug: m for m in manifests if m.kind == "desktop"}
+        self.connectors = {
+            m.slug: m for m in manifests if m.kind == "connector"
+        }
+
+    def all_manifests(self):
+        return [
+            *self.agents.values(),
+            *self.desktops.values(),
+            *self.connectors.values(),
+        ]
+
+
+def _connector_manifest(slug, *ports):
+    return PluginManifest(
+        slug=slug, name=slug, kind="connector", api_version="1",
+        provides=(), requires=(), dockerfile="Dockerfile", ports=ports,
+    )
+
+
+def test_port_alloc_allocates_manifest_declared_new_slug(monkeypatch):
+    """A port slug the CLI has no flag for is still allocated: the slug
+    set, default, and env var all come from the plugin manifest."""
+    obs = _connector_manifest(
+        "obs",
+        PortSpec(label="metrics", internal=9100, default=9100,
+                 env_var="METRICS_PORT"),
+        PortSpec(label="ssh", internal=22, default=2222,
+                 env_var="SSH_HOST_PORT", legacy_slug="ssh"),
+    )
+    monkeypatch.setattr(up_hooks, "default_registry", lambda: _StubRegistry(obs))
+
+    deps, _ = _make_deps()
+    ctx = _make_ctx(deps, project="my-other-project")
+    up_hooks.auto_port_alloc(ctx)
+
+    # Manifest-backed slugs flip their non-explicit defaults to ephemeral
+    # on a custom project; the manifest-only slug behaves like the rest.
+    assert ctx.resolved_ports["ssh"] == "0"
+    assert ctx.resolved_ports["metrics"] == "0"
+    assert ctx.env["SSH_HOST_PORT"] == "0"
+    assert ctx.env["METRICS_PORT"] == "0"
+    # Requested slugs without a manifest spec pass through untouched and
+    # export no env var (no default is known to auto-swap from).
+    assert ctx.resolved_ports["kasm"] == "8444"
+    assert "KASM_PORT" not in ctx.env
+
+
+def test_port_alloc_manifest_slug_busy_default_falls_back(monkeypatch):
+    """The default-project busy check probes the manifest default."""
+    obs = _connector_manifest(
+        "obs",
+        PortSpec(label="metrics", internal=9100, default=9100,
+                 env_var="METRICS_PORT"),
+    )
+    monkeypatch.setattr(up_hooks, "default_registry", lambda: _StubRegistry(obs))
+
+    deps, _ = _make_deps(is_port_in_use=lambda p: p == 9100)
+    ctx = _make_ctx(deps)
+    up_hooks.auto_port_alloc(ctx)
+
+    assert ctx.resolved_ports["metrics"] == "0"
+    assert ctx.env["METRICS_PORT"] == "0"
+
+
+def test_resolve_ephemeral_probes_manifest_internal_ports(monkeypatch):
+    """The ports to probe come from the tag's manifests, not a kernel
+    table of per-connector internal ports."""
+    obs = _connector_manifest(
+        "obs",
+        PortSpec(label="metrics", internal=9100, default=9100,
+                 env_var="METRICS_PORT"),
+    )
+    monkeypatch.setattr(up_hooks, "default_registry", lambda: _StubRegistry(obs))
+
+    port_calls = []
+
+    def _run(cmd, **kw):
+        if isinstance(cmd, tuple) and "port" in cmd:
+            port_calls.append(cmd)
+            return "0.0.0.0:41000"
+        return None
+
+    deps, _ = _make_deps(run_command=_run)
+    ctx = _make_ctx(deps, connector="obs")
+    ctx.resolved_ports = {"metrics": "0"}
+    up_hooks.resolve_ephemeral(ctx)
+
+    assert [cmd[-1] for cmd in port_calls] == ["9100"]
+    assert ctx.resolved_ports["metrics"] == "41000"
 
 
 def test_resolve_ephemeral_only_runs_when_port_is_zero():

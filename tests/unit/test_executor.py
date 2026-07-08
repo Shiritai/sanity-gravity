@@ -217,7 +217,7 @@ def test_full_up_flow_dry_run_makes_no_subprocess_calls():
     """A dry-run up flow should not invoke any subprocess."""
     from sanity_gravity.core.eventbus import EventBus  # noqa: PLC0415
     from sanity_gravity.core.orchestrator import (  # noqa: PLC0415
-        Deps, Orchestrator, PortRequest, UpContext, _UP_PHASES,
+        Deps, Orchestrator, PortRequest, RequestedPort, UpContext, _UP_PHASES,
     )
     from sanity_gravity.hooks.up import register_builtin_up_hooks  # noqa: PLC0415
     from sanity_gravity.domain.tags import Tag  # noqa: PLC0415
@@ -255,12 +255,12 @@ def test_full_up_flow_dry_run_makes_no_subprocess_calls():
         password="x",
         workspace=Path("/tmp/ws"),
         image_override=None,
-        requested_ports=PortRequest(
-            ssh="2222", ssh_explicit=False,
-            kasm="8444", kasm_explicit=False,
-            vnc="5901", vnc_explicit=False,
-            novnc="6901", novnc_explicit=False,
-        ),
+        requested_ports=PortRequest(entries={
+            "ssh": RequestedPort("2222"),
+            "kasm": RequestedPort("8444"),
+            "vnc": RequestedPort("5901"),
+            "novnc": RequestedPort("6901"),
+        }),
         deps=deps,
         reporter=rep,
     )

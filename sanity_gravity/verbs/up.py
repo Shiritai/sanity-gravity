@@ -27,6 +27,7 @@ from sanity_gravity.cli.registry import parse_tag
 from sanity_gravity.core.orchestrator import (
     Deps,
     PortRequest,
+    RequestedPort,
     UpContext,
     Orchestrator,
     _UP_PHASES,
@@ -117,16 +118,16 @@ def up(args):
     def _explicit(flags):
         return any(f in sys.argv for f in flags)
 
-    requested_ports = PortRequest(
-        ssh=args.ssh_port,
-        ssh_explicit=_explicit(["--ssh-port", "-p"]),
-        kasm=args.kasm_port,
-        kasm_explicit=_explicit(["--kasm-port"]),
-        vnc=args.vnc_port,
-        vnc_explicit=_explicit(["--vnc-port"]),
-        novnc=args.novnc_port,
-        novnc_explicit=_explicit(["--novnc-port"]),
-    )
+    # CLI boundary: map the parser's static ``--*-port`` flags onto the
+    # runtime port slugs (``PortSpec.legacy_slug``). The kernel hooks
+    # below are slug-agnostic; manifest-declared slugs without a CLI
+    # flag are allocated from their manifest defaults.
+    requested_ports = PortRequest(entries={
+        "ssh": RequestedPort(args.ssh_port, _explicit(["--ssh-port", "-p"])),
+        "kasm": RequestedPort(args.kasm_port, _explicit(["--kasm-port"])),
+        "vnc": RequestedPort(args.vnc_port, _explicit(["--vnc-port"])),
+        "novnc": RequestedPort(args.novnc_port, _explicit(["--novnc-port"])),
+    })
 
     deps = Deps(
         validate_username=lambda u: _validate_username_with_hint(u),

@@ -107,10 +107,11 @@ class PortSpec:
     look up the resolved value without a kernel-side hardcoded table.
 
     The four legacy slugs in use today are ``"ssh"`` / ``"kasm"`` /
-    ``"vnc"`` / ``"novnc"`` (mirroring the hardcoded keys
-    ``auto_port_alloc`` still emits). New connectors are free to add
-    new slugs as long as a hook somewhere also populates
-    ``resolved_ports[<new_slug>]``.
+    ``"vnc"`` / ``"novnc"`` (matching the CLI's static ``--*-port``
+    flags). ``auto_port_alloc`` allocates every manifest-declared slug
+    and ``resolve_ephemeral`` probes ``internal`` on the tag's own
+    manifests, so a new connector introducing a new slug needs no
+    kernel changes.
 
     When ``legacy_slug`` is unset the port label itself is used, so a
     manifest that picks ``label`` matching the runtime slug works
