@@ -1,3 +1,4 @@
+import getpass
 import os
 import subprocess
 import time
@@ -9,6 +10,8 @@ PROJECT_NAME = "sanity-test-integrity"
 VARIANT = "ag-xfce-kasm"
 IMAGE_TAG = "sanity-test:integrity"
 CLI = "./sanity-cli"
+# sanity-cli creates the sandbox user from the host user name
+USER_NAME = getpass.getuser()
 
 def run(cmd):
     subprocess.check_call(cmd, shell=True)
@@ -28,22 +31,22 @@ def verify_cleanup_logic():
     
     try:
         # 1. Start Container
-        run(f"{CLI} run -v {VARIANT} --name {PROJECT_NAME}")
+        run(f"{CLI} up -v {VARIANT} --name {PROJECT_NAME}")
         # Wait for startup
         time.sleep(5) 
         
         # 2. Pollute State (Simulate a crashed Agent)
         pollution_cmds = [
-            "mkdir -p /home/archroiko/.gemini/antigravity-browser-profile/Crashpad",
-            "touch /home/archroiko/.gemini/antigravity-browser-profile/SingletonLock",
-            "touch /home/archroiko/.gemini/antigravity-browser-profile/SingletonSocket",
-            "mkdir -p /home/archroiko/.config/google-chrome/Crashpad",
-            "touch /home/archroiko/.config/google-chrome/SingletonLock"
+            f"mkdir -p /home/{USER_NAME}/.gemini/antigravity-browser-profile/Crashpad",
+            f"touch /home/{USER_NAME}/.gemini/antigravity-browser-profile/SingletonLock",
+            f"touch /home/{USER_NAME}/.gemini/antigravity-browser-profile/SingletonSocket",
+            f"mkdir -p /home/{USER_NAME}/.config/google-chrome/Crashpad",
+            f"touch /home/{USER_NAME}/.config/google-chrome/SingletonLock"
         ]
-        
+
         container_name = f"{PROJECT_NAME}-{VARIANT}-1"
         for pcmd in pollution_cmds:
-            run(f"docker exec -u archroiko {container_name} {pcmd}")
+            run(f"docker exec -u {USER_NAME} {container_name} {pcmd}")
             
         print(">>> State Polluted. Restarting container to trigger cleanup...")
         
@@ -54,13 +57,13 @@ def verify_cleanup_logic():
         # 4. Verify Cleanup
         # Check Agent Profile
         check_agent = subprocess.run(
-            f"docker exec -u archroiko {container_name} ls /home/archroiko/.gemini/antigravity-browser-profile/SingletonLock",
+            f"docker exec -u {USER_NAME} {container_name} ls /home/{USER_NAME}/.gemini/antigravity-browser-profile/SingletonLock",
             shell=True, capture_output=True
         )
-        
+
         # Check System Chrome
         check_chrome = subprocess.run(
-            f"docker exec -u archroiko {container_name} ls /home/archroiko/.config/google-chrome/SingletonLock",
+            f"docker exec -u {USER_NAME} {container_name} ls /home/{USER_NAME}/.config/google-chrome/SingletonLock",
             shell=True, capture_output=True
         )
         
