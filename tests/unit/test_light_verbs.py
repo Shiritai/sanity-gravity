@@ -232,6 +232,32 @@ class TestIdeVerb:
             err.assert_called_once()
             assert "No running containers" in err.call_args[0][0]
 
+    def test_provides_ide_without_manifest_section_errors(self):
+        """An agent may claim the 'ide' capability yet ship no [ide]
+        contract; the verb must fail with a clear message instead of
+        falling back to another plugin's tooling."""
+        from sanity_gravity.plugins.manifest import PluginManifest
+        from sanity_gravity.verbs import ide as ide_mod
+
+        broken = PluginManifest(
+            slug="ag", name="ag", kind="agent", api_version="1",
+            provides=("ide",), requires=(), dockerfile="Dockerfile",
+        )
+        registry = MagicMock()
+        registry.agents = {"ag": broken}
+
+        with patch.object(ide_mod, "get_active_projects",
+                          return_value=["proj1"]), \
+             patch.object(ide_mod, "run_command", return_value="true"), \
+             patch("sanity_gravity.cli.registry.get_registry",
+                   return_value=registry), \
+             patch.object(ide_mod.subprocess, "check_call") as check_call, \
+             patch.object(ide_mod, "print_error") as err:
+            ide_mod.ide_cmd(self._args(name="proj1"))
+            check_call.assert_not_called()
+            err.assert_called_once()
+            assert "[ide]" in err.call_args[0][0]
+
     def test_inject_failure_exits(self):
         from sanity_gravity.verbs import ide as ide_mod
 

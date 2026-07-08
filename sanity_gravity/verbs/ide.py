@@ -1,7 +1,12 @@
-"""``ide`` verb: container-side IDE maintenance via gravity-cli."""
+"""``ide`` verb: container-side IDE maintenance.
+
+The agent's manifest declares the maintenance contract in its ``[ide]``
+section (see :class:`sanity_gravity.plugins.manifest.IdeSpec`); this
+verb only orchestrates the docker cp / exec plumbing around it, so it
+works for any agent providing the ``ide`` capability.
+"""
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 
@@ -71,57 +76,46 @@ def ide_cmd(args):
         print_error("IDE maintenance commands are not applicable.")
         return
 
+    ide_spec = agent_plugin.ide
+    if ide_spec is None:
+        print_error(
+            f"Agent '{agent_slug}' provides 'ide' but its manifest has "
+            "no [ide] section describing the maintenance contract."
+        )
+        return
+
     print_header(f"IDE Maintenance ({project_name})")
-    print_info(f"Executing gravity-cli {subcommand} in {container_name}...")
+    print_info(f"Executing {ide_spec.command[0]} {subcommand} in {container_name}...")
 
-    print_info(
-        "Hot-injecting latest gravity-cli and chrome-cleanup for compatibility..."
-    )
-    # Resolve repo root: this file lives at sanity_gravity/verbs/ide.py,
-    # so go three parents up to reach the repo root.
-    base_dir = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
-    cli_src = os.path.join(
-        base_dir, "plugins", "agents", "ag", "rootfs", "usr", "local", "bin", "gravity-cli"
-    )
-    cleanup_src = os.path.join(
-        base_dir, "plugins", "agents", "ag", "rootfs", "usr", "local", "bin", "chrome-cleanup.sh"
-    )
-
-    inject_cmd_1 = (
-        "docker", "cp", cli_src,
-        f"{container_name}:/usr/local/bin/gravity-cli",
-    )
-    inject_cmd_1_b = (
-        "docker", "cp", cleanup_src,
-        f"{container_name}:/usr/local/bin/chrome-cleanup.sh",
-    )
-    inject_cmd_2 = (
-        "docker", "exec", "-u", "root", container_name,
-        "chmod", "+x",
-        "/usr/local/bin/gravity-cli", "/usr/local/bin/chrome-cleanup.sh",
-    )
-
+    # Refresh the plugin's maintenance tooling inside the (possibly
+    # stale) container so old sandboxes stay compatible with the
+    # current host checkout. rootfs/ mirrors the container filesystem
+    # root, so each rootfs-relative source maps to /<path> in-container.
+    print_info("Hot-injecting latest maintenance tooling for compatibility...")
+    rootfs = agent_plugin.dir / "rootfs"
+    dests = [f"/{rel}" for rel in ide_spec.inject]
     try:
-        subprocess.check_call(
-            inject_cmd_1, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        subprocess.check_call(
-            inject_cmd_1_b, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        subprocess.check_call(
-            inject_cmd_2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+        for rel, dest in zip(ide_spec.inject, dests):
+            subprocess.check_call(
+                ("docker", "cp", str(rootfs / rel), f"{container_name}:{dest}"),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        if dests:
+            subprocess.check_call(
+                ("docker", "exec", "-u", "root", container_name,
+                 "chmod", "+x", *dests),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
     except subprocess.CalledProcessError:
         print_error(
-            "Failed to hot-inject gravity-cli. Container might be highly incompatible."
+            "Failed to hot-inject maintenance tooling. "
+            "Container might be highly incompatible."
         )
         sys.exit(1)
 
     cmd = (
         "docker", "exec", "-it", "-u", "root", container_name,
-        "/usr/local/bin/gravity-cli", "ide", subcommand,
+        *ide_spec.command, subcommand,
     )
     try:
         subprocess.check_call(cmd)

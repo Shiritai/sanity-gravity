@@ -10,3 +10,14 @@ requires = ["display"]
 
 [build]
 dockerfile = "Dockerfile"
+
+[ide]
+# Container-side maintenance contract consumed by the `ide` verb.
+# `command` is the in-container argv prefix (the ide subcommand is
+# appended); `inject` lists rootfs-relative files hot-injected into a
+# running container first so stale sandboxes get current tooling.
+command = ["/usr/local/bin/gravity-cli", "ide"]
+inject = [
+  "usr/local/bin/gravity-cli",
+  "usr/local/bin/chrome-cleanup.sh",
+]

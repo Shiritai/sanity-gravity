@@ -48,6 +48,12 @@ Schema (TOML)::
     [announce]
     template = "..."
 
+    # optional, agents providing the "ide" capability — the container-
+    # side maintenance contract consumed by the ``ide`` verb.
+    [ide]
+    command = ["/usr/local/bin/gravity-cli", "ide"]
+    inject  = ["usr/local/bin/gravity-cli"]
+
 The loader is intentionally tiny: validate fields, fail fast with line-
 ish diagnostics, and return frozen dataclasses. No defaults are inferred
 from outside the manifest itself, so every plugin is self-describing.
@@ -75,6 +81,7 @@ __all__ = [
     "PortSpec",
     "ComposeOverlay",
     "AnnounceSpec",
+    "IdeSpec",
     "PluginManifest",
     "load_manifest",
 ]
@@ -149,6 +156,23 @@ class AnnounceSpec:
 
 
 @dataclass(frozen=True)
+class IdeSpec:
+    """Optional container-side IDE maintenance contract.
+
+    Declared by agents that provide the ``ide`` capability. ``command``
+    is the in-container argv prefix the ``ide`` verb invokes (the ide
+    subcommand is appended to it). ``inject`` lists rootfs-relative
+    files the verb refreshes (``docker cp``) into the running container
+    beforehand, so stale sandboxes get the current host checkout's
+    tooling; each entry maps to ``/<path>`` in-container because
+    ``rootfs/`` mirrors the container filesystem root.
+    """
+
+    command: tuple[str, ...]
+    inject: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class PluginManifest:
     """Parsed manifest backed by a single ``manifest.toml`` file."""
 
@@ -163,6 +187,7 @@ class PluginManifest:
     compose: ComposeOverlay = field(default_factory=ComposeOverlay)
     environment: tuple[tuple[str, str], ...] = ()
     announce: AnnounceSpec | None = None
+    ide: IdeSpec | None = None
     source_path: Path | None = None
 
     @property
@@ -288,6 +313,23 @@ def _parse_announce(table: dict[str, Any] | None, where: str) -> AnnounceSpec | 
     return AnnounceSpec(template=template)
 
 
+def _parse_ide(table: dict[str, Any] | None, where: str) -> IdeSpec | None:
+    if not table:
+        return None
+    command = _str_list(_require(table, "command", where), f"{where}.command")
+    if not command:
+        raise ManifestError(f"{where}.command: must not be empty")
+    inject = _str_list(table.get("inject", []), f"{where}.inject")
+    for i, rel in enumerate(inject):
+        # Absolute or traversing entries would resolve outside the
+        # plugin's rootfs/ tree; fail closed at load time.
+        if rel.startswith("/") or ".." in rel.split("/"):
+            raise ManifestError(
+                f"{where}.inject[{i}]: '{rel}' must be a rootfs-relative path"
+            )
+    return IdeSpec(command=command, inject=inject)
+
+
 def load_manifest(path: str | Path) -> PluginManifest:
     """Load + validate a single ``manifest.toml`` file.
 
@@ -361,6 +403,7 @@ def load_manifest(path: str | Path) -> PluginManifest:
     compose = _parse_compose(data.get("compose"), f"{p}:[compose]")
     environment = _parse_environment(data.get("environment"), f"{p}:[environment]")
     announce = _parse_announce(data.get("announce"), f"{p}:[announce]")
+    ide = _parse_ide(data.get("ide"), f"{p}:[ide]")
 
     return PluginManifest(
         slug=slug,
@@ -374,5 +417,6 @@ def load_manifest(path: str | Path) -> PluginManifest:
         compose=compose,
         environment=environment,
         announce=announce,
+        ide=ide,
         source_path=p,
     )

@@ -17,6 +17,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 from sanity_gravity.plugins.manifest import (  # noqa: E402
     AnnounceSpec,
     ComposeOverlay,
+    IdeSpec,
     ManifestError,
     PluginManifest,
     PortSpec,
@@ -271,6 +272,74 @@ def test_dockerfile_path_without_source_path_raises():
         _ = m.dockerfile_path
     with pytest.raises(ManifestError, match="source_path"):
         _ = m.dir
+
+
+def test_ag_declares_ide_maintenance():
+    """The ag agent carries the [ide] contract the ide verb consumes."""
+    m = load_manifest(PLUGINS_DIR / "agents" / "ag" / "manifest.toml")
+    assert m.ide == IdeSpec(
+        command=("/usr/local/bin/gravity-cli", "ide"),
+        inject=(
+            "usr/local/bin/gravity-cli",
+            "usr/local/bin/chrome-cleanup.sh",
+        ),
+    )
+    # Every injected file must actually exist under the plugin's rootfs.
+    for rel in m.ide.inject:
+        assert (m.dir / "rootfs" / rel).is_file()
+
+
+def test_ide_section_optional():
+    """Agents without an IDE simply omit [ide]."""
+    m = load_manifest(PLUGINS_DIR / "agents" / "cc" / "manifest.toml")
+    assert m.ide is None
+
+
+def test_ide_inject_defaults_empty(tmp_path):
+    path = _write(
+        tmp_path,
+        '[plugin]\nslug = "x"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n'
+        '[ide]\ncommand = ["/usr/bin/tool", "ide"]\n',
+    )
+    m = load_manifest(path)
+    assert m.ide == IdeSpec(command=("/usr/bin/tool", "ide"), inject=())
+
+
+def test_ide_missing_command_rejected(tmp_path):
+    path = _write(
+        tmp_path,
+        '[plugin]\nslug = "x"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n'
+        '[ide]\ninject = ["usr/bin/tool"]\n',
+    )
+    with pytest.raises(ManifestError, match="missing required key 'command'"):
+        load_manifest(path)
+
+
+def test_ide_empty_command_rejected(tmp_path):
+    path = _write(
+        tmp_path,
+        '[plugin]\nslug = "x"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n'
+        '[ide]\ncommand = []\n',
+    )
+    with pytest.raises(ManifestError, match="command"):
+        load_manifest(path)
+
+
+@pytest.mark.parametrize("bad", ["/usr/bin/tool", "../escape/tool"])
+def test_ide_inject_must_be_rootfs_relative(tmp_path, bad):
+    """Absolute or traversing inject paths would escape the plugin's
+    rootfs/ tree; the loader must fail closed."""
+    path = _write(
+        tmp_path,
+        '[plugin]\nslug = "x"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n'
+        f'[ide]\ncommand = ["/usr/bin/tool"]\ninject = ["{bad}"]\n',
+    )
+    with pytest.raises(ManifestError, match="rootfs-relative"):
+        load_manifest(path)
 
 
 def test_port_legacy_slug_optional(tmp_path):
