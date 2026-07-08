@@ -9,10 +9,11 @@ plugins/agents/<slug>/
 └── Dockerfile       # how the agent CLI gets installed
 ```
 
-Drop them in, and `list` / `build` / `up` / `pull` / port allocation all pick
-the new agent up automatically. This guide uses the real `oc` (OpenCode)
-agent as the running example - copy it, rename the slug, swap the install
-command.
+Drop them in, and `list` / `build` / `up` / port allocation all pick the new
+agent up automatically. (`pull` only serves official-tier tags: GHCR hosts no
+images for community agents, so build those locally.) This guide uses the
+real `oc` (OpenCode) agent as the running example - copy it, rename the slug,
+swap the install command.
 
 ## 1. The manifest
 
