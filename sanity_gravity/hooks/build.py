@@ -20,7 +20,7 @@ import sys
 
 from sanity_gravity.cli.registry import (
     DESKTOPS,
-    VALID_TAGS,
+    OFFICIAL_TAGS,
     get_registry,
     parse_tag,
 )
@@ -66,8 +66,10 @@ def _build_context_for(dockerfile_path: str) -> str:
 
 
 def _get_unique_agent_desktop_pairs() -> list[tuple[str, str]]:
+    # Enumeration follows the official tier: intermediates for
+    # community/deprecated tags are only built when explicitly targeted.
     pairs: set[tuple[str, str]] = set()
-    for tag in VALID_TAGS:
+    for tag in OFFICIAL_TAGS:
         a, d, _ = tag.split("-")
         pairs.add((a, d))
     return sorted(pairs)
@@ -147,13 +149,14 @@ def build_plan(ctx) -> None:
         _plan_layer(ctx, ctx.layer_target, ctx.layer_target_specific, no_cache)
         return
 
-    # Default: build the requested final tags (or all of VALID_TAGS).
+    # Default: build the requested final tags (or all of OFFICIAL_TAGS —
+    # ``all`` is CI's build set, so it follows the official tier).
     targets = ctx.targets or []
     if "all" in targets:
         # Phase 1: intermediates.
         _plan_intermediates(ctx, no_cache)
         # Phase 2: every final image.
-        for tag in VALID_TAGS:
+        for tag in OFFICIAL_TAGS:
             chain = _resolve_build_chain(tag)
             for dockerfile, image_name, parent in chain:
                 if image_name == tag:
@@ -220,7 +223,7 @@ def _plan_layer(ctx, layer_type: str, target: str | None, no_cache: bool) -> Non
         return
     if layer_type == "connector":
         _plan_intermediates(ctx, no_cache)
-        for tag in VALID_TAGS:
+        for tag in OFFICIAL_TAGS:
             chain = _resolve_build_chain(tag)
             ctx.plan.append(chain[-1])
         return

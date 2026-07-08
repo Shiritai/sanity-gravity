@@ -23,7 +23,7 @@ from sanity_gravity.cli.io import (
     validate_project_name,
     validate_username,
 )
-from sanity_gravity.cli.registry import parse_tag
+from sanity_gravity.cli.registry import deprecation_warning, parse_tag
 from sanity_gravity.core.orchestrator import (
     Deps,
     PortRequest,
@@ -72,6 +72,12 @@ def up(args):
     except ValueError as e:
         print_error(str(e))
         sys.exit(1)
+
+    # Deprecated tags warn but never block (tier policy) — existing
+    # sandboxes keep working, only CI/publish dropped the tag.
+    notice = deprecation_warning(target)
+    if notice:
+        print_warning(notice)
 
     if not args.skip_check:
         check_prereqs(args)

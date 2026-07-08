@@ -342,6 +342,54 @@ def test_ide_inject_must_be_rootfs_relative(tmp_path, bad):
         load_manifest(path)
 
 
+# ---------------------------------------------------------------------------
+# Tier field.
+# ---------------------------------------------------------------------------
+
+
+_MINIMAL_AGENT = (
+    '[plugin]\nslug = "x"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+)
+
+
+def test_tier_defaults_to_official(tmp_path):
+    """Existing manifests without [plugin].tier stay official."""
+    path = _write(tmp_path, _MINIMAL_AGENT + '[build]\ndockerfile = "Dockerfile"\n')
+    m = load_manifest(path)
+    assert m.tier == "official"
+
+
+@pytest.mark.parametrize("tier", ["official", "community", "deprecated"])
+def test_tier_explicit_value_parsed(tmp_path, tier):
+    path = _write(
+        tmp_path,
+        _MINIMAL_AGENT + f'tier = "{tier}"\n[build]\ndockerfile = "Dockerfile"\n',
+    )
+    m = load_manifest(path)
+    assert m.tier == tier
+
+
+def test_tier_invalid_value_rejected(tmp_path):
+    """Unknown tier names must fail closed, naming the accepted values."""
+    path = _write(
+        tmp_path,
+        _MINIMAL_AGENT + 'tier = "legacy"\n[build]\ndockerfile = "Dockerfile"\n',
+    )
+    with pytest.raises(ManifestError, match="tier") as excinfo:
+        load_manifest(path)
+    for accepted in ("official", "community", "deprecated"):
+        assert accepted in str(excinfo.value)
+
+
+def test_tier_wrong_type_rejected(tmp_path):
+    path = _write(
+        tmp_path,
+        _MINIMAL_AGENT + 'tier = 1\n[build]\ndockerfile = "Dockerfile"\n',
+    )
+    with pytest.raises(ManifestError, match="expected string"):
+        load_manifest(path)
+
+
 def test_port_legacy_slug_optional(tmp_path):
     """``legacy_slug`` defaults to None and can be set per-port."""
     path = _write(

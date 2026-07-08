@@ -17,8 +17,14 @@ from sanity_gravity.cli.io import (
     get_reporter,
     print_error,
     print_header,
+    print_warning,
 )
-from sanity_gravity.cli.registry import DEFAULT_TAG, VALID_TAGS, parse_tag
+from sanity_gravity.cli.registry import (
+    DEFAULT_TAG,
+    OFFICIAL_TAGS,
+    deprecation_warning,
+    parse_tag,
+)
 from sanity_gravity.core.eventbus import EventBus
 from sanity_gravity.core.orchestrator import (
     BuildContext,
@@ -77,7 +83,7 @@ def build(args):
             + (f" ({layer_target})" if layer_target else "")
         )
     elif "all" in targets:
-        print_header(f"Building all {len(VALID_TAGS)} images")
+        print_header(f"Building all {len(OFFICIAL_TAGS)} images")
     else:
         # Validate eagerly so a bad tag aborts before we set up the kernel.
         for target in targets:
@@ -86,6 +92,10 @@ def build(args):
             except ValueError as e:
                 print_error(str(e))
                 sys.exit(1)
+            # Deprecated tags warn but never block (tier policy).
+            notice = deprecation_warning(target)
+            if notice:
+                print_warning(notice)
         print_header(f"Building: {', '.join(targets)}")
 
     reporter = getattr(args, "reporter", None) or get_reporter()

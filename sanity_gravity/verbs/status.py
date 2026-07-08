@@ -18,8 +18,10 @@ from sanity_gravity.cli.registry import (
     CONNECTORS,
     DEFAULT_TAG,
     DESKTOPS,
+    OFFICIAL_TAGS,
     VALID_TAGS,
     get_registry,
+    tag_tier,
 )
 from sanity_gravity.verbs.lifecycle import (
     get_active_projects,
@@ -80,11 +82,24 @@ def status(args):
             )
 
 
+def _tier_marker(tier):
+    """Render a warning-coloured marker for non-official tiers."""
+    if tier == "official":
+        return ""
+    return f" {Colors.WARNING}({tier}){Colors.ENDC}"
+
+
 def list_variants(args):
-    """List available tags with dimension matrix."""
+    """List available tags with dimension matrix.
+
+    ``--json`` emits the official tier only: it is the enumeration
+    source for the CI build/verify and release publish matrices.
+    The human-readable listing keeps every valid tag and marks
+    non-official tiers instead.
+    """
     import json as _json
     if getattr(args, "json_output", False):
-        print(_json.dumps(VALID_TAGS))
+        print(_json.dumps(OFFICIAL_TAGS))
         return
 
     print_header("Dimension Matrix")
@@ -95,7 +110,11 @@ def list_variants(args):
             f" {Colors.WARNING}(requires GUI){Colors.ENDC}"
             if info["requires_gui"] else ""
         )
-        print_plain(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {info['name']}{gui_tag}")
+        marker = _tier_marker(info.get("tier", "official"))
+        print_plain(
+            f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = "
+            f"{info['name']}{gui_tag}{marker}"
+        )
 
     print_plain(f"\n  {Colors.BOLD}Connectors:{Colors.ENDC}")
     for slug, info in CONNECTORS.items():
@@ -103,7 +122,11 @@ def list_variants(args):
             f" {Colors.WARNING}(requires GUI){Colors.ENDC}"
             if info["requires_gui"] else ""
         )
-        print_plain(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {info['name']}{gui_tag}")
+        marker = _tier_marker(info.get("tier", "official"))
+        print_plain(
+            f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = "
+            f"{info['name']}{gui_tag}{marker}"
+        )
 
     print_plain(f"\n  {Colors.BOLD}Desktops:{Colors.ENDC}")
     for slug, info in DESKTOPS.items():
@@ -125,6 +148,7 @@ def list_variants(args):
             f" {Colors.OKGREEN}(default){Colors.ENDC}"
             if tag == DEFAULT_TAG else ""
         )
+        marker += _tier_marker(tag_tier(tag))
         print_plain(f"    {Colors.OKCYAN}{tag}{Colors.ENDC}{marker}")
 
 
@@ -159,7 +183,7 @@ def plugins_list(args):
         for slug, m in bucket.items():
             line = (
                 f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {m.name}  "
-                f"{_render_caps(m)}{_render_ports(m)}"
+                f"{_render_caps(m)}{_render_ports(m)}{_tier_marker(m.tier)}"
             )
             print_plain(line)
 

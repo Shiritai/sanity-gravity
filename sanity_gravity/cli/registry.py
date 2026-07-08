@@ -43,18 +43,21 @@ def _legacy_dim_dicts(reg):
         agents[slug] = {
             "name": m.name,
             "requires_gui": "display" in m.requires,
+            "tier": m.tier,
         }
     connectors: dict[str, dict] = {}
     for slug, m in reg.connectors.items():
         connectors[slug] = {
             "name": m.name,
             "requires_gui": "display" in m.requires,
+            "tier": m.tier,
         }
     desktops: dict[str, dict] = {}
     for slug, m in reg.desktops.items():
         desktops[slug] = {
             "name": m.name,
             "has_gui": "display" in m.provides,
+            "tier": m.tier,
         }
     return agents, connectors, desktops
 
@@ -111,12 +114,47 @@ def parse_tag(tag):
     return agent, desktop, connector
 
 
-def generate_valid_tags():
-    """Return all tag combinations whose plugins satisfy capabilities."""
-    return [str(t) for t in get_registry().valid_tags()]
+def generate_valid_tags(tiers=None):
+    """Return all tag combinations whose plugins satisfy capabilities.
+
+    ``tiers`` optionally restricts the result to tags whose tier is in
+    the given set (see :meth:`PluginRegistry.valid_tags`).
+    """
+    return [str(t) for t in get_registry().valid_tags(tiers=tiers)]
+
+
+def tag_tier(tag: str) -> str:
+    """Tier of a well-formed ``agent-desktop-connector`` tag string.
+
+    See :meth:`PluginRegistry.tag_tier` — the most restrictive tier
+    among the tag's three plugins wins.
+    """
+    agent, desktop, connector = tag.split("-")
+    return get_registry().tag_tier(
+        Tag(agent=agent, desktop=desktop, connector=connector)
+    )
+
+
+def deprecation_warning(tag: str) -> str | None:
+    """Warning text for a deprecated tag, or ``None`` for other tiers.
+
+    Kept here (next to the tier data) so build/up print the same
+    message; the verbs decide how to surface it.
+    """
+    if tag_tier(tag) != "deprecated":
+        return None
+    return (
+        f"Tag '{tag}' uses a deprecated plugin: it is excluded from CI "
+        "and no longer published to GHCR. Local build/up keep working, "
+        "but expect no further updates."
+    )
 
 
 # Legacy module-level views. Computed once at import time; they stay
 # stable across a process because the manifest set is filesystem-bound.
 AGENTS, CONNECTORS, DESKTOPS = _legacy_dim_dicts(get_registry())
 VALID_TAGS = generate_valid_tags()
+# The CI build/verify and release publish matrix: official tier only.
+# Community/deprecated tags stay in VALID_TAGS (parse + lifecycle) but
+# leave every CI enumeration (``list --json`` / ``build all``).
+OFFICIAL_TAGS = generate_valid_tags(tiers=("official",))

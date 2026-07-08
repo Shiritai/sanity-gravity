@@ -18,6 +18,7 @@ Schema (TOML)::
 
     [plugin]                                            # required
     slug = "kasm"; name = "KasmVNC"; kind = "connector"; api_version = "1"
+    tier = "official"        # optional: official | community | deprecated
 
     [capabilities]                                      # optional
     provides = ["http-gui"]
@@ -83,11 +84,19 @@ __all__ = [
     "AnnounceSpec",
     "IdeSpec",
     "PluginManifest",
+    "TIERS",
     "load_manifest",
 ]
 
 
 _VALID_KINDS = {"agent", "desktop", "connector"}
+
+# Support tiers, ordered least to most restrictive. A tag's tier is the
+# most restrictive tier among its three plugins. Only ``official``
+# plugins enter the CI build/verify and release publish matrix;
+# ``community`` and ``deprecated`` stay locally buildable but leave the
+# matrix, and ``deprecated`` additionally warns on build/up.
+TIERS: tuple[str, ...] = ("official", "community", "deprecated")
 
 # Manifest schema versions this loader understands. Update when bumping
 # the schema with a backwards-incompatible change; an unknown version is
@@ -183,6 +192,7 @@ class PluginManifest:
     provides: tuple[str, ...]
     requires: tuple[str, ...]
     dockerfile: str
+    tier: str = "official"
     ports: tuple[PortSpec, ...] = ()
     compose: ComposeOverlay = field(default_factory=ComposeOverlay)
     environment: tuple[tuple[str, str], ...] = ()
@@ -361,6 +371,14 @@ def load_manifest(path: str | Path) -> PluginManifest:
             f"{p}: [plugin].kind must be one of {sorted(_VALID_KINDS)}, got '{kind}'"
         )
 
+    tier = "official"
+    if "tier" in plugin:
+        tier = _str(plugin["tier"], f"{p}:[plugin].tier")
+        if tier not in TIERS:
+            raise ManifestError(
+                f"{p}: [plugin].tier must be one of {list(TIERS)}, got '{tier}'"
+            )
+
     if api_version not in SUPPORTED_API_VERSIONS:
         accepted = sorted(SUPPORTED_API_VERSIONS)
         hint = ""
@@ -410,6 +428,7 @@ def load_manifest(path: str | Path) -> PluginManifest:
         name=name,
         kind=kind,
         api_version=api_version,
+        tier=tier,
         provides=provides,
         requires=requires,
         dockerfile=dockerfile,
