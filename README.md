@@ -76,7 +76,7 @@ AI agents run arbitrary code. One rogue `rm -rf /` and your host is toast. Sanit
 | :----------------------------- | :---------------------------------------------------------------------------------------------------------------- |
 | **Host Isolation**             | Even if an agent runs `rm -rf /` or downloads malware, only the sandbox is destroyed. Your host stays untouched.  |
 | **Full GUI Desktop**           | Ubuntu 24.04 + XFCE4 + KasmVNC. Agents operate browsers and GUI apps just like a human would.                    |
-| **Headless CLI Agents**        | Minimal images for Gemini CLI, Claude Code, OpenAI Codex, and OpenCode — no desktop overhead, just SSH.           |
+| **Headless CLI Agents**        | Minimal images for Gemini CLI, Claude Code, OpenAI Codex, and OpenCode - no desktop overhead, just SSH.           |
 | **Out-of-the-Box**             | Pre-installed with Antigravity IDE, Google Chrome, and Git. Zero setup time.                                      |
 | **Seamless Disk I/O**          | Smart UID/GID mapping. No root-owned file disasters after host volume mounts.                                     |
 | **Multi-Instance**             | Parallel isolated sandboxes. Host ports are auto-allocated when unspecified (zero conflicts), or can be set manually. |
@@ -110,7 +110,7 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 
 There are **23 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
 
-Missing your favorite agent? Adding one takes a manifest plus a Dockerfile — see [Bring Your Own Agent](docs/bring-your-own-agent.md).
+Missing your favorite agent? Adding one takes a manifest plus a Dockerfile - see [Bring Your Own Agent](docs/bring-your-own-agent.md).
 
 ## Command Reference
 

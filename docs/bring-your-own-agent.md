@@ -1,7 +1,7 @@
 # Bring Your Own Agent
 
 Sanity-Gravity discovers agents from the plugin tree at startup. Adding an
-agent is **a directory + two files** — zero Python, no kernel edits:
+agent is **a directory + two files** - zero Python, no kernel edits:
 
 ```text
 plugins/agents/<slug>/
@@ -11,7 +11,7 @@ plugins/agents/<slug>/
 
 Drop them in, and `list` / `build` / `up` / `pull` / port allocation all pick
 the new agent up automatically. This guide uses the real `oc` (OpenCode)
-agent as the running example — copy it, rename the slug, swap the install
+agent as the running example - copy it, rename the slug, swap the install
 command.
 
 ## 1. The manifest
@@ -36,17 +36,17 @@ dockerfile = "Dockerfile"
 
 Field notes:
 
-- **slug** — short and unique; it becomes the first dimension of every tag
+- **slug** - short and unique; it becomes the first dimension of every tag
   (`{agent}-{desktop}-{connector}`). Existing agents use 2-3 characters.
-- **capabilities** — a pure CLI agent leaves both lists empty; the registry
+- **capabilities** - a pure CLI agent leaves both lists empty; the registry
   then emits every desktop/connector combination that satisfies the display
   rule (four tags today: `<slug>-none-ssh` and `<slug>-xfce-{kasm,vnc,ssh}`).
   An agent that needs a GUI declares `requires = ["display"]` (see
   `plugins/agents/ag/`), which drops the headless variants.
-- **No host secrets** — agents declare no `[environment]` entries that leak
+- **No host secrets** - agents declare no `[environment]` entries that leak
   host API keys into the sandbox. Authentication happens in-container (e.g.
   `opencode auth login`, `codex login`).
-- **Optional sections** — any plugin may also declare `[ports.<label>]`,
+- **Optional sections** - any plugin may also declare `[ports.<label>]`,
   `[compose]`, `[environment]`, and `[announce]`; agents that provide the
   `ide` capability may declare `[ide]` (`command` + `inject`, consumed by the
   `ide` verb). The authoritative schema reference is the module docstring of
@@ -90,19 +90,19 @@ RUN curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path && \
 
 Conventions (all of `cc`, `cx`, and `oc` follow them):
 
-- **`BASE_IMAGE` chain** — every agent layer starts with the `ARG
+- **`BASE_IMAGE` chain** - every agent layer starts with the `ARG
   BASE_IMAGE` + `FROM ${BASE_IMAGE}` pair; the CLI injects the desktop layer
   underneath at build time. The build context is the plugin's own directory.
-- **Install for the sandbox user, not root** — upstream installers target
+- **Install for the sandbox user, not root** - upstream installers target
   `/root` (mode 700), unreadable for the non-root sandbox user created at
   runtime. Put the binary on `/usr/local/bin` (copy it out, or redirect
   `HOME` to a world-readable tree like `cx` does) and clean up the staging
   directory.
-- **Never execute the agent binary at build time** — images are cross-built
+- **Never execute the agent binary at build time** - images are cross-built
   for amd64 + arm64 under qemu, where freshly installed binaries (especially
   Bun/Node-based ones) can hang or crash. Verify with `test -x`; leave
   `--version` checks to the integration tests, which run the real container.
-- **Disable self-update** — the binary lives in root-owned `/usr/local/bin`,
+- **Disable self-update** - the binary lives in root-owned `/usr/local/bin`,
   so in-place updates can never succeed for the sandbox user. Pin the image
   immutable via the vendor's switch (env var or config), e.g.
   `OPENCODE_DISABLE_AUTOUPDATE=true` above.
@@ -128,13 +128,13 @@ python3 -m pytest tests/ -x -q
 
 ## 5. Tests
 
-Community-tier agents need no test changes — discovery and tag solving are
+Community-tier agents need no test changes - discovery and tag solving are
 covered generically. If you aim for the official tier, mirror the per-agent
 pattern:
 
-- `tests/unit/test_oc_agent.py` — registry discovery, capability solving,
+- `tests/unit/test_oc_agent.py` - registry discovery, capability solving,
   and tier expectations; no Docker required.
-- `tests/integration/test_oc_agent.py` — boots the real image and asserts
+- `tests/integration/test_oc_agent.py` - boots the real image and asserts
   the binary is installed and runnable *by the non-root user*. The module
   auto-skips when the image has not been built locally, so the suite stays
   green on machines that never built your agent.

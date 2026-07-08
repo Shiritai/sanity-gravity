@@ -55,7 +55,7 @@ def gen_resource_compose(ctx) -> None:
 def _port_specs_by_slug() -> dict[str, PortSpec]:
     """Union of every plugin-declared port spec, keyed by runtime slug.
 
-    The slug is ``PortSpec.legacy_slug`` (or the label when unset) — the
+    The slug is ``PortSpec.legacy_slug`` (or the label when unset) - the
     key ``auto_port_alloc`` writes into ``resolved_ports`` and the
     announce hook reads back. First declaration wins on duplicates; the
     only duplicated slug today is ``ssh``, declared identically by every
@@ -87,7 +87,7 @@ def auto_port_alloc(ctx) -> None:
     is_busy = ctx.deps.is_port_in_use
 
     # CLI-requested slugs first (stable legacy ordering), then any
-    # manifest-declared slugs the CLI has no flag for — those start at
+    # manifest-declared slugs the CLI has no flag for - those start at
     # their manifest default.
     slugs = list(requested) + [s for s in specs if s not in requested]
 

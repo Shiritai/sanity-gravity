@@ -2,11 +2,11 @@
 
 Tier semantics:
 
-- ``official``   — included in the CI build/verify and release publish
+- ``official``   - included in the CI build/verify and release publish
   matrix (the status quo for undeclared manifests).
-- ``community``  — tag is valid and locally buildable, but absent from
+- ``community``  - tag is valid and locally buildable, but absent from
   every CI matrix and never published to GHCR.
-- ``deprecated`` — tag still parses (lifecycle/clean/status keep working
+- ``deprecated`` - tag still parses (lifecycle/clean/status keep working
   for existing containers); local build/up print a warning but proceed;
   absent from every CI matrix.
 

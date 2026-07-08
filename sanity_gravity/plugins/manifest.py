@@ -49,7 +49,7 @@ Schema (TOML)::
     [announce]
     template = "..."
 
-    # optional, agents providing the "ide" capability — the container-
+    # optional, agents providing the "ide" capability - the container-
     # side maintenance contract consumed by the ``ide`` verb.
     [ide]
     command = ["/usr/local/bin/gravity-cli", "ide"]

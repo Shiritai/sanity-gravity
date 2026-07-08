@@ -149,7 +149,7 @@ def build_plan(ctx) -> None:
         _plan_layer(ctx, ctx.layer_target, ctx.layer_target_specific, no_cache)
         return
 
-    # Default: build the requested final tags (or all of OFFICIAL_TAGS —
+    # Default: build the requested final tags (or all of OFFICIAL_TAGS -
     # ``all`` is CI's build set, so it follows the official tier).
     targets = ctx.targets or []
     if "all" in targets:

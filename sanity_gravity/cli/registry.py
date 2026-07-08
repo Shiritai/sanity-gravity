@@ -10,6 +10,7 @@ constraint validation via the capability solver, mapping the technical
 from __future__ import annotations
 
 import os
+from collections.abc import Collection
 
 from sanity_gravity.domain.capability import CapabilityConflictError
 from sanity_gravity.domain.capability import solve as _capability_solve
@@ -114,7 +115,7 @@ def parse_tag(tag):
     return agent, desktop, connector
 
 
-def generate_valid_tags(tiers=None):
+def generate_valid_tags(tiers: Collection[str] | None = None) -> list[str]:
     """Return all tag combinations whose plugins satisfy capabilities.
 
     ``tiers`` optionally restricts the result to tags whose tier is in
@@ -126,7 +127,7 @@ def generate_valid_tags(tiers=None):
 def tag_tier(tag: str) -> str:
     """Tier of a well-formed ``agent-desktop-connector`` tag string.
 
-    See :meth:`PluginRegistry.tag_tier` — the most restrictive tier
+    See :meth:`PluginRegistry.tag_tier` - the most restrictive tier
     among the tag's three plugins wins.
     """
     agent, desktop, connector = tag.split("-")

@@ -82,7 +82,7 @@ def status(args):
             )
 
 
-def _tier_marker(tier):
+def _tier_marker(tier: str) -> str:
     """Render a warning-coloured marker for non-official tiers."""
     if tier == "official":
         return ""
