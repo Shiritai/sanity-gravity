@@ -12,12 +12,14 @@ ubuntu:24.04 (pinned SHA)
      │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-xfce → agy-xfce-{kasm,vnc,ssh}
      │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-xfce → cc-xfce-{kasm,vnc,ssh}
      │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-xfce → cx-xfce-{kasm,vnc,ssh}
-     │   └─ plugins/agents/gc/           → sanity-gravity:_gc-xfce → gc-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-xfce → gc-xfce-{kasm,vnc,ssh}
+     │   └─ plugins/agents/oc/           → sanity-gravity:_oc-xfce → oc-xfce-{kasm,vnc,ssh}
      └─ plugins/desktops/none/           → sanity-gravity:_base-none
          ├─ plugins/agents/agy/          → sanity-gravity:_agy-none → agy-none-ssh
          ├─ plugins/agents/cc/           → sanity-gravity:_cc-none → cc-none-ssh
          ├─ plugins/agents/cx/           → sanity-gravity:_cx-none → cx-none-ssh
-         └─ plugins/agents/gc/           → sanity-gravity:_gc-none → gc-none-ssh
+         ├─ plugins/agents/gc/           → sanity-gravity:_gc-none → gc-none-ssh
+         └─ plugins/agents/oc/           → sanity-gravity:_oc-none → oc-none-ssh
 ```
 
 (`ag` requires a GUI desktop, so it has no headless `none` variant.)
@@ -66,10 +68,10 @@ visibility to its own files.
 
 ## Build Phases
 
-`./sanity-cli build` (with no arguments) builds all 19 images in two phases:
+`./sanity-cli build` (with no arguments) builds all 19 **official** images in two phases; non-official tags (e.g. the deprecated `gc-*`) build only when named explicitly:
 
-1. **Phase 1: Intermediates** — builds the 12 shared intermediate images (`_base`, `_base-xfce`, `_base-none`, `_ag-xfce`, `_agy-xfce`, `_agy-none`, `_cc-xfce`, `_cc-none`, `_cx-xfce`, `_cx-none`, `_gc-xfce`, `_gc-none`).
-2. **Phase 2: Finals** — builds all 19 final images on top of the intermediates.
+1. **Phase 1: Intermediates** — builds the 12 shared intermediate images (`_base`, `_base-xfce`, `_base-none`, `_ag-xfce`, `_agy-xfce`, `_agy-none`, `_cc-xfce`, `_cc-none`, `_cx-xfce`, `_cx-none`, `_oc-xfce`, `_oc-none`).
+2. **Phase 2: Finals** — builds all 19 official final images on top of the intermediates.
 
 ## Entrypoint
 
@@ -116,7 +118,10 @@ plugins/                        # Manifest-driven extension point (PR #6)
 │   ├── cx/                     # Layer 3: OpenAI Codex CLI (codex binary)
 │   │   ├── manifest.toml
 │   │   └── Dockerfile
-│   └── gc/                     # Layer 3: Node.js + Gemini CLI
+│   ├── gc/                     # Layer 3: Node.js + Gemini CLI
+│   │   ├── manifest.toml
+│   │   └── Dockerfile
+│   └── oc/                     # Layer 3: OpenCode CLI (opencode binary)
 │       ├── manifest.toml
 │       └── Dockerfile
 └── connectors/

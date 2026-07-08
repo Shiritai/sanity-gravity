@@ -76,7 +76,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 | :-------------------- | :------------------------------------------------------------------------------------------------------- |
 | **主機絕對安全**      | 即使 AI 代理執行了 `rm -rf /` 或下載了惡意程式碼，只有沙箱會被摧毀。你的主機始終安然無恙。              |
 | **完整圖形桌面**      | Ubuntu 24.04 + XFCE4 + KasmVNC。代理能如同真人一般操作瀏覽器及 GUI 應用程式。                            |
-| **無頭 CLI 代理**     | 專為 Gemini CLI、Claude Code 與 OpenAI Codex 設計的最小化映像 — 無桌面負擔，僅需 SSH 即可運行。           |
+| **無頭 CLI 代理**     | 專為 Gemini CLI、Claude Code、OpenAI Codex 與 OpenCode 設計的最小化映像 — 無桌面負擔，僅需 SSH 即可運行。 |
 | **開箱即用**          | 預先安裝 Antigravity IDE、Google Chrome 與 Git 等關鍵套件。零等待立即開始。                               |
 | **無縫磁碟 I/O**     | 智慧 UID/GID 對應。Volume 掛載後不會產生 root 擁有權的檔案災難。                                        |
 | **多重實例**          | 平行建立各種隔離沙箱，未指定時系統自動分配連接埠，保證零衝突；也支援手動指定連接埠。                                                   |
@@ -101,12 +101,14 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 | 搭配桌面使用 Claude Code        | `cc-xfce-kasm`   | `https://localhost:8444`   |
 | 在終端機使用 OpenAI Codex       | `cx-none-ssh`    | `ssh -p 2222 ...`         |
 | 搭配桌面使用 OpenAI Codex       | `cx-xfce-kasm`   | `https://localhost:8444`   |
+| 在終端機使用 OpenCode           | `oc-none-ssh`    | `ssh -p 2222 ...`         |
+| 搭配桌面使用 OpenCode           | `oc-xfce-kasm`   | `https://localhost:8444`   |
 
 > **第一次使用？** 從 **`ag-xfce-kasm`** 開始 — 直接在瀏覽器中獲得完整的桌面體驗。
 
 > **注意：** `gc`（Gemini CLI）免費方案已於 2026-06-18 終止，現需付費 Gemini API key / Code Assist 授權。新使用者建議改用 **`agy`**（Antigravity CLI）—— Google 官方接替者，本專案已內建。
 
-共有 **19 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
+共有 **23 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
 
 ## 命令參考
 
@@ -231,7 +233,7 @@ sanity-gravity/
 │   ├── Dockerfile.base         # 基底層：Ubuntu 24.04 + SSH + supervisord
 │   ├── layers/
 │   │   ├── desktops/           # xfce、none
-│   │   ├── agents/             # ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）
+│   │   ├── agents/             # ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）
 │   │   └── connectors/         # kasm（KasmVNC）、vnc（TigerVNC）、ssh
 │   └── rootfs/                 # 共用覆疊層（entrypoint、gravity-cli、supervisor 設定）
 ├── lib/                        # Proxy Manager 模組

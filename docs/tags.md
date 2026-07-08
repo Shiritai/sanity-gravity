@@ -15,6 +15,7 @@ The AI tool installed in the sandbox.
 | `cc` | Claude Code | No | Claude Code CLI (official installer) |
 | `cx` | OpenAI Codex CLI | No | Codex CLI (static musl `codex` binary, official installer) |
 | `gc` | Gemini CLI **(deprecated)** | No | Node.js 22 + `@google/gemini-cli` |
+| `oc` | OpenCode | No | OpenCode CLI (single Bun-compiled `opencode` binary, official installer) |
 
 > **`gc` is deprecated.** Google shut down the Gemini CLI free tier on
 > 2026-06-18; it now requires a paid Gemini API key / Code Assist license.
@@ -49,7 +50,7 @@ Not all combinations are valid. Two rules are enforced:
 
 These rules are enforced by `sanity-cli` at build time and run time.
 
-## All Valid Tags (19)
+## All Valid Tags (23)
 
 Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 
@@ -74,6 +75,10 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `gc-xfce-kasm` | Gemini CLI | XFCE | KasmVNC | Gemini with browser desktop |
 | `gc-xfce-ssh` | Gemini CLI | XFCE | SSH | Gemini with GUI, SSH-only access |
 | `gc-xfce-vnc` | Gemini CLI | XFCE | TigerVNC | Gemini with legacy VNC |
+| `oc-none-ssh` | OpenCode | Headless | SSH | Lightweight OpenCode terminal |
+| `oc-xfce-kasm` | OpenCode | XFCE | KasmVNC | OpenCode with browser desktop |
+| `oc-xfce-ssh` | OpenCode | XFCE | SSH | OpenCode with GUI, SSH-only access |
+| `oc-xfce-vnc` | OpenCode | XFCE | TigerVNC | OpenCode with legacy VNC |
 
 ## Discovery Commands
 

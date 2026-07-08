@@ -76,7 +76,7 @@ AI agents run arbitrary code. One rogue `rm -rf /` and your host is toast. Sanit
 | :----------------------------- | :---------------------------------------------------------------------------------------------------------------- |
 | **Host Isolation**             | Even if an agent runs `rm -rf /` or downloads malware, only the sandbox is destroyed. Your host stays untouched.  |
 | **Full GUI Desktop**           | Ubuntu 24.04 + XFCE4 + KasmVNC. Agents operate browsers and GUI apps just like a human would.                    |
-| **Headless CLI Agents**        | Minimal images for Gemini CLI, Claude Code, and OpenAI Codex — no desktop overhead, just SSH.                     |
+| **Headless CLI Agents**        | Minimal images for Gemini CLI, Claude Code, OpenAI Codex, and OpenCode — no desktop overhead, just SSH.           |
 | **Out-of-the-Box**             | Pre-installed with Antigravity IDE, Google Chrome, and Git. Zero setup time.                                      |
 | **Seamless Disk I/O**          | Smart UID/GID mapping. No root-owned file disasters after host volume mounts.                                     |
 | **Multi-Instance**             | Parallel isolated sandboxes. Host ports are auto-allocated when unspecified (zero conflicts), or can be set manually. |
@@ -101,12 +101,14 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 | Use Claude Code with a desktop   | `cc-xfce-kasm`   | `https://localhost:8444`   |
 | Use OpenAI Codex in a terminal   | `cx-none-ssh`    | `ssh -p 2222 ...`         |
 | Use OpenAI Codex with a desktop  | `cx-xfce-kasm`   | `https://localhost:8444`   |
+| Use OpenCode in a terminal       | `oc-none-ssh`    | `ssh -p 2222 ...`         |
+| Use OpenCode with a desktop      | `oc-xfce-kasm`   | `https://localhost:8444`   |
 
 > **First time?** Start with **`ag-xfce-kasm`** — it gives you the full desktop experience via your browser.
 
 > **Heads-up:** `gc` (Gemini CLI) lost its free tier on 2026-06-18 and now requires a paid Gemini API key / Code Assist license. New users should prefer **`agy`** (Antigravity CLI), Google's official successor — already shipped here.
 
-There are **19 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
+There are **23 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
 
 ## Command Reference
 
@@ -233,7 +235,7 @@ sanity-gravity/
 │   ├── Dockerfile.base         # Base layer: Ubuntu 24.04 + SSH + supervisord
 │   ├── layers/
 │   │   ├── desktops/           # xfce, none
-│   │   ├── agents/             # ag (Antigravity), agy (Antigravity CLI), gc (Gemini CLI), cc (Claude Code), cx (OpenAI Codex)
+│   │   ├── agents/             # ag (Antigravity), agy (Antigravity CLI), gc (Gemini CLI), cc (Claude Code), cx (OpenAI Codex), oc (OpenCode)
 │   │   └── connectors/         # kasm (KasmVNC), vnc (TigerVNC), ssh
 │   └── rootfs/                 # Shared overlay (entrypoint, gravity-cli, supervisor configs)
 ├── lib/                        # Proxy manager module

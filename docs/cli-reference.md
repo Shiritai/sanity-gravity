@@ -16,7 +16,7 @@ Verifies that Docker and Docker Compose (v2.0+) are installed and the Docker dae
 
 ### `build [tag...]`
 
-Build sandbox images. Defaults to building all 19 valid tags.
+Build sandbox images. Defaults to building all 19 official tags.
 
 ```bash
 ./sanity-cli build              # Build all images
