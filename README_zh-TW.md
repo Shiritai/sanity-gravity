@@ -110,6 +110,8 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 
 共有 **23 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
 
+想用的代理還沒內建？新增一個只需要 manifest 加 Dockerfile —— 請參考 [自帶 Agent 指南](docs/bring-your-own-agent.md)。
+
 ## 命令參考
 
 ### 生命週期

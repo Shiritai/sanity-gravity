@@ -6,6 +6,7 @@ Thank you for your interest in contributing to Sanity-Gravity! We welcome commun
 
 1.  **Fork the repository** and create your branch from `main`.
 2.  **Make your changes**:
+    *   If adding a new AI agent, see [Bring Your Own Agent](docs/bring-your-own-agent.md) — a manifest plus a Dockerfile, no Python changes.
     *   If adding a new variant, create a new `Dockerfile.<variant>` in `sandbox/`.
     *   Update `sanity-cli` to handle the new variant if necessary (though it auto-detects most valid targets).
 3.  **Test your changes**:

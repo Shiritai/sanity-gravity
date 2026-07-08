@@ -110,6 +110,8 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 
 There are **23 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
 
+Missing your favorite agent? Adding one takes a manifest plus a Dockerfile — see [Bring Your Own Agent](docs/bring-your-own-agent.md).
+
 ## Command Reference
 
 ### Lifecycle
