@@ -359,6 +359,13 @@ def test_tier_defaults_to_official(tmp_path):
     assert m.tier == "official"
 
 
+def test_gc_is_deprecated():
+    """Gemini CLI is deprecated (see commit 08a284a): out of the CI
+    matrix, still locally usable."""
+    m = load_manifest(PLUGINS_DIR / "agents" / "gc" / "manifest.toml")
+    assert m.tier == "deprecated"
+
+
 @pytest.mark.parametrize("tier", ["official", "community", "deprecated"])
 def test_tier_explicit_value_parsed(tmp_path, tier):
     path = _write(

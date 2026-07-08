@@ -138,8 +138,10 @@ class TestLayeredBuildSystem:
         assert "_base-xfce" in intermediates
         assert "_base-none" in intermediates
         assert "_ag-xfce" in intermediates
-        assert "_gc-none" in intermediates
         assert "_cc-xfce" in intermediates
+        # gc is tier=deprecated: its intermediates leave the automatic
+        # enumeration (explicit ``build gc-*`` still resolves the chain).
+        assert "_gc-none" not in intermediates
         for name in intermediates:
             assert name.startswith("_"), f"Non-intermediate in list: {name}"
 

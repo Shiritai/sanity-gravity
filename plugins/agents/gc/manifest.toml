@@ -3,6 +3,8 @@ slug = "gc"
 name = "gemini-cli"
 kind = "agent"
 api_version = "1"
+# Deprecated since 08a284a (paid/API-key only); agy is the successor.
+tier = "deprecated"
 
 [capabilities]
 provides = []

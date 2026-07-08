@@ -1,9 +1,28 @@
+import subprocess
+
 import pytest
 import time
 from tests.utils import wait_for_port, wait_for_log
 from tests.conftest import GC_SSH_IMAGE, CC_SSH_IMAGE
 
 
+def _image_exists(image: str) -> bool:
+    return (
+        subprocess.run(
+            ("docker", "image", "inspect", image),
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
+# gc is tier=deprecated: CI's ``build all`` no longer produces its
+# images, so these tests only run where the image was built explicitly
+# (``./sanity-cli build gc-none-ssh``).
+@pytest.mark.skipif(
+    not _image_exists(GC_SSH_IMAGE),
+    reason=f"{GC_SSH_IMAGE} not built; run ./sanity-cli build gc-none-ssh",
+)
 class TestGeminiCLIAgent:
     """Integration tests for gc (Gemini CLI) agent containers."""
 
