@@ -8,6 +8,8 @@ This ensures 100% compatibility with local dev builds and keeps compose files cl
 from __future__ import annotations
 
 import os
+import re
+import sys
 
 from sanity_gravity.cli.colors import Colors
 from sanity_gravity.cli.io import (
@@ -19,6 +21,42 @@ from sanity_gravity.cli.io import (
     run_command,
 )
 from sanity_gravity.cli.registry import get_registry
+
+
+# Upstream repo, used only when neither the env var nor the git remote
+# yields a GHCR namespace (e.g. a tarball download without git).
+_DEFAULT_GHCR_REPO = "shiritai/sanity-gravity"
+
+# The common GitHub remote URL shapes: scp-like git@host:owner/name,
+# https://host/owner/name and ssh://git@host/owner/name, with an
+# optional trailing .git. Only GitHub remotes can imply a GHCR namespace.
+_GITHUB_REMOTE_RE = re.compile(
+    r"^(?:https://|ssh://git@|git@)github\.com[:/]"
+    r"(?P<owner>[^/\s]+)/(?P<name>[^/\s]+?)(?:\.git)?/?$"
+)
+
+
+def resolve_ghcr_repo() -> str:
+    """Resolve the ``owner/name`` GHCR prefix to pull images from.
+
+    Precedence: ``SANITY_GHCR_REPO`` env var -> the ``origin`` git
+    remote -> the upstream repo. Forks therefore pull their own GHCR
+    packages without any configuration. GHCR image names are
+    lowercase-only, so every source is normalized.
+    """
+    override = os.environ.get("SANITY_GHCR_REPO", "").strip()
+    if override:
+        return override.lower()
+
+    url = run_command(
+        ("git", "remote", "get-url", "origin"), capture=True, check=False,
+    )
+    if url:
+        m = _GITHUB_REMOTE_RE.match(url.strip())
+        if m:
+            return f"{m.group('owner')}/{m.group('name')}".lower()
+
+    return _DEFAULT_GHCR_REPO
 
 
 def get_target_version_tag() -> str:
@@ -49,7 +87,7 @@ def pull(args):
         variants = list(get_registry().expand_wildcards(["*"]))
 
     version_tag = args.tag if hasattr(args, "tag") and args.tag else get_target_version_tag()
-    repo_lc = "shiritai/sanity-gravity"  # Hardcoded repo owner/name for GHCR
+    repo_lc = resolve_ghcr_repo()
 
     print_header(f"Pulling {len(variants)} variant(s) (Version: {version_tag})")
 
@@ -60,13 +98,9 @@ def pull(args):
 
         print_info(f"[{variant}] Pulling {ghcr_image} ...")
         # Let docker pull output directly to the terminal for progress bars
-        out = run_command(("docker", "pull", ghcr_image), check=False)
-        
-        if out is None:  # In non-dry-run mode, if check=False and it fails, run_command might exit? 
-            # Wait, `run_command` in io.py calls sys.exit if check=True. If check=False, it returns stdout or empty string.
-            pass
+        run_command(("docker", "pull", ghcr_image), check=False)
 
-        # Let's check if the image actually exists locally now
+        # Check whether the image actually exists locally now
         check_out = run_command(("docker", "image", "inspect", ghcr_image), capture=True, check=False)
         if not check_out or check_out.strip() == "[]" or "Error: No such image" in check_out:
             print_error(f"Failed to pull {ghcr_image}")
@@ -79,7 +113,6 @@ def pull(args):
 
     if failed:
         print_error(f"Failed to pull the following variants: {', '.join(failed)}")
-        import sys
         sys.exit(1)
-    
+
     print_success("All requested images are now available locally!")
