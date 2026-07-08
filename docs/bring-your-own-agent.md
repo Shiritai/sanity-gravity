@@ -86,6 +86,8 @@ RUN curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path && \
     chmod 755 /usr/local/bin/opencode && \
     rm -rf /root/.opencode && \
     test -x /usr/local/bin/opencode
+
+COPY rootfs/ /
 ```
 
 Conventions (all of `cc`, `cx`, and `oc` follow them):
@@ -104,8 +106,12 @@ Conventions (all of `cc`, `cx`, and `oc` follow them):
   `--version` checks to the integration tests, which run the real container.
 - **Disable self-update** - the binary lives in root-owned `/usr/local/bin`,
   so in-place updates can never succeed for the sandbox user. Pin the image
-  immutable via the vendor's switch (env var or config), e.g.
-  `OPENCODE_DISABLE_AUTOUPDATE=true` above.
+  immutable via the vendor's switch. A Dockerfile `ENV` only reaches
+  supervisord children (the GUI path); SSH logins get a fresh PAM
+  environment, so a switch that must hold in SSH sessions belongs in the
+  vendor's config file, seeded into the user's home by an
+  `/etc/entrypoint.d` hook shipped via `COPY rootfs/ /` (see
+  `plugins/agents/oc/rootfs/`).
 - The base layer already ships `curl`, `tar`, `ca-certificates`, and `git`;
   only install extra runtimes (like Node.js) when the agent truly needs them.
 
