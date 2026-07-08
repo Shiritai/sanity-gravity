@@ -119,6 +119,11 @@ def run_command(cmd, cwd=None, capture=False, check=True, env=None, shell=None):
     the type of ``cmd`` unless explicitly overridden. ``env`` (a mapping)
     is merged with ``os.environ`` so callers no longer need to inline
     ``K=V K=V`` env prefixes.
+
+    Returns the stripped stdout when ``capture=True``, else the exit
+    code. With ``check=True`` a failure prints an error and exits the
+    process; with ``check=False`` the caller inspects the returned
+    stdout / exit code instead (nothing is raised).
     """
     use_shell = shell if shell is not None else isinstance(cmd, str)
     if not capture:
@@ -141,16 +146,17 @@ def run_command(cmd, cwd=None, capture=False, check=True, env=None, shell=None):
                 capture_output=True, text=True, env=run_env,
             )
             return result.stdout.strip()
-        else:
-            subprocess.check_call(cmd, shell=use_shell, cwd=cwd, env=run_env)
+        result = subprocess.run(
+            cmd, shell=use_shell, cwd=cwd, check=check, env=run_env,
+        )
+        return result.returncode
     except subprocess.CalledProcessError as e:
-        if check:
-            print_error(f"Command failed with exit code {e.returncode}")
-            if capture:
-                print(e.stderr)
-            sys.exit(e.returncode)
-        else:
-            raise e
+        # Only reachable with check=True: subprocess.run(check=False)
+        # never raises CalledProcessError.
+        print_error(f"Command failed with exit code {e.returncode}")
+        if capture:
+            print(e.stderr)
+        sys.exit(e.returncode)
 
 
 # Username constraint for safe propagation into shell/sed/supervisord configs.

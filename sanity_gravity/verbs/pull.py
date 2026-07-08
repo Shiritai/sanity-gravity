@@ -20,7 +20,7 @@ from sanity_gravity.cli.io import (
     print_warning,
     run_command,
 )
-from sanity_gravity.cli.registry import get_registry
+from sanity_gravity.cli.registry import OFFICIAL_TAGS
 
 
 # Upstream repo, used only when neither the env var nor the git remote
@@ -83,8 +83,15 @@ def get_target_version_tag() -> str:
 def pull(args):
     """Entry point for the ``pull`` command."""
     variants = args.variant
+    # The CLI parser hands over a list; ``up`` (auto-pull / --pull)
+    # passes its single tag as a bare string. Normalize here so a
+    # scalar is one variant, never iterated character by character.
+    if isinstance(variants, str):
+        variants = [variants]
     if "all" in variants:
-        variants = list(get_registry().expand_wildcards(["*"]))
+        # Only official-tier tags are published to GHCR, so the
+        # wildcard expands to exactly the CI/publish matrix.
+        variants = list(OFFICIAL_TAGS)
 
     version_tag = args.tag if hasattr(args, "tag") and args.tag else get_target_version_tag()
     repo_lc = resolve_ghcr_repo()
@@ -97,12 +104,11 @@ def pull(args):
         local_image = f"sanity-gravity:{variant}"
 
         print_info(f"[{variant}] Pulling {ghcr_image} ...")
-        # Let docker pull output directly to the terminal for progress bars
-        run_command(("docker", "pull", ghcr_image), check=False)
-
-        # Check whether the image actually exists locally now
-        check_out = run_command(("docker", "image", "inspect", ghcr_image), capture=True, check=False)
-        if not check_out or check_out.strip() == "[]" or "Error: No such image" in check_out:
+        # Let docker pull output directly to the terminal for progress
+        # bars; check=False so one missing variant does not abort the
+        # rest, the failure is aggregated below instead.
+        rc = run_command(("docker", "pull", ghcr_image), check=False)
+        if rc != 0:
             print_error(f"Failed to pull {ghcr_image}")
             failed.append(variant)
             continue

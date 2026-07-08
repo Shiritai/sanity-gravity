@@ -88,12 +88,22 @@ class TestRunCommand:
             assert ei.value.code != 0
             err.assert_called_once()
 
-    def test_check_false_propagates_calledprocesserror(self):
+    def test_check_false_capture_returns_stdout_on_failure(self):
         # ``check=False`` short-circuits subprocess's own check, but
         # capture mode still uses subprocess.run with check=False so we
         # get an empty string, not an exception.
         out = run_command(("false",), capture=True, check=False)
         assert out == ""
+
+    def test_check_false_noncapture_returns_exit_code(self):
+        # check=False callers must be able to observe failure without
+        # an exception or process exit (pull aggregates per-variant
+        # failures on top of this).
+        assert run_command(("false",), check=False) == 1
+        assert run_command(("true",), check=False) == 0
+
+    def test_check_true_noncapture_returns_zero_on_success(self):
+        assert run_command(("true",), check=True) == 0
 
     def test_env_merged_with_os_environ(self, monkeypatch):
         monkeypatch.setenv("EXISTING_VAR", "from-os")
