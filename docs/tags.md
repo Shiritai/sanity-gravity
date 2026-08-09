@@ -16,6 +16,7 @@ The AI tool installed in the sandbox.
 | `cx` | OpenAI Codex CLI | No | Codex CLI (static musl `codex` binary, official installer) |
 | `gc` | Gemini CLI **(deprecated)** | No | Node.js 22 + `@google/gemini-cli` |
 | `oc` | OpenCode | No | OpenCode CLI (single Bun-compiled `opencode` binary, official installer) |
+| `od` | OpenCode Desktop | Yes | OpenCode Desktop (Electron GUI app, official .deb for amd64/arm64) |
 
 > **`gc` is deprecated.** Google shut down the Gemini CLI free tier on
 > 2026-06-18; it now requires a paid Gemini API key / Code Assist license.
@@ -46,11 +47,11 @@ How you connect to the running container.
 Not all combinations are valid. Two rules are enforced:
 
 1. **GUI connectors require a GUI desktop**: `kasm` and `vnc` can only pair with `xfce` (not `none`).
-2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) can only pair with `xfce` (not `none`).
+2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) and `od` (OpenCode Desktop) can only pair with `xfce` (not `none`).
 
 These rules are enforced by `sanity-cli` at build time and run time.
 
-## All Valid Tags (23)
+## All Valid Tags (26)
 
 Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 
@@ -79,6 +80,9 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `oc-xfce-kasm` | OpenCode | XFCE | KasmVNC | OpenCode with browser desktop |
 | `oc-xfce-ssh` | OpenCode | XFCE | SSH | OpenCode with GUI, SSH-only access |
 | `oc-xfce-vnc` | OpenCode | XFCE | TigerVNC | OpenCode with legacy VNC |
+| `od-xfce-kasm` | OpenCode Desktop | XFCE | KasmVNC | OpenCode Desktop with browser desktop |
+| `od-xfce-ssh` | OpenCode Desktop | XFCE | SSH | OpenCode Desktop with GUI, SSH-only access |
+| `od-xfce-vnc` | OpenCode Desktop | XFCE | TigerVNC | OpenCode Desktop with legacy VNC |
 
 ## Discovery Commands
 
