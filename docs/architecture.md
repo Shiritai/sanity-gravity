@@ -84,6 +84,22 @@ The base image (`Dockerfile.base`) installs `supervisord` as the process manager
 5. Starts D-Bus (if installed), cleans stale locks, regenerates SSH host keys
 6. Launches `supervisord` and traps `SIGTERM` for graceful shutdown
 
+## Desktop Session & Menu Entries
+
+The VNC-family connectors (`kasm`, `vnc`) write a per-container
+`~/.vnc/xstartup` that ends in
+`exec dbus-launch --exit-with-session /usr/local/bin/desktop-session`
+(when the desktop plugin ships that launcher — `xfce` does — with a
+fallback to `startxfce4` otherwise). `dbus-launch` guarantees a session
+bus, and the connectors also create `/run/user/$UID` / export
+`XDG_RUNTIME_DIR`, which systemd would normally provide at login. Before
+that `exec`, the xstartup additionally (a) runs `vncconfig -nowin &` so
+the X11 CLIPBOARD selection is bridged to the VNC/RFB clipboard in both
+directions (required by TigerVNC, also shipped by KasmVNC), and (b) merges
+the desktop's X resources from `/etc/X11/Xresources/*` via `xrdb`. Both
+steps are guarded so they are no-ops on desktops that ship neither tool
+nor resources. Headless `none` tags have no desktop and no session file.
+
 ## Filesystem Layout
 
 ```
@@ -139,6 +155,23 @@ plugins/                        # Manifest-driven extension point (PR #6)
         ├── manifest.toml
         └── Dockerfile
 ```
+
+### KasmVNC TLS certificate
+
+The `kasm` connector serves the browser desktop over HTTPS. Instead of the
+anonymous Debian snakeoil cert (which triggers *both* a hostname-mismatch and
+a trust error), the image bakes a long-lived development certificate at build
+time via `plugins/connectors/kasm/rootfs/usr/local/bin/gen-localhost-certs.sh`:
+
+- A server cert valid for `DNS:localhost` / `IP:127.0.0.1` (no hostname
+  warning), presented together with its signing CA as the chain.
+- A signing CA at `/etc/ssl/local/gravity-ca.pem`. Importing that CA **once**
+  into the browser/OS trust store silences the self-signed trust warning
+  entirely (e.g. on Linux: `openssl x509 -in <ca.pem> -out ca.crt` and import
+  into the browser certificate store, or `cp` it to `/usr/local/share/ca-certificates/`
+  + `update-ca-certificates`).
+- Certs are baked, not regenerated per container, so a single CA import keeps
+  working across container re-creations and image rebuilds.
 
 ### Adding a new plugin
 
