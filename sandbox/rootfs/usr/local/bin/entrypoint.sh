@@ -110,8 +110,16 @@ if [ -n "${SSH_PUBLIC_KEY:-}" ]; then
 fi
 
 
-# Setup Zsh (Optional: install oh-my-zsh if not present)
-# We can do this in Dockerfile to save startup time, but here we ensure ownership.
+# Setup Zsh: ensure a .zshrc exists so the first interactive shell does not
+# drop the user into the zsh-newuser-install wizard (zsh is the user's
+# default shell, and a fresh home has no config). useradd -m only copies the
+# skeleton for brand-new homes, so enforce it here for renamed/imported
+# users and bind-mounted homes too.
+if [ ! -f "/home/$USER_NAME/.zshrc" ] && [ -f /etc/skel/.zshrc ]; then
+    echo "Creating default .zshrc for '$USER_NAME'..."
+    cp /etc/skel/.zshrc "/home/$USER_NAME/.zshrc"
+    chown "$HOST_UID":"$HOST_GID" "/home/$USER_NAME/.zshrc"
+fi
 
 # Fix Supervisor Configs (Dynamic User)
 # We need to replace 'developer' with the actual USER_NAME in all conf files
