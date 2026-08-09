@@ -1,0 +1,39 @@
+#!/bin/sh
+# Openbox session autostart for the sanity-gravity minimal desktop.
+# This overrides the Debian default autostart (which would only run
+# openbox-xdg-autostart). A bare window manager otherwise shows a
+# pitch-black desktop, so we paint a solid background and open the agent
+# entry point, making the session visibly alive.
+
+# Solid background instead of a dead-black screen. xsetroot ships in
+# x11-xserver-utils (installed by this plugin).
+if command -v xsetroot >/dev/null 2>&1; then
+    xsetroot -solid "#2d2d2d"
+fi
+
+# Load the shipped X resources (DejaVu Sans Mono for xterm) into the display
+# before any window starts, so the agent-starter terminal and CLI-agent TUIs
+# open with a legible font. /etc/X11/Xresources is a directory in Debian;
+# each file inside is merged in turn. xrdb ships in x11-xserver-utils.
+if command -v xrdb >/dev/null 2>&1 && [ -d /etc/X11/Xresources ]; then
+    for f in /etc/X11/Xresources/*; do
+        [ -f "$f" ] && xrdb -merge "$f"
+    done
+fi
+
+# Let the session settle, then launch the main application. Openbox is built
+# before the agent layers, so the choice is made at runtime:
+#   - a GUI IDE (Antigravity IDE = ag, OpenCode Desktop = od) becomes the
+#     main window and is reachable via the kasmvnc/vnc browser view;
+#   - otherwise the terminal agent-starter opens (project picker + CLI agent).
+# The subshell keeps the sleep/exec from blocking (and from replacing) the
+# autostart shell; openbox sources this file.
+GUI_CMD=$(/usr/local/bin/launch-gui-agent 2>/dev/null)
+if [ -n "$GUI_CMD" ]; then
+    (sleep 2 && eval "exec $GUI_CMD") &
+else
+    (sleep 2 && exec x-terminal-emulator -T "Agent Starter" -e /usr/local/bin/agent-starter) &
+fi
+
+# Run XDG autostart entries (needs python3-xdg, installed in the Dockerfile).
+openbox-xdg-autostart

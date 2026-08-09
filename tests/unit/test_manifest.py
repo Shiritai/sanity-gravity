@@ -65,9 +65,15 @@ _MINIMAL = _PLUGIN + _BUILD
 @pytest.mark.parametrize(
     "kind,slug,name",
     [
-        ("agents", "ag", "antigravity"),
-        ("desktops", "xfce", "xfce"),
-        ("connectors", "kasm", "KasmVNC"),
+        ("agents", "ag"),
+        ("agents", "gc"),
+        ("agents", "cc"),
+        ("desktops", "xfce"),
+        ("desktops", "openbox"),
+        ("desktops", "none"),
+        ("connectors", "kasm"),
+        ("connectors", "vnc"),
+        ("connectors", "ssh"),
     ],
 )
 def test_load_each_builtin_manifest(kind, slug, name):

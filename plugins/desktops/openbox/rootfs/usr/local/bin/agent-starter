@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# agent-starter: zentrale Einstiegsstelle für KI-Agenten auf dem Openbox-Desktop.
+#
+# Der Openbox-Desktop ist bewusst minimal (nur Window Manager, kein Panel).
+# Dieses Skript (und das Autostart) erkennt den installierten Agenten zur
+# Laufzeit:
+#   - ein grafischer Agent (Antigravity IDE = ag, OpenCode Desktop = od) wird
+#     direkt gestartet und ist über die KasmVNC/noVNC-Browser-Ansicht nutzbar;
+#   - für Terminal-Agenten (agy/cc/cx/gc/oc) werden die Projektordner im
+#     Workspace aufgelistet, einer wird gewählt und der Agent darin gestartet.
+#     Existiert noch kein Projekt, wird nach einem Namen gefragt, der Ordner
+#     angelegt und der Agent darin gestartet.
+#   - ist gar kein Agent installiert, wird eine Shell geöffnet.
+#
+# Die Erkennung erfolgt zur Laufzeit, weil die Openbox-Schicht vor der
+# Agenten-Schicht gebaut wird und das Skript den Bildinhalt nicht kennt.
+set -u
+
+# Ist ein grafischer Agent (Antigravity IDE = ag, OpenCode Desktop = od)
+# installiert, wird dieser gestartet — der Terminal-Ablauf weiter unten ist
+# nur für reine CLI-Kombinationen gedacht. Der Aufruf läuft über die .desktop-
+# Launcher, damit --no-sandbox & Co. genau wie beim Klick auf das Menü gesetzt
+# werden.
+GUI_CMD=$(/usr/local/bin/launch-gui-agent 2>/dev/null)
+if [ -n "$GUI_CMD" ]; then
+    echo "--> Starte grafischen KI Agenten..."
+    eval "exec $GUI_CMD"
+fi
+
+# Der Workspace ist als Bind-Mount unter $HOME/workspace eingehängt (siehe
+# compose/generators.py). Kann per WORKSPACE_DIR übersteuert werden.
+WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspace}"
+
+# Terminal-KI-Agenten in Prioritätsreihenfolge; der erste gefundene Befehl
+# wird gestartet (cc->claude, cx->codex, gc->gemini, oc->opencode,
+# agy->agy/antigravity). Zusätzlich zu command -v werden bekannte
+# Installationspfade direkt geprüft, damit die Erkennung auch bei einem
+# eingeschränkten PATH (z. B. ohne /usr/local/bin) zuverlässig bleibt.
+AGENT_BIN=""
+for cand in claude codex gemini opencode agy antigravity aider; do
+    if p=$(command -v "$cand" 2>/dev/null) && [ -n "$p" ]; then
+        AGENT_BIN="$p"
+        break
+    fi
+done
+if [ -z "$AGENT_BIN" ]; then
+    for p in \
+        /usr/local/bin/opencode /usr/bin/opencode \
+        /usr/local/bin/claude /usr/bin/claude \
+        /usr/local/bin/codex /usr/bin/codex \
+        /usr/local/bin/gemini /usr/bin/gemini \
+        /usr/local/bin/agy /usr/bin/agy \
+        /usr/local/bin/antigravity /usr/bin/antigravity; do
+        if [ -x "$p" ]; then
+            AGENT_BIN="$p"
+            break
+        fi
+    done
+fi
+
+# Agenten (oder Shell) im aktuellen Verzeichnis starten. exec ersetzt die
+# laufende Shell, danach kehrt dieses Skript nicht mehr zurück.
+start_agent() {
+    if [ -n "$AGENT_BIN" ]; then
+        echo "--> Starte KI Agent ($AGENT_BIN)..."
+        exec "$AGENT_BIN"
+    else
+        echo "--> Kein Terminal-KI-Agent installiert. Öffne Shell..."
+        echo "    (Diagnose: PATH=$PATH)" >&2
+        exec "${SHELL:-/bin/bash}"
+    fi
+}
+
+# Nach dem Namen für ein neues Projekt fragen, das Verzeichnis anlegen und
+# den Agenten darin starten. Abbrechen mit 'q' oder EOF (Ctrl-D).
+create_and_start() {
+    local name=""
+    while true; do
+        printf "Name für das neue Projekt (oder 'q' zum Abbrechen): "
+        read -r name || { echo; exit 0; }
+        name="$(printf '%s' "$name" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+        if [ "$name" = "q" ]; then
+            exit 0
+        fi
+        if [ -z "$name" ]; then
+            echo "Bitte einen Projektnamen eingeben."
+            continue
+        fi
+        if [ -e "$WORKSPACE_DIR/$name" ]; then
+            echo "Der Eintrag '$name' existiert bereits."
+            continue
+        fi
+        break
+    done
+
+    mkdir -p "$WORKSPACE_DIR/$name" || exit 1
+    cd "$WORKSPACE_DIR/$name" || exit 1
+    echo "--> Neues Projekt angelegt: $(pwd)"
+    start_agent
+}
+
+cd "$WORKSPACE_DIR" 2>/dev/null || {
+    echo "Arbeitsverzeichnis $WORKSPACE_DIR nicht gefunden."
+    echo "Lege den Ordner an oder klone ein Repository, dann erneut starten."
+    exec "${SHELL:-/bin/bash}"
+}
+
+# Prüfen, ob Unterordner existieren
+projects=( $(find . -maxdepth 1 -mindepth 1 -type d -exec basename {} \;) )
+
+if [ ${#projects[@]} -eq 0 ]; then
+    echo "Keine Projektordner in $WORKSPACE_DIR gefunden."
+    create_and_start
+fi
+
+echo "=== KI Coding Agent Starter ==="
+echo "Bitte wähle das Projektverzeichnis aus:"
+
+select proj in "${projects[@]}" "Neues Projekt anlegen"; do
+    if [ "$proj" == "Neues Projekt anlegen" ]; then
+        create_and_start
+        break
+    elif [ -n "$proj" ]; then
+        cd "$WORKSPACE_DIR/$proj" || exit 1
+        echo "--> Gewechselt nach: $(pwd)"
+        start_agent
+    else
+        echo "Ungültige Auswahl."
+    fi
+done
+
+# Nur erreichbar, wenn select per EOF (Ctrl-D) beendet wurde.
+echo "Auswahl abgebrochen."
+exit 0

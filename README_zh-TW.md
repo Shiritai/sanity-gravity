@@ -246,7 +246,7 @@ sanity-gravity/
 │   │   └── connectors/         # kasm（KasmVNC）、vnc（TigerVNC）、ssh
 │   └── rootfs/                 # 共用覆疊層（entrypoint、gravity-cli、supervisor 設定）
 ├── plugins/                    # 清單驅動外掛
-│   ├── desktops/               #   xfce、lxqt、none
+│   ├── desktops/               #   xfce、lxqt、openbox、none
 │   ├── agents/                 #   ag、agy、gc、cc、cx、oc、ocd
 │   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh
 ├── config/                     # 動態產生的 docker-compose 檔（git-ignored）

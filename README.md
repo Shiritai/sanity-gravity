@@ -248,7 +248,7 @@ sanity-gravity/
 │   │   └── connectors/         # kasm (KasmVNC), vnc (TigerVNC), ssh
 │   └── rootfs/                 # Shared overlay (entrypoint, gravity-cli, supervisor configs)
 ├── plugins/                    # Manifest-driven plugins
-│   ├── desktops/               #   xfce, lxqt, none
+│   ├── desktops/               #   xfce, lxqt, openbox, none
 │   ├── agents/                 #   ag, agy, gc, cc, cx, oc, ocd
 │   └── connectors/             #   kasm (KasmVNC), vnc (TigerVNC), ssh
 ├── config/                     # Runtime-generated docker-compose files (git-ignored)

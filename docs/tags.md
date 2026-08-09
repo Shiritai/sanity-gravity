@@ -36,6 +36,7 @@ Whether a graphical desktop environment is included.
 |:-----|:-----|:-----|:--------|
 | `xfce` | XFCE | official | Yes — full XFCE4 desktop with window manager |
 | `lxqt` | LXQt | community | Yes — LXQt session (`lxqt-core`) with `xfwm4` as the window manager |
+| `openbox` | Openbox | official | Yes — lightweight X11 window manager (no panel) |
 | `none` | Headless | official | No — `DISPLAY` is unset, minimal footprint |
 
 > **Community tier (`lxqt`).** The 24 tags this desktop adds build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build cc-lxqt-kasm` first. Twenty-one are community through the desktop; the other three are `gc-lxqt-*`, deprecated through the agent. See [Support tiers](../CONTRIBUTING.md#support-tiers).
@@ -54,8 +55,8 @@ How you connect to the running container.
 
 Not all combinations are valid. Two rules are enforced:
 
-1. **GUI connectors require a GUI desktop**: `kasm` and `vnc` can only pair with `xfce` or `lxqt` (not `none`).
-2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) and `ocd` (OpenCode Desktop) can only pair with `xfce` or `lxqt` (not `none`).
+1. **GUI connectors require a GUI desktop**: `kasm` and `vnc` can only pair with `xfce`, `lxqt` or `openbox` (not `none`).
+2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) and `ocd` (OpenCode Desktop) can only pair with `xfce`, `lxqt` or `openbox` (not `none`).
 
 These rules are enforced by `sanity-cli` at build time and run time.
 
@@ -74,6 +75,15 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `agy-lxqt-kasm` | Antigravity CLI | LXQt | KasmVNC | Antigravity CLI with LXQt desktop |
 | `agy-lxqt-ssh` | Antigravity CLI | LXQt | SSH | Antigravity CLI with GUI, SSH-only access |
 | `agy-lxqt-vnc` | Antigravity CLI | LXQt | TigerVNC | Antigravity CLI with legacy VNC |
+| `ag-openbox-kasm` | Antigravity | Openbox | KasmVNC | Full IDE sandbox via browser |
+| `ag-openbox-ssh` | Antigravity | Openbox | SSH | Full IDE sandbox, SSH-only access |
+| `ag-openbox-vnc` | Antigravity | Openbox | TigerVNC | Full IDE sandbox via legacy VNC client |
+| **`ag-xfce-kasm`** | Antigravity | XFCE | KasmVNC | Full IDE sandbox via browser **(default)** |
+| `ag-xfce-ssh` | Antigravity | XFCE | SSH | Full IDE sandbox, SSH-only access |
+| `ag-xfce-vnc` | Antigravity | XFCE | TigerVNC | Full IDE sandbox via legacy VNC client |
+| `agy-openbox-kasm` | Antigravity CLI | Openbox | KasmVNC | Antigravity CLI with Openbox desktop |
+| `agy-openbox-ssh` | Antigravity CLI | Openbox | SSH | Antigravity CLI with GUI, SSH-only access |
+| `agy-openbox-vnc` | Antigravity CLI | Openbox | TigerVNC | Antigravity CLI with legacy VNC |
 | `agy-none-ssh` | Antigravity CLI | Headless | SSH | Lightweight Antigravity CLI terminal |
 | `agy-xfce-kasm` | Antigravity CLI | XFCE | KasmVNC | Antigravity CLI with browser desktop |
 | `agy-xfce-ssh` | Antigravity CLI | XFCE | SSH | Antigravity CLI with GUI, SSH-only access |
@@ -81,6 +91,9 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `cc-lxqt-kasm` | Claude Code | LXQt | KasmVNC | Claude Code with LXQt desktop |
 | `cc-lxqt-ssh` | Claude Code | LXQt | SSH | Claude Code with GUI, SSH-only access |
 | `cc-lxqt-vnc` | Claude Code | LXQt | TigerVNC | Claude Code with legacy VNC |
+| `cc-openbox-kasm` | Claude Code | Openbox | KasmVNC | Claude Code with Openbox desktop |
+| `cc-openbox-ssh` | Claude Code | Openbox | SSH | Claude Code with GUI, SSH-only access |
+| `cc-openbox-vnc` | Claude Code | Openbox | TigerVNC | Claude Code with legacy VNC |
 | `cc-none-ssh` | Claude Code | Headless | SSH | Lightweight Claude Code terminal |
 | `cc-xfce-kasm` | Claude Code | XFCE | KasmVNC | Claude Code with browser desktop |
 | `cc-xfce-ssh` | Claude Code | XFCE | SSH | Claude Code with GUI, SSH-only access |
@@ -88,6 +101,9 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `cx-lxqt-kasm` | OpenAI Codex | LXQt | KasmVNC | Codex with LXQt desktop |
 | `cx-lxqt-ssh` | OpenAI Codex | LXQt | SSH | Codex with GUI, SSH-only access |
 | `cx-lxqt-vnc` | OpenAI Codex | LXQt | TigerVNC | Codex with legacy VNC |
+| `cx-openbox-kasm` | OpenAI Codex | Openbox | KasmVNC | Codex with Openbox desktop |
+| `cx-openbox-ssh` | OpenAI Codex | Openbox | SSH | Codex with GUI, SSH-only access |
+| `cx-openbox-vnc` | OpenAI Codex | Openbox | TigerVNC | Codex with legacy VNC |
 | `cx-none-ssh` | OpenAI Codex | Headless | SSH | Lightweight Codex terminal |
 | `cx-xfce-kasm` | OpenAI Codex | XFCE | KasmVNC | Codex with browser desktop |
 | `cx-xfce-ssh` | OpenAI Codex | XFCE | SSH | Codex with GUI, SSH-only access |
@@ -102,6 +118,9 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `gc-lxqt-kasm` | Gemini CLI | LXQt | KasmVNC | Gemini with LXQt desktop |
 | `gc-lxqt-ssh` | Gemini CLI | LXQt | SSH | Gemini with GUI, SSH-only access |
 | `gc-lxqt-vnc` | Gemini CLI | LXQt | TigerVNC | Gemini with legacy VNC |
+| `gc-openbox-kasm` | Gemini CLI | Openbox | KasmVNC | Gemini with Openbox desktop |
+| `gc-openbox-ssh` | Gemini CLI | Openbox | SSH | Gemini with GUI, SSH-only access |
+| `gc-openbox-vnc` | Gemini CLI | Openbox | TigerVNC | Gemini with legacy VNC |
 | `gc-none-ssh` | Gemini CLI | Headless | SSH | Lightweight Gemini terminal |
 | `gc-xfce-kasm` | Gemini CLI | XFCE | KasmVNC | Gemini with browser desktop |
 | `gc-xfce-ssh` | Gemini CLI | XFCE | SSH | Gemini with GUI, SSH-only access |
@@ -109,6 +128,9 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `oc-lxqt-kasm` | OpenCode | LXQt | KasmVNC | OpenCode with LXQt desktop |
 | `oc-lxqt-ssh` | OpenCode | LXQt | SSH | OpenCode with GUI, SSH-only access |
 | `oc-lxqt-vnc` | OpenCode | LXQt | TigerVNC | OpenCode with legacy VNC |
+| `oc-openbox-kasm` | OpenCode | Openbox | KasmVNC | OpenCode with Openbox desktop |
+| `oc-openbox-ssh` | OpenCode | Openbox | SSH | OpenCode with GUI, SSH-only access |
+| `oc-openbox-vnc` | OpenCode | Openbox | TigerVNC | OpenCode with legacy VNC |
 | `oc-none-ssh` | OpenCode | Headless | SSH | Lightweight OpenCode terminal |
 | `oc-xfce-kasm` | OpenCode | XFCE | KasmVNC | OpenCode with browser desktop |
 | `oc-xfce-ssh` | OpenCode | XFCE | SSH | OpenCode with GUI, SSH-only access |

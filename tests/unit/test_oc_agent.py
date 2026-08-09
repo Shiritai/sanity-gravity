@@ -29,13 +29,16 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 PLUGINS_DIR = _REPO_ROOT / "plugins"
 
-# The four combinations a pure-CLI agent (no GUI requirement) yields:
-# every desktop/connector pair that itself satisfies the display rule.
+# The combinations a pure-CLI agent (no GUI requirement) yields with the
+# GUI desktops/connectors plus the headless ssh-only pair.
 OC_VALID_TAGS = [
     Tag("oc", "xfce", "kasm"),
     Tag("oc", "xfce", "ssh"),
     Tag("oc", "xfce", "vnc"),
     Tag("oc", "none", "ssh"),
+    Tag("oc", "openbox", "kasm"),
+    Tag("oc", "openbox", "ssh"),
+    Tag("oc", "openbox", "vnc"),
 ]
 
 
@@ -92,7 +95,9 @@ def test_oc_tags_enter_the_official_matrix():
 
     oc_tags = [t for t in OFFICIAL_TAGS if resolve_tag(t).agent == "oc"]
     assert sorted(oc_tags) == [
-        "oc-none-ssh", "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
+        "oc-none-ssh",
+        "oc-openbox-kasm", "oc-openbox-ssh", "oc-openbox-vnc",
+        "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
     ]
     for t in oc_tags:
         assert tag_tier(resolve_tag(t)) == "official"

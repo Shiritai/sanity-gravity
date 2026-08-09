@@ -1,0 +1,31 @@
+#!/bin/sh
+# launch-gui-agent: print the Exec command of the installed GUI IDE, or exit 1.
+#
+# The openbox desktop is built before the agent layers, so it cannot know at
+# build time which agent is installed. This runtime helper scans the installed
+# .desktop launchers and prints the command of a GUI IDE (Antigravity IDE = ag,
+# OpenCode Desktop = od). Callers exec the output (agent-starter, autostart)
+# or fall back to the terminal agent flow when nothing is printed.
+#
+# Matching is done on the Exec command, not the filename, so detection survives
+# whichever .desktop name the vendor ships. The markers are the GUI binaries:
+#   - /opt/OpenCode/ai.opencode.desktop   (OpenCode Desktop)
+#   - /usr/bin/antigravity                (Antigravity IDE)
+# CLI launchers (Exec=agy, Exec=opencode, ...) are deliberately not matched.
+for f in /usr/share/applications/*.desktop; do
+    [ -f "$f" ] || continue
+    cmd=$(sed -n 's/^Exec=//p' "$f" | head -n 1)
+    case "$cmd" in
+        *ai.opencode.desktop*|*/opt/OpenCode/*|*/usr/bin/antigravity*) ;;
+        *) continue ;;
+    esac
+    # Strip desktop-entry field codes (%U, %F, %i, %c, %k) so the command runs
+    # cleanly when invoked directly (no %-args passed literally), and trim the
+    # trailing whitespace left behind by a stripped %U at line end.
+    cmd=$(printf '%s' "$cmd" | sed 's/%[A-Za-z]//g' | sed 's/[[:space:]]*$//')
+    if [ -n "$cmd" ]; then
+        printf '%s\n' "$cmd"
+        exit 0
+    fi
+done
+exit 1
