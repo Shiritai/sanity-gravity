@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KI Coding Agent Starter
+Comment=Projekt wählen und Terminal-KI-Agent starten
+Exec=agent-starter
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;

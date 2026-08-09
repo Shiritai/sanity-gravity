@@ -108,7 +108,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 
 > **注意：** `gc`（Gemini CLI）免費方案已於 2026-06-18 終止，現需付費 Gemini API key / Code Assist 授權。新使用者建議改用 **`agy`**（Antigravity CLI）—— Google 官方接替者，本專案已內建。
 
-共有 **23 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
+共有 **41 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
 
 想用的代理還沒內建？新增一個只需要 manifest 加 Dockerfile —— 請參考 [自帶 Agent 指南](docs/bring-your-own-agent.md)。
 
@@ -238,7 +238,10 @@ sanity-gravity/
 │   │   ├── agents/             # ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）
 │   │   └── connectors/         # kasm（KasmVNC）、vnc（TigerVNC）、ssh
 │   └── rootfs/                 # 共用覆疊層（entrypoint、gravity-cli、supervisor 設定）
-├── lib/                        # Proxy Manager 模組
+├── plugins/                    # 清單驅動外掛
+│   ├── desktops/               #   xfce、openbox、none
+│   ├── agents/                 #   ag、agy、gc、cc、cx、oc
+│   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh
 ├── config/                     # 動態產生的 docker-compose 檔（git-ignored）
 ├── tests/                      # Pytest 整合測試套件
 ├── workspace/                  # 預設掛載的工作目錄
