@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=OpenCode
+Comment=OpenCode terminal agent
+Exec=opencode
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;
