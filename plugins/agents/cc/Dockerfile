@@ -9,3 +9,5 @@ FROM ${BASE_IMAGE}
 RUN curl -fsSL https://claude.ai/install.sh | bash && \
     cp /root/.local/bin/claude /usr/local/bin/claude && \
     chmod 755 /usr/local/bin/claude
+
+COPY rootfs/ /

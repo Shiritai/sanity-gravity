@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Antigravity CLI
+Comment=Antigravity CLI terminal agent
+Exec=agy
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;

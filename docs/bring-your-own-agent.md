@@ -115,6 +115,13 @@ Conventions (all of `cc`, `cx`, and `oc` follow them):
   `plugins/agents/oc/rootfs/`).
 - The base layer already ships `curl`, `tar`, `ca-certificates`, and `git`;
   only install extra runtimes (like Node.js) when the agent truly needs them.
+- **Desktop menu entry** - ship a `.desktop` launcher under
+  `rootfs/usr/share/applications/` (copied via `COPY rootfs/ /`) so the agent
+  shows up in the XFCE/Cinnamon menu on GUI tags. CLI agents set
+  `Terminal=true` (runs the TUI in the desktop's terminal); agents that
+  `requires = ["display"]` should instead provide/patch the GUI launcher.
+  The same image also serves the headless `none` variants, where the file is
+  inert. See "Desktop Session & Menu Entries" in `docs/architecture.md`.
 
 ## 4. Verify locally
 
