@@ -45,7 +45,7 @@ AG_SHUTDOWN_FILE = os.path.join(
 )
 DOCKERFILE_BASE = os.path.join(
     os.path.dirname(__file__),
-    "..", "..", "sandbox", "Dockerfile.base",
+    "..", "..", "plugins", "base-images", "ubuntu", "Dockerfile",
 )
 
 CONTAINER_STARTUP_TIMEOUT = 30  # seconds to wait for kasm + X session

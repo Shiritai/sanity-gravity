@@ -245,6 +245,11 @@ class TestIdeVerb:
         )
         registry = MagicMock()
         registry.agents = {"ag": broken}
+        # parse_tag validates all four dimensions against the registry;
+        # provide the companion buckets so the tag resolves to ``ag``.
+        registry.desktops = {"none": None, "xfce": None}
+        registry.connectors = {"kasm": None, "ssh": None, "vnc": None}
+        registry.base_images = {}
 
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["proj1"]), \

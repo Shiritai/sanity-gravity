@@ -37,7 +37,13 @@ class TestUnknownDimensions:
             parse_tag("ag-xfce")
 
     def test_format_error_extra_part(self):
+        # Five parts is one too many for the {base-}agent-desktop-connector
+        # grammar; four parts is now a valid (base) dimension tag.
         with pytest.raises(ValueError, match="Invalid tag format"):
+            parse_tag("a-b-c-d-e")
+
+    def test_unknown_base_image(self):
+        with pytest.raises(ValueError, match=r"Unknown base image 'ag'"):
             parse_tag("ag-xfce-kasm-extra")
 
 
@@ -77,11 +83,15 @@ class TestCapabilityConflictMapping:
 
 class TestHappyPath:
     def test_default_tag_parses(self):
-        agent, desktop, connector = parse_tag("ag-xfce-kasm")
-        assert (agent, desktop, connector) == ("ag", "xfce", "kasm")
+        base, agent, desktop, connector = parse_tag("ag-xfce-kasm")
+        assert (base, agent, desktop, connector) == ("ubuntu", "ag", "xfce", "kasm")
+
+    def test_debian_tag_parses(self):
+        base, agent, desktop, connector = parse_tag("debian-ag-xfce-kasm")
+        assert (base, agent, desktop, connector) == ("debian", "ag", "xfce", "kasm")
 
     def test_headless_combo_ssh(self):
         # gc agent + none desktop + ssh connector — none of these
         # require display. Must succeed.
-        agent, desktop, connector = parse_tag("gc-none-ssh")
-        assert (agent, desktop, connector) == ("gc", "none", "ssh")
+        base, agent, desktop, connector = parse_tag("gc-none-ssh")
+        assert (base, agent, desktop, connector) == ("ubuntu", "gc", "none", "ssh")

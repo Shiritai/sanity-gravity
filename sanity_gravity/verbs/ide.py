@@ -66,9 +66,9 @@ def ide_cmd(args):
         print_error(f"No running containers found for {project_name}.")
         return
 
-    from sanity_gravity.cli.registry import get_registry
+    from sanity_gravity.cli.registry import get_registry, parse_tag
     registry = get_registry()
-    agent_slug = target_variant.split("-")[0]
+    _, agent_slug, _, _ = parse_tag(target_variant)
     agent_plugin = registry.agents.get(agent_slug)
     
     if not agent_plugin or "ide" not in agent_plugin.provides:

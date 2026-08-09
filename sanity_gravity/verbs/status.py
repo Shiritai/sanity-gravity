@@ -15,6 +15,7 @@ from sanity_gravity.cli.io import (
 )
 from sanity_gravity.cli.registry import (
     AGENTS,
+    BASES,
     CONNECTORS,
     DEFAULT_TAG,
     DESKTOPS,
@@ -23,6 +24,7 @@ from sanity_gravity.cli.registry import (
     get_registry,
     tag_tier,
 )
+from sanity_gravity.domain.tags import DEFAULT_BASE_IMAGE
 from sanity_gravity.verbs.lifecycle import (
     get_active_projects,
     get_legacy_projects,
@@ -104,6 +106,18 @@ def list_variants(args):
 
     print_header("Dimension Matrix")
 
+    print_plain(f"\n  {Colors.BOLD}Base Images:{Colors.ENDC}")
+    for slug, info in BASES.items():
+        marker = _tier_marker(info.get("tier", "official"))
+        default_tag = (
+            f" {Colors.OKGREEN}(default){Colors.ENDC}"
+            if slug == DEFAULT_BASE_IMAGE else ""
+        )
+        print_plain(
+            f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = "
+            f"{info['name']}{default_tag}{marker}"
+        )
+
     print_plain(f"\n  {Colors.BOLD}Agents:{Colors.ENDC}")
     for slug, info in AGENTS.items():
         gui_tag = (
@@ -138,7 +152,12 @@ def list_variants(args):
 
     print_plain(
         f"\n  {Colors.BOLD}Tag format:{Colors.ENDC} "
-        "{agent}-{desktop}-{connector}"
+        "{base-image-}agent-desktop-connector"
+    )
+    print_plain(
+        "    The default base image is elided from the tag "
+        f"(e.g. {DEFAULT_TAG}); other bases are prefixed "
+        "(e.g. debian-ag-xfce-kasm)."
     )
     print_plain(f"  {Colors.BOLD}Default:{Colors.ENDC} {DEFAULT_TAG}")
 
@@ -171,6 +190,7 @@ def plugins_list(args):
     print_header("Registered Plugins")
 
     sections = (
+        ("Base Images", reg.base_images),
         ("Agents", reg.agents),
         ("Desktops", reg.desktops),
         ("Connectors", reg.connectors),
@@ -187,5 +207,10 @@ def plugins_list(args):
             )
             print_plain(line)
 
-    total = len(reg.agents) + len(reg.desktops) + len(reg.connectors)
+    total = (
+        len(reg.base_images)
+        + len(reg.agents)
+        + len(reg.desktops)
+        + len(reg.connectors)
+    )
     print_success(f"{total} plugins registered")

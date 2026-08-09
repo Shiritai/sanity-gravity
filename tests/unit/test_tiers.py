@@ -125,8 +125,8 @@ class TestCliEnumeration:
         assert set(OFFICIAL_TAGS) <= set(VALID_TAGS)
 
     def test_gc_tags_left_the_matrix_but_stay_valid(self):
-        """gc (Gemini CLI) is deprecated: all four gc-* tags leave the
-        CI/publish matrix while remaining parseable for lifecycle."""
+        """gc (Gemini CLI) is deprecated: its tags leave the CI/publish
+        matrix while remaining parseable for lifecycle."""
         from sanity_gravity.cli.registry import (
             OFFICIAL_TAGS,
             VALID_TAGS,
@@ -134,9 +134,10 @@ class TestCliEnumeration:
             tag_tier,
         )
 
-        gc_tags = [t for t in VALID_TAGS if t.startswith("gc-")]
-        assert len(gc_tags) == 4
-        assert not any(t.startswith("gc-") for t in OFFICIAL_TAGS)
+        # gc tags across every base dimension (parse_tag → (base, agent, ...)).
+        gc_tags = [t for t in VALID_TAGS if parse_tag(t)[1] == "gc"]
+        assert len(gc_tags) == 8
+        assert not any(parse_tag(t)[1] == "gc" for t in OFFICIAL_TAGS)
         # Everything else is untouched by gc's retirement.
         assert set(VALID_TAGS) - set(gc_tags) == set(OFFICIAL_TAGS)
         for t in gc_tags:

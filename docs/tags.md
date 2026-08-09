@@ -1,8 +1,21 @@
 # Modular Tag System
 
-Every Sanity-Gravity image is described by a **3-dimensional tag**: `{agent}-{desktop}-{connector}`.
+Every Sanity-Gravity image is described by a **4-dimensional tag**:
+`{base-image-}agent-desktop-connector`. The base image is the optional
+first segment; the default (`ubuntu`) is elided, so plain
+`ag-xfce-kasm` is the default-base form and `debian-ag-xfce-kasm` is the
+Debian variant of the same stack.
 
 ## Dimensions
+
+### Base Images
+
+The OS layer underneath everything else.
+
+| Slug | Name | Notes |
+|:-----|:-----|:------|
+| `ubuntu` | Ubuntu 24.04 | **Default** — elided from tags; pinned `ubuntu:24.04` via `plugins/base-images/ubuntu/Dockerfile` |
+| `debian` | Debian 12 (bookworm) | Pinned `debian:12` via `plugins/base-images/debian/` |
 
 ### Agents
 
@@ -50,9 +63,12 @@ Not all combinations are valid. Two rules are enforced:
 
 These rules are enforced by `sanity-cli` at build time and run time.
 
-## All Valid Tags (23)
+## All Valid Tags (46)
 
-Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
+Listed in the same order as `./sanity-cli list` (default base first,
+agents sorted alphabetically). The table shows the **default (ubuntu)**
+tags; every tag has a `debian-`-prefixed twin with the same stack
+(e.g. `debian-ag-xfce-kasm`). `./sanity-cli list` prints all 46.
 
 | Tag | Agent | Desktop | Connector | Use Case |
 |:----|:------|:--------|:----------|:---------|

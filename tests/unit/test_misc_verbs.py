@@ -55,7 +55,7 @@ class TestOpenVerb:
                           return_value=["proj1"]), \
              patch.object(open_mod, "run_command", side_effect=fake_run), \
              patch.object(open_mod, "parse_tag",
-                          return_value=("ag", "xfce", "kasm")), \
+                          return_value=("ubuntu", "ag", "xfce", "kasm")), \
              patch.object(open_mod.webbrowser, "open") as wb, \
              patch.object(open_mod, "print_success"):
             open_mod.open_cmd(argparse.Namespace(name="proj1"))
@@ -71,7 +71,7 @@ class TestOpenVerb:
                           return_value=["proj1"]), \
              patch.object(open_mod, "run_command", return_value="true"), \
              patch.object(open_mod, "parse_tag",
-                          return_value=("gc", "none", "ssh")), \
+                          return_value=("ubuntu", "gc", "none", "ssh")), \
              patch.object(open_mod.webbrowser, "open") as wb, \
              patch.object(open_mod, "print_warning") as warn:
             open_mod.open_cmd(argparse.Namespace(name="proj1"))

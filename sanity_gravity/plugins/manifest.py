@@ -89,7 +89,7 @@ __all__ = [
 ]
 
 
-_VALID_KINDS = {"agent", "desktop", "connector"}
+_VALID_KINDS = {"base-image", "agent", "desktop", "connector"}
 
 # Support tiers, ordered least to most restrictive. A tag's tier is the
 # most restrictive tier among its three plugins. Only ``official``

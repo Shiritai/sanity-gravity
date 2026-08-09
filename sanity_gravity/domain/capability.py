@@ -52,18 +52,26 @@ class CapabilityConflictError(ValueError):
 def solve(tag: Tag, registry: "PluginRegistry") -> Tag:
     """Validate ``tag`` against ``registry``; return the tag on success.
 
-    Resolves the three plugins, unions their ``provides`` and ``requires``,
-    and raises :class:`CapabilityConflictError` if any required capability
-    is unprovided. Missing slugs surface as ``KeyError`` from the registry
-    so they're distinguishable from capability conflicts.
+    Resolves the four plugins (base-image, agent, desktop, connector),
+    unions their ``provides`` and ``requires``, and raises
+    :class:`CapabilityConflictError` if any required capability is
+    unprovided. The base-image plugin is only resolved when it is
+    registered (tags default to :data:`DEFAULT_BASE_IMAGE`, which may be
+    absent from synthetic registries). Missing slugs surface as
+    ``KeyError`` from the registry so they're distinguishable from
+    capability conflicts.
     """
     a = registry.get("agent", tag.agent)
     d = registry.get("desktop", tag.desktop)
     c = registry.get("connector", tag.connector)
 
+    plugins = [a, d, c]
+    if tag.base_image in registry.base_images:
+        plugins.append(registry.get("base-image", tag.base_image))
+
     provided: set[str] = set()
     required: set[str] = set()
-    for plugin in (a, d, c):
+    for plugin in plugins:
         provided.update(plugin.provides)
         required.update(plugin.requires)
 

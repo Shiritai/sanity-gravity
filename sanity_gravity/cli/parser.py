@@ -98,10 +98,15 @@ def build_parser():
     )
     p_build.add_argument("--no-cache", action="store_true",
                          help="Do not use cache when building image")
+    p_build.add_argument("--base-image", default=None,
+                         help="Override the base OS layer (e.g. debian) for "
+                              "this build; the connector layer is built "
+                              "directly on it")
     p_build.add_argument("--layer", choices=["base", "desktop", "agent", "connector"],
                          help="Build only up to a specific layer (CI use)")
     p_build.add_argument("--layer-target",
-                         help="Specific target within --layer (e.g. xfce, ag-xfce)")
+                         help="Specific target within --layer "
+                              "(e.g. xfce, ag-xfce, debian, debian-ag-xfce)")
     p_build.add_argument("--list-intermediates", action="store_true",
                          help="List intermediate image names and exit")
     p_build.add_argument("--json", dest="json_output", action="store_true",

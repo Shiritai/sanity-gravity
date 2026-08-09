@@ -67,7 +67,8 @@ class TestDimensionConstraints:
     def test_headless_cli_agents_valid(self):
         """gc and cc can run headless with SSH."""
         for agent in ["gc", "cc"]:
-            a, d, c = parse_tag(f"{agent}-none-ssh")
+            base, a, d, c = parse_tag(f"{agent}-none-ssh")
+            assert base == "ubuntu"
             assert a == agent
             assert d == "none"
             assert c == "ssh"
@@ -82,7 +83,7 @@ class TestDimensionConstraints:
     def test_no_headless_gui_connector_in_valid_tags(self):
         """No *-none-kasm/vnc should appear in VALID_TAGS."""
         for tag in VALID_TAGS:
-            _, desktop, connector = tag.split("-")
+            _, _, desktop, connector = parse_tag(tag)
             if desktop == "none":
                 assert connector == "ssh", f"Invalid combo in VALID_TAGS: {tag}"
 
@@ -106,6 +107,10 @@ class TestDimensionConstraints:
         with pytest.raises(ValueError, match="Invalid tag format"):
             parse_tag("ag-xfce")
         with pytest.raises(ValueError, match="Invalid tag format"):
+            parse_tag("a-b-c-d-e")
+        # Four parts is the new base dimension — but an unregistered
+        # base slug still fails validation.
+        with pytest.raises(ValueError, match="Unknown base image"):
             parse_tag("ag-xfce-kasm-extra")
 
 

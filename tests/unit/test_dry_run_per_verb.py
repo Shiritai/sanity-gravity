@@ -48,8 +48,8 @@ def reporter(tmp_path):
 
 
 def test_build_dry_run_no_subprocess(reporter, monkeypatch):
-    # Build needs to find sandbox/Dockerfile.base; run from the real
-    # repo root rather than tmp_path. Dry-run is the operative
+    # Build resolves Dockerfile paths via the manifest registry; run from
+    # the real repo root rather than tmp_path. Dry-run is the operative
     # property, not isolation of the working tree.
     monkeypatch.chdir(_REPO_ROOT)
     from sanity_gravity.verbs import build as build_mod
