@@ -94,6 +94,16 @@ Every **agent plugin** reaches the desktop menu of the GUI tags. The same image 
 - CLI agents (`agy`, `cc`, `cx`, `gc`, `oc`) ship their own `.desktop` file under `rootfs/usr/share/applications/` (copied by `COPY rootfs/ /`) with `Terminal=true`, so clicking the entry runs the TUI inside the desktop's default terminal.
 - IDE agents (`ag`) keep the GUI launcher the package installs (`antigravity.desktop`), patched for `--no-sandbox` in their Dockerfile.
 
+## Desktop Session Launcher Contract
+
+The VNC-family connectors (`kasm`, `vnc`) start a graphical session at
+container start. Desktop plugins own that launcher contract: each GUI
+desktop ships a `/usr/local/bin/desktop-session` entry point, so the
+connectors can invoke one stable command and the browser/VNC window always
+shows the desktop environment. `xfce` ships the contract as a one-liner
+(`exec startxfce4`). Headless `none` tags have no desktop and no session
+file.
+
 ## Filesystem Layout
 
 ```
