@@ -13,7 +13,8 @@ ubuntu:24.04 (pinned SHA)
      │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-xfce → cc-xfce-{kasm,vnc,ssh}
      │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-xfce → cx-xfce-{kasm,vnc,ssh}
      │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-xfce → gc-xfce-{kasm,vnc,ssh}
-     │   └─ plugins/agents/oc/           → sanity-gravity:_oc-xfce → oc-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-xfce → oc-xfce-{kasm,vnc,ssh}
+     │   └─ plugins/agents/od/           → sanity-gravity:_od-xfce → od-xfce-{kasm,vnc,ssh}
      └─ plugins/desktops/none/           → sanity-gravity:_base-none
          ├─ plugins/agents/agy/          → sanity-gravity:_agy-none → agy-none-ssh
          ├─ plugins/agents/cc/           → sanity-gravity:_cc-none → cc-none-ssh
@@ -22,7 +23,7 @@ ubuntu:24.04 (pinned SHA)
          └─ plugins/agents/oc/           → sanity-gravity:_oc-none → oc-none-ssh
 ```
 
-(`ag` requires a GUI desktop, so it has no headless `none` variant.)
+(`ag` and `od` require a GUI desktop, so they have no headless `none` variant.)
 
 Each non-base layer lives under `plugins/<kind>/<slug>/` alongside a
 `manifest.toml` declaring its capabilities, ports, compose overlay, and
@@ -121,8 +122,11 @@ plugins/                        # Manifest-driven extension point (PR #6)
 │   ├── gc/                     # Layer 3: Node.js + Gemini CLI
 │   │   ├── manifest.toml
 │   │   └── Dockerfile
-│   └── oc/                     # Layer 3: OpenCode CLI (opencode binary)
-│       ├── manifest.toml
+│   ├── oc/                     # Layer 3: OpenCode CLI (opencode binary)
+│   │   ├── manifest.toml
+│   │   └── Dockerfile
+│   └── od/                     # Layer 3: OpenCode Desktop (Electron GUI)
+│       ├── manifest.toml       #   requires=[display]
 │       └── Dockerfile
 └── connectors/
     ├── kasm/                   # Layer 4: KasmVNC + supervisor config
