@@ -84,6 +84,16 @@ The base image (`Dockerfile.base`) installs `supervisord` as the process manager
 5. Starts D-Bus (if installed), cleans stale locks, regenerates SSH host keys
 6. Launches `supervisord` and traps `SIGTERM` for graceful shutdown
 
+## Desktop Session Launcher Contract
+
+The VNC-family connectors (`kasm`, `vnc`) start a graphical session at
+container start. Desktop plugins own that launcher contract: each GUI
+desktop ships a `/usr/local/bin/desktop-session` entry point, so the
+connectors can invoke one stable command and the browser/VNC window always
+shows the desktop environment. `xfce` ships the contract as a one-liner
+(`exec startxfce4`). Headless `none` tags have no desktop and no session
+file.
+
 ## Filesystem Layout
 
 ```
