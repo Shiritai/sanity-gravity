@@ -143,6 +143,31 @@ def test_invalid_kind_rejected(tmp_path):
         load_manifest(path)
 
 
+@pytest.mark.parametrize("slug", ["arch_linux", "rocky-9", "9lives", "Xfce", ""])
+def test_slug_outside_charset_rejected(tmp_path, slug):
+    """Slugs are embedded in tag and layer-name grammars that reserve
+    '-' (tag separator) and '_' (layer-name prefix); a slug containing
+    either round-trips into strings the parsers cannot split back.
+    Fail at load time, where the message can point at the manifest."""
+    path = _write(
+        tmp_path,
+        f'[plugin]\nslug = "{slug}"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n',
+    )
+    with pytest.raises(ManifestError, match=r"\[plugin\].slug"):
+        load_manifest(path)
+
+
+@pytest.mark.parametrize("slug", ["x", "xfce", "xfce2"])
+def test_lowercase_alphanumeric_slug_accepted(tmp_path, slug):
+    path = _write(
+        tmp_path,
+        f'[plugin]\nslug = "{slug}"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n',
+    )
+    assert load_manifest(path).slug == slug
+
+
 def test_agent_can_declare_ports():
     """Symmetric schema: any kind may declare [ports.<label>]."""
     import tempfile

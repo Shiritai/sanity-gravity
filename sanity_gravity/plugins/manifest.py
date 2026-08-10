@@ -66,6 +66,7 @@ those modules are loaded into the EventBus.
 """
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -107,6 +108,11 @@ TIERS: tuple[str, ...] = ("official", "community", "deprecated")
 # rejected. The error message names the accepted form so authors know how
 # to fix their manifest.
 SUPPORTED_API_VERSIONS: frozenset[str] = frozenset({"1"})
+
+# Slugs are embedded verbatim in strings other grammars re-parse: tags
+# join dimensions with '-' and layer names prefix with '_', so either
+# character inside a slug produces names that cannot be split back.
+_SLUG_RE = re.compile(r"^[a-z][a-z0-9]*$")
 
 
 class ManifestError(ValueError):
@@ -369,6 +375,13 @@ def load_manifest(path: str | Path) -> PluginManifest:
     if kind not in _VALID_KINDS:
         raise ManifestError(
             f"{p}: [plugin].kind must be one of {sorted(_VALID_KINDS)}, got '{kind}'"
+        )
+
+    if not _SLUG_RE.fullmatch(slug):
+        raise ManifestError(
+            f"{p}: [plugin].slug must match {_SLUG_RE.pattern} "
+            f"(lowercase letter then lowercase alphanumerics; '-' and '_' "
+            f"are reserved by tag and layer-name grammars), got '{slug}'"
         )
 
     tier = "official"
