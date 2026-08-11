@@ -40,6 +40,7 @@ PLUGINS_DIR = _REPO_ROOT / "plugins"
         ("agents", "gc"),
         ("agents", "cc"),
         ("desktops", "xfce"),
+        ("desktops", "cinnamon"),
         ("desktops", "none"),
         ("connectors", "kasm"),
         ("connectors", "vnc"),
