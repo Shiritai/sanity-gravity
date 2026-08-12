@@ -15,10 +15,8 @@ from sanity_gravity.cli.io import (
     print_header,
     print_info,
     print_plain,
-    run_command,
 )
-from sanity_gravity.cli.registry import VALID_TAGS
-from sanity_gravity.verbs.lifecycle import get_active_projects
+from sanity_gravity.verbs.lifecycle import find_project_containers, get_active_projects
 
 
 def ide_cmd(args):
@@ -46,25 +44,12 @@ def ide_cmd(args):
         print_error(f"Project '{project_name}' is not active or managed.")
         return
 
-    target_variant = None
-    container_name = None
-    for v in VALID_TAGS:
-        cname = f"{project_name}-{v}-1"
-        try:
-            out = run_command(
-                ("docker", "inspect", "-f", "{{.State.Running}}", cname),
-                capture=True, check=False,
-            )
-            if out == "true":
-                target_variant = v
-                container_name = cname
-                break
-        except subprocess.CalledProcessError:
-            pass
-
-    if not container_name:
+    matches = find_project_containers(project_name)
+    if not matches:
         print_error(f"No running containers found for {project_name}.")
         return
+    target_variant = matches[0]["service"]
+    container_name = matches[0]["name"]
 
     from sanity_gravity.cli.registry import get_registry
     registry = get_registry()

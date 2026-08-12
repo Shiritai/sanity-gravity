@@ -222,7 +222,8 @@ class TestIdeVerb:
 
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(ide_mod, "run_command", return_value="false"), \
+             patch.object(ide_mod, "find_project_containers",
+                          return_value=[]), \
              patch.object(ide_mod, "print_error") as err:
             ide_mod.ide_cmd(self._args(name="proj1"))
             err.assert_called_once()
@@ -244,7 +245,11 @@ class TestIdeVerb:
 
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(ide_mod, "run_command", return_value="true"), \
+             patch.object(ide_mod, "find_project_containers",
+                          return_value=[{
+                              "cid": "c1", "name": "proj1-ag-xfce-kasm-1",
+                              "service": "ag-xfce-kasm", "running": True,
+                          }]), \
              patch("sanity_gravity.cli.registry.get_registry",
                    return_value=registry), \
              patch.object(ide_mod.subprocess, "check_call") as check_call, \
@@ -257,10 +262,13 @@ class TestIdeVerb:
     def test_inject_failure_exits(self):
         from sanity_gravity.verbs import ide as ide_mod
 
-        # The first variant in VALID_TAGS will report Running=true.
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(ide_mod, "run_command", return_value="true"), \
+             patch.object(ide_mod, "find_project_containers",
+                          return_value=[{
+                              "cid": "c1", "name": "proj1-ag-xfce-kasm-1",
+                              "service": "ag-xfce-kasm", "running": True,
+                          }]), \
              patch.object(ide_mod.subprocess, "check_call",
                           side_effect=subprocess.CalledProcessError(1, "docker cp")), \
              patch.object(ide_mod, "print_error") as err, \

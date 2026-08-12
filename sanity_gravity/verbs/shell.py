@@ -7,10 +7,12 @@ from sanity_gravity.cli.io import (
     print_error,
     print_info,
     print_warning,
-    run_command,
 )
-from sanity_gravity.cli.registry import VALID_TAGS
-from sanity_gravity.verbs.lifecycle import get_active_projects, get_project_env
+from sanity_gravity.verbs.lifecycle import (
+    find_project_containers,
+    get_active_projects,
+    get_project_env,
+)
 
 
 def shell_cmd(args):
@@ -29,25 +31,11 @@ def shell_cmd(args):
         else:
             project_name = active[0]
 
-    target_variant = None
-    container_name = None
-    for v in VALID_TAGS:
-        cname = f"{project_name}-{v}-1"
-        try:
-            out = run_command(
-                ("docker", "inspect", "-f", "{{.State.Running}}", cname),
-                capture=True, check=False,
-            )
-            if out == "true":
-                target_variant = v
-                container_name = cname
-                break
-        except subprocess.CalledProcessError:
-            pass
-
-    if not container_name:
+    matches = find_project_containers(project_name)
+    if not matches:
         print_error(f"No running containers found for {project_name}.")
         return
+    container_name = matches[0]["name"]
 
     env = get_project_env(project_name)
     user = args.user if args.user else env.get("HOST_USER", "developer")

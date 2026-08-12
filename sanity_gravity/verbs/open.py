@@ -6,13 +6,12 @@ import webbrowser
 
 from sanity_gravity.cli.io import (
     print_error,
-    print_info,
     print_success,
     print_warning,
     run_command,
 )
-from sanity_gravity.cli.registry import VALID_TAGS, parse_tag
-from sanity_gravity.verbs.lifecycle import get_active_projects
+from sanity_gravity.cli.registry import parse_tag
+from sanity_gravity.verbs.lifecycle import find_project_containers, get_active_projects
 
 
 def open_cmd(args):
@@ -26,25 +25,11 @@ def open_cmd(args):
             return
         project_name = active[0]
 
-    target_variant = None
-    container_name = None
-    for v in VALID_TAGS:
-        cname = f"{project_name}-{v}-1"
-        try:
-            out = run_command(
-                ("docker", "inspect", "-f", "{{.State.Running}}", cname),
-                capture=True, check=False,
-            )
-            if out == "true":
-                target_variant = v
-                container_name = cname
-                break
-        except subprocess.CalledProcessError:
-            pass
-
-    if not container_name:
+    matches = find_project_containers(project_name)
+    if not matches:
         print_error(f"No running containers found for {project_name}.")
         return
+    target_variant = matches[0]["service"]
 
     url = None
 

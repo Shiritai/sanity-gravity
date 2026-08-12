@@ -76,6 +76,49 @@ def get_managed_projects():
         return []
 
 
+def find_project_containers(project_name, include_stopped=False):
+    """Discover a project's sandbox containers from compose labels.
+
+    One ``docker ps`` replaces the historical per-``VALID_TAGS`` inspect
+    probe: compose stamps each container with project and service
+    labels, and the service label is the canonical tag. Results keep
+    ``VALID_TAGS`` order so first-match callers retain the deterministic
+    choice the probe loop had. "Running" includes paused containers to
+    match ``docker inspect``'s ``.State.Running``, which the old probe
+    keyed on.
+
+    Returns a list of dicts ``{cid, name, service, running}``.
+    """
+    try:
+        fmt = '{{.ID}}|{{.Names}}|{{.Label "com.docker.compose.service"}}|{{.State}}'
+        output = run_command(
+            ("docker", "ps", "-a",
+             "--filter", f"label=com.docker.compose.project={project_name}",
+             "--format", fmt),
+            capture=True, check=False,
+        )
+    except (subprocess.CalledProcessError, SystemExit) as e:
+        print_warning(f"Could not list containers for '{project_name}': {e}")
+        return []
+
+    records = []
+    for line in (output or "").splitlines():
+        parts = line.split("|")
+        if len(parts) != 4:
+            continue
+        cid, name, service, state = parts
+        if service not in VALID_TAGS:
+            continue
+        running = state in ("running", "paused")
+        if not running and not include_stopped:
+            continue
+        records.append(
+            {"cid": cid, "name": name, "service": service, "running": running}
+        )
+    records.sort(key=lambda r: VALID_TAGS.index(r["service"]))
+    return records
+
+
 def get_legacy_containers():
     """Sanity containers that still need migration to the persistent-home model.
 
@@ -141,16 +184,8 @@ def get_active_projects():
 
 def get_project_env(project_name):
     """Retrieve environment variables from a running container of the project."""
-    for service in VALID_TAGS:
-        container_name = f"{project_name}-{service}-1"
-
-        try:
-            subprocess.check_call(
-                ("docker", "inspect", container_name),
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            continue
+    for record in find_project_containers(project_name, include_stopped=True):
+        container_name = record["name"]
 
         try:
             out = run_command(

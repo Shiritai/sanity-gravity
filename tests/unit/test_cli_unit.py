@@ -399,14 +399,20 @@ class TestRunResourceArgs:
         assert "config/docker-compose.resources.yml" in argv
 
 
+_RUNNING_MATCH = [{
+    "cid": "c1", "name": "sanity-gravity-ag-xfce-kasm-1",
+    "service": "ag-xfce-kasm", "running": True,
+}]
+
+
 class TestNewCommands:
     """Tests for shell and open commands."""
 
     @patch("sanity_gravity.verbs.shell.get_project_env", return_value={})
-    @patch("sanity_gravity.verbs.shell.run_command")
+    @patch("sanity_gravity.verbs.shell.find_project_containers")
     @patch("subprocess.check_call")
     def test_shell_command(self, mock_check_call, mock_run, mock_env):
-        mock_run.return_value = "true"
+        mock_run.return_value = _RUNNING_MATCH
 
         args = argparse.Namespace(name="sanity-gravity", user=None)
 
@@ -421,10 +427,10 @@ class TestNewCommands:
             mock_check_call.assert_called_with(expected_cmd)
 
     @patch("sanity_gravity.verbs.shell.get_project_env", return_value={})
-    @patch("sanity_gravity.verbs.shell.run_command")
+    @patch("sanity_gravity.verbs.shell.find_project_containers")
     @patch("subprocess.check_call")
     def test_shell_command_with_user(self, mock_check_call, mock_run, mock_env):
-        mock_run.return_value = "true"
+        mock_run.return_value = _RUNNING_MATCH
 
         args = argparse.Namespace(name="sanity-gravity", user="root")
 
@@ -439,10 +445,10 @@ class TestNewCommands:
             mock_check_call.assert_called_with(expected_cmd)
 
     @patch("sanity_gravity.verbs.shell.get_project_env", return_value={})
-    @patch("sanity_gravity.verbs.shell.run_command")
+    @patch("sanity_gravity.verbs.shell.find_project_containers")
     @patch("subprocess.check_call")
     def test_shell_command_with_use_bash(self, mock_check_call, mock_run, mock_env):
-        mock_run.return_value = "true"
+        mock_run.return_value = _RUNNING_MATCH
 
         args = argparse.Namespace(name="sanity-gravity", user=None, use="bash")
 
@@ -457,13 +463,13 @@ class TestNewCommands:
             mock_check_call.assert_called_with(expected_cmd)
 
     @patch("sanity_gravity.verbs.shell.get_project_env", return_value={})
-    @patch("sanity_gravity.verbs.shell.run_command")
+    @patch("sanity_gravity.verbs.shell.find_project_containers")
     @patch("subprocess.check_call")
     @patch("subprocess.call")
     def test_shell_command_zsh_fallback_to_bash(
         self, mock_call, mock_check_call, mock_run, mock_env
     ):
-        mock_run.return_value = "true"
+        mock_run.return_value = _RUNNING_MATCH
         mock_check_call.side_effect = subprocess.CalledProcessError(1, "zsh")
 
         args = argparse.Namespace(name="sanity-gravity", user=None)
@@ -484,13 +490,13 @@ class TestNewCommands:
             )
 
     @patch("sanity_gravity.verbs.shell.get_project_env", return_value={})
-    @patch("sanity_gravity.verbs.shell.run_command")
+    @patch("sanity_gravity.verbs.shell.find_project_containers")
     @patch("subprocess.check_call")
     @patch("subprocess.call")
     def test_shell_command_no_fallback_when_use_specified(
         self, mock_call, mock_check_call, mock_run, mock_env
     ):
-        mock_run.return_value = "true"
+        mock_run.return_value = _RUNNING_MATCH
         mock_check_call.side_effect = subprocess.CalledProcessError(1, "zsh")
 
         args = argparse.Namespace(name="sanity-gravity", user=None, use="zsh")
@@ -507,17 +513,16 @@ class TestNewCommands:
             )
             mock_call.assert_not_called()
 
+    @patch("sanity_gravity.verbs.open.find_project_containers")
     @patch("sanity_gravity.verbs.open.run_command")
     @patch("webbrowser.open")
-    def test_open_command_kasm(self, mock_browser, mock_run):
+    def test_open_command_kasm(self, mock_browser, mock_run, mock_find):
+        mock_find.return_value = _RUNNING_MATCH
+
         def run_side_effect(cmd, **kwargs):
             cmd_str = (
                 " ".join(cmd) if isinstance(cmd, (list, tuple)) else cmd
             )
-            if "ag-xfce-kasm-1" in cmd_str and "inspect" in cmd_str:
-                return "true"
-            if "inspect" in cmd_str:
-                return "false"
             if "port ag-xfce-kasm 8444" in cmd_str:
                 return "0.0.0.0:12345"
             return ""

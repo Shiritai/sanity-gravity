@@ -12,7 +12,6 @@ import sys
 
 from sanity_gravity.cli.colors import Colors
 from sanity_gravity.cli.io import run_command
-from sanity_gravity.cli.registry import VALID_TAGS
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
 from sanity_gravity.domain.phase import Phase
 from sanity_gravity.effects.actions import RunSubprocess
@@ -69,11 +68,12 @@ def snapshot_resolve_container(ctx) -> None:
         ctx.cancelled = True
         return
 
-    found: list[str] = []
-    for v in VALID_TAGS:
-        cname = f"{ctx.project}-{v}-1"
-        if _container_exists(cname):
-            found.append(v)
+    from sanity_gravity.verbs.lifecycle import find_project_containers
+
+    found: list[str] = [
+        r["service"]
+        for r in find_project_containers(ctx.project, include_stopped=True)
+    ]
 
     if not found:
         ctx.reporter.error(f"No containers found for project '{ctx.project}'.")

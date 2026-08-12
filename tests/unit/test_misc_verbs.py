@@ -10,6 +10,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+def _match(project, service):
+    """One discovery record, shaped like find_project_containers returns."""
+    return [{
+        "cid": "c1", "name": f"{project}-{service}-1",
+        "service": service, "running": True,
+    }]
+
+
 # ---------------------------------------------------------------------------
 # verbs/open.py
 # ---------------------------------------------------------------------------
@@ -30,7 +38,8 @@ class TestOpenVerb:
 
         with patch.object(open_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(open_mod, "run_command", return_value="false"), \
+             patch.object(open_mod, "find_project_containers",
+                          return_value=[]), \
              patch.object(open_mod, "print_error") as err:
             open_mod.open_cmd(argparse.Namespace(name="proj1"))
             err.assert_called_once()
@@ -39,16 +48,12 @@ class TestOpenVerb:
     def test_kasm_variant_opens_https_url(self):
         from sanity_gravity.verbs import open as open_mod
 
-        # First inspect call: variant is running. Second: resolve_port
-        # returns ``0.0.0.0:9999``.
-        outputs = iter(["true", "0.0.0.0:9999"])
-
-        def fake_run(cmd, **_kw):
-            return next(outputs)
-
         with patch.object(open_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(open_mod, "run_command", side_effect=fake_run), \
+             patch.object(open_mod, "find_project_containers",
+                          return_value=_match("proj1", "ag-xfce-kasm")), \
+             patch.object(open_mod, "run_command",
+                          return_value="0.0.0.0:9999"), \
              patch.object(open_mod, "parse_tag",
                           return_value=("ag", "xfce", "kasm")), \
              patch.object(open_mod.webbrowser, "open") as wb, \
@@ -64,7 +69,8 @@ class TestOpenVerb:
 
         with patch.object(open_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(open_mod, "run_command", return_value="true"), \
+             patch.object(open_mod, "find_project_containers",
+                          return_value=_match("proj1", "gc-none-ssh")), \
              patch.object(open_mod, "parse_tag",
                           return_value=("gc", "none", "ssh")), \
              patch.object(open_mod.webbrowser, "open") as wb, \
@@ -97,7 +103,8 @@ class TestShellVerb:
 
         with patch.object(shell_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(shell_mod, "run_command", return_value="false"), \
+             patch.object(shell_mod, "find_project_containers",
+                          return_value=[]), \
              patch.object(shell_mod, "print_error") as err:
             shell_mod.shell_cmd(self._args(name="proj1"))
             err.assert_called_once()
@@ -110,7 +117,8 @@ class TestShellVerb:
 
         with patch.object(shell_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(shell_mod, "run_command", return_value="true"), \
+             patch.object(shell_mod, "find_project_containers",
+                          return_value=_match("proj1", "cc-none-ssh")), \
              patch.object(shell_mod, "get_project_env",
                           return_value={"HOST_USER": "alice"}), \
              patch.object(shell_mod, "print_info"), \
@@ -132,7 +140,8 @@ class TestShellVerb:
 
         with patch.object(shell_mod, "get_active_projects",
                           return_value=["proj1"]), \
-             patch.object(shell_mod, "run_command", return_value="true"), \
+             patch.object(shell_mod, "find_project_containers",
+                          return_value=_match("proj1", "cc-none-ssh")), \
              patch.object(shell_mod, "get_project_env",
                           return_value={"HOST_USER": "alice"}), \
              patch.object(shell_mod, "print_info"), \

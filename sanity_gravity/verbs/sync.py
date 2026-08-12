@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
-import subprocess
 import sys
 import time
 
@@ -24,7 +23,6 @@ from sanity_gravity.cli.io import (
     print_warning,
     run_command,
 )
-from sanity_gravity.cli.registry import VALID_TAGS
 
 
 def sync_config(project_name, container_name, username, config_source="config"):
@@ -137,7 +135,11 @@ def sync_config_cmd(args):
     """Sync configuration to running containers without restarting."""
     # Lazy import to avoid the circular dep with status.get_active_projects /
     # upgrade.get_project_env that all live in lifecycle modules.
-    from sanity_gravity.verbs.lifecycle import get_active_projects, get_project_env
+    from sanity_gravity.verbs.lifecycle import (
+        find_project_containers,
+        get_active_projects,
+        get_project_env,
+    )
 
     target_project = getattr(args, "name", "sanity-gravity")
 
@@ -164,23 +166,9 @@ def sync_config_cmd(args):
             env_vars = get_project_env(project)
             username = env_vars.get("HOST_USER", host_user)
 
-            target_variant = None
-            for v in VALID_TAGS:
-                container_name = f"{project}-{v}-1"
-                try:
-                    out = run_command(
-                        ("docker", "inspect", "-f",
-                         "{{.State.Running}}", container_name),
-                        capture=True, check=False,
-                    )
-                    if out == "true":
-                        target_variant = v
-                        break
-                except subprocess.CalledProcessError:
-                    pass
-
-            if target_variant:
-                container_name = f"{project}-{target_variant}-1"
+            matches = find_project_containers(project)
+            if matches:
+                container_name = matches[0]["name"]
                 print_info(f"Syncing {project} ({container_name})...")
                 sync_config(project, container_name, username)
             else:
