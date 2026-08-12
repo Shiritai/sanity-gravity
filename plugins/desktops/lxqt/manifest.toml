@@ -1,0 +1,13 @@
+[plugin]
+slug = "lxqt"
+name = "lxqt"
+kind = "desktop"
+api_version = "1"
+tier = "official"
+
+[capabilities]
+provides = ["display"]
+requires = []
+
+[build]
+dockerfile = "Dockerfile"
