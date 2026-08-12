@@ -89,9 +89,9 @@ def test_oc_is_official(reg):
 def test_oc_tags_enter_the_official_matrix():
     """All four oc-* tags must reach OFFICIAL_TAGS (the `list --json`
     source CI enumerates its matrices from)."""
-    from sanity_gravity.cli.registry import OFFICIAL_TAGS, tag_tier
+    from sanity_gravity.cli.registry import OFFICIAL_TAGS, parse_tag, tag_tier
 
-    oc_tags = [t for t in OFFICIAL_TAGS if t.startswith("oc-")]
+    oc_tags = [t for t in OFFICIAL_TAGS if parse_tag(t)[0] == "oc"]
     assert sorted(oc_tags) == [
         "oc-none-ssh", "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
     ]

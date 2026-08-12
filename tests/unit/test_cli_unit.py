@@ -74,7 +74,7 @@ class TestDimensionConstraints:
 
     def test_all_ag_tags_have_xfce(self):
         """Every ag tag must use xfce desktop."""
-        ag_tags = [t for t in VALID_TAGS if t.startswith("ag-")]
+        ag_tags = [t for t in VALID_TAGS if parse_tag(t)[0] == "ag"]
         assert len(ag_tags) == 3
         for tag in ag_tags:
             assert "-xfce-" in tag

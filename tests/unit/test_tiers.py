@@ -133,9 +133,9 @@ class TestCliEnumeration:
             tag_tier,
         )
 
-        gc_tags = [t for t in VALID_TAGS if t.startswith("gc-")]
+        gc_tags = [t for t in VALID_TAGS if parse_tag(t)[0] == "gc"]
         assert len(gc_tags) == 4
-        assert not any(t.startswith("gc-") for t in OFFICIAL_TAGS)
+        assert not any(parse_tag(t)[0] == "gc" for t in OFFICIAL_TAGS)
         # Everything else is untouched by gc's retirement.
         assert set(VALID_TAGS) - set(gc_tags) == set(OFFICIAL_TAGS)
         for t in gc_tags:
