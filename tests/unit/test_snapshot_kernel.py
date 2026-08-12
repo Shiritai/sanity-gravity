@@ -1,25 +1,21 @@
 """Tests for the snapshot verb's microkernel migration (PR #7b)."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.core.eventbus import EventBus  # noqa: E402
-from sanity_gravity.core.orchestrator import (  # noqa: E402
+from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.core.orchestrator import (
     Orchestrator,
     SnapshotContext,
     _SNAPSHOT_PHASES,
 )
-from sanity_gravity.core.reporter import Reporter  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.effects.actions import RunSubprocess  # noqa: E402
-from sanity_gravity.hooks.snapshot import (  # noqa: E402
+from sanity_gravity.core.reporter import Reporter
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.effects.actions import RunSubprocess
+from sanity_gravity.hooks.snapshot import (
     register_builtin_snapshot_hooks,
 )
 

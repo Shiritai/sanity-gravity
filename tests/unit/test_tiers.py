@@ -19,17 +19,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.domain.tags import Tag  # noqa: E402
-from sanity_gravity.plugins.registry import PluginRegistry  # noqa: E402
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.plugins.registry import PluginRegistry
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _write_manifest(

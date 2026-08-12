@@ -16,3 +16,6 @@ workspace/*
 # Gemini Agent
 .gemini/
 config
+
+# Packaging (editable install metadata)
+*.egg-info/

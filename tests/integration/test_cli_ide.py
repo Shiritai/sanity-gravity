@@ -8,14 +8,13 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.verbs import ide as ide_verb  # noqa: E402
+from sanity_gravity.verbs import ide as ide_verb
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 _REPO = str(_REPO_ROOT)

@@ -7,18 +7,13 @@ still propagate.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.core.eventbus import EventBus  # noqa: E402
-from sanity_gravity.core.orchestrator import Orchestrator  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.effects.actions import RunSubprocess  # noqa: E402
+from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.core.orchestrator import Orchestrator
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.effects.actions import RunSubprocess
 
 
 class _RecorderReporter:

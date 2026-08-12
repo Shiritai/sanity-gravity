@@ -10,16 +10,9 @@ The bus is the smallest piece of the microkernel; we cover:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-# Make the package importable the same way sanity-cli does.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.core.eventbus import EventBus, Hook, get_default_bus, on  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.domain.tags import Tag  # noqa: E402
+from sanity_gravity.core.eventbus import EventBus, Hook, get_default_bus, on
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.domain.tags import Tag
 
 
 def test_subscribe_and_publish_invokes_hook():

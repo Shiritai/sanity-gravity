@@ -18,28 +18,28 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.cli import registry as cli_registry  # noqa: E402
-from sanity_gravity.cli.registry import (  # noqa: E402
+from sanity_gravity.cli import registry as cli_registry
+from sanity_gravity.cli.registry import (
     AGENTS,
     CONNECTORS,
     DESKTOPS,
     VALID_TAGS,
     parse_tag,
 )
-from sanity_gravity.verbs import lifecycle as lifecycle_mod  # noqa: E402
-from sanity_gravity.verbs import open as open_mod  # noqa: E402
-from sanity_gravity.verbs import shell as shell_mod  # noqa: E402
-from sanity_gravity.verbs import snapshot as snapshot_mod  # noqa: E402
-from sanity_gravity.verbs import sync as sync_mod  # noqa: E402
-from sanity_gravity.verbs import up as up_mod  # noqa: E402
-from sanity_gravity.verbs.build import (  # noqa: E402
+from sanity_gravity.verbs import lifecycle as lifecycle_mod
+from sanity_gravity.verbs import open as open_mod
+from sanity_gravity.verbs import shell as shell_mod
+from sanity_gravity.verbs import snapshot as snapshot_mod
+from sanity_gravity.verbs import sync as sync_mod
+from sanity_gravity.verbs import up as up_mod
+from sanity_gravity.verbs.build import (
     generate_intermediates,
     resolve_build_chain,
     resolve_parent,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class TestDimensionConstraints:

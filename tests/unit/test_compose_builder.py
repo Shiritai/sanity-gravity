@@ -14,17 +14,13 @@ from __future__ import annotations
 import importlib.machinery
 import importlib.util
 import os
-import sys
 from pathlib import Path
 
 import pytest
 import yaml
 
-# Make the package importable the same way sanity-cli does.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.compose.builder import ComposeBuilder, ComposeService  # noqa: E402
+from sanity_gravity.compose.builder import ComposeBuilder, ComposeService
 
 
 # -- ComposeService -------------------------------------------------------
@@ -185,7 +181,7 @@ def _load_cli():
     ``generate_compose_for_tag`` / ``generate_resource_compose`` callables
     from the new :mod:`sanity_gravity.compose.generators` location.
     """
-    from sanity_gravity.compose import generators as cg  # noqa: E402
+    from sanity_gravity.compose import generators as cg
     return cg
 
 

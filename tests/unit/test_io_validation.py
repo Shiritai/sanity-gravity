@@ -8,16 +8,12 @@ regex must not silently widen, and ``run_command`` must respect the
 from __future__ import annotations
 
 import subprocess
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.cli.io import (  # noqa: E402
+from sanity_gravity.cli.io import (
     run_command,
     validate_project_name,
     validate_username,

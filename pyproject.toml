@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sanity-gravity"
+version = "0.3.0"
+description = "Sanity-Gravity: sandboxed, manifest-driven Docker environments for AI coding agents"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-timeout",
+    "requests",
+    "urllib3",
+]
+
+[project.scripts]
+sanity-gravity = "sanity_gravity.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["sanity_gravity*"]

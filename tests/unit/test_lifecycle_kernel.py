@@ -6,25 +6,22 @@ and ``get_project_env`` so the tests don't touch docker.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.core.eventbus import EventBus  # noqa: E402
-from sanity_gravity.core.orchestrator import (  # noqa: E402
+from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.core.orchestrator import (
     CleanContext,
     DownContext,
     Orchestrator,
     _LIFECYCLE_PHASES,
 )
-from sanity_gravity.core.reporter import Reporter  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.effects.actions import RunSubprocess  # noqa: E402
-from sanity_gravity.hooks.lifecycle import (  # noqa: E402
+from sanity_gravity.core.reporter import Reporter
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.effects.actions import RunSubprocess
+from sanity_gravity.hooks.lifecycle import (
     register_builtin_lifecycle_hooks,
 )
 

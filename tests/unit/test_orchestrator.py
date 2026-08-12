@@ -11,17 +11,13 @@ and assert on the recorded calls. This is enough to verify:
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-# Make the package importable the same way sanity-cli does.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.core.eventbus import EventBus  # noqa: E402
-from sanity_gravity.core.orchestrator import (  # noqa: E402
+from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.core.orchestrator import (
     Deps,
     Orchestrator,
     PortRequest,
@@ -29,11 +25,11 @@ from sanity_gravity.core.orchestrator import (  # noqa: E402
     UpContext,
     _UP_PHASES,
 )
-from sanity_gravity.hooks import up as up_hooks  # noqa: E402
-from sanity_gravity.hooks.up import register_builtin_up_hooks  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.domain.tags import Tag  # noqa: E402
-from sanity_gravity.plugins.manifest import PluginManifest, PortSpec  # noqa: E402
+from sanity_gravity.hooks import up as up_hooks
+from sanity_gravity.hooks.up import register_builtin_up_hooks
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.plugins.manifest import PluginManifest, PortSpec
 
 
 # ---------------------------------------------------------------------------

@@ -2,29 +2,26 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.effects.actions import (  # noqa: E402
+from sanity_gravity.effects.actions import (
     ActionFailedError,
     ActionResult,
     MakeDirs,
     RunSubprocess,
     WriteFile,
 )
-from sanity_gravity.events import (  # noqa: E402
+from sanity_gravity.events import (
     ActionFailed,
     ActionFinished,
     ActionStarted,
     WouldExecute,
 )
-from sanity_gravity.effects.executor import Executor  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
+from sanity_gravity.effects.executor import Executor
+from sanity_gravity.domain.phase import Phase
 
 
 # ---------------------------------------------------------------------------

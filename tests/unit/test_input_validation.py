@@ -1,14 +1,9 @@
 """Tests for username / project-name validation and defence against
 shell/sed injection via HOST_USER or --name."""
-import sys
-from pathlib import Path
-
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.cli.io import (  # noqa: E402
+from sanity_gravity.cli.io import (
     validate_project_name,
     validate_username,
 )

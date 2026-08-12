@@ -1,15 +1,10 @@
 """Tests for the Action type hierarchy (PR #5)."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity.effects.actions import (  # noqa: E402
+from sanity_gravity.effects.actions import (
     Action,
     ActionFailedError,
     ActionResult,

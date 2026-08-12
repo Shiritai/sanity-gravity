@@ -9,14 +9,10 @@ import dataclasses
 import inspect
 import io
 import json
-import sys
-from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
-from sanity_gravity import events as ev_mod  # noqa: E402
-from sanity_gravity.core.reporter import JsonlSink  # noqa: E402
+from sanity_gravity import events as ev_mod
+from sanity_gravity.core.reporter import JsonlSink
 
 
 def _all_concrete_events():
