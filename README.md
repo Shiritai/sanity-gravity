@@ -108,7 +108,7 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 
 > **Heads-up:** `gc` (Gemini CLI) lost its free tier on 2026-06-18 and now requires a paid Gemini API key / Code Assist license. New users should prefer **`agy`** (Antigravity CLI), Google's official successor — already shipped here.
 
-There are **23 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
+There are **41 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
 
 Missing your favorite agent? Adding one takes a manifest plus a Dockerfile - see [Bring Your Own Agent](docs/bring-your-own-agent.md).
 
@@ -240,7 +240,10 @@ sanity-gravity/
 │   │   ├── agents/             # ag (Antigravity), agy (Antigravity CLI), gc (Gemini CLI), cc (Claude Code), cx (OpenAI Codex), oc (OpenCode)
 │   │   └── connectors/         # kasm (KasmVNC), vnc (TigerVNC), ssh
 │   └── rootfs/                 # Shared overlay (entrypoint, gravity-cli, supervisor configs)
-├── lib/                        # Proxy manager module
+├── plugins/                    # Manifest-driven plugins
+│   ├── desktops/               #   xfce, cinnamon, none
+│   ├── agents/                 #   ag, agy, gc, cc, cx, oc
+│   └── connectors/             #   kasm (KasmVNC), vnc (TigerVNC), ssh
 ├── config/                     # Runtime-generated docker-compose files (git-ignored)
 ├── tests/                      # Pytest integration suite
 ├── workspace/                  # Default bind-mounted workspace
