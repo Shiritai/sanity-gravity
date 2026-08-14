@@ -62,7 +62,7 @@ def open_cmd(args):
         return None
 
     try:
-        _, _, connector = parse_tag(target_variant)
+        _, _, _, connector = parse_tag(target_variant)
     except ValueError:
         connector = None
 

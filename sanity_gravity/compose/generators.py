@@ -37,7 +37,7 @@ def generate_compose_for_tag(tag):
     own the network-facing ports; agents and desktops typically only add
     env vars, but the schema places no restriction.
     """
-    agent, desktop, connector = parse_tag(tag)
+    _, agent, desktop, connector = parse_tag(tag)
     reg = get_registry()
     connector_m = reg.connectors[connector]
     agent_m = reg.agents.get(agent)

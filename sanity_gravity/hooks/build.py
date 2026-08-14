@@ -2,8 +2,14 @@
 
 The build chain is ``base → desktop → agent → connector``. Each layer
 is a standalone Dockerfile with ``ARG BASE_IMAGE`` / ``FROM
-${BASE_IMAGE}``. Intermediate images are tagged with ``_`` prefix
-(e.g. ``sanity-gravity:_base``).
+${BASE_IMAGE}``. Intermediate images are tagged with ``_`` prefix.
+
+Intermediate naming is base-aware; the default base keeps its legacy
+unprefixed names so existing ``--layer`` flows / tests stay stable:
+
+- default base:  ``_base``, ``_base-{desktop}``, ``_{agent}-{desktop}``
+- other bases:   ``_{base}_base``, ``_{base}_base-{desktop}``,
+  ``_{base}_{agent}-{desktop}``
 
 Phase split:
 - ``BUILD_PLAN`` — for each target, walk the chain, decide what to build
@@ -26,6 +32,7 @@ from sanity_gravity.cli.registry import (
 from sanity_gravity.core.command import CommandBuilder
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
 from sanity_gravity.domain.phase import Phase
+from sanity_gravity.domain.tags import DEFAULT_BASE_IMAGE
 from sanity_gravity.effects.actions import RunSubprocess
 
 
@@ -50,80 +57,148 @@ def _plugin_dockerfile(kind: str, slug: str) -> str:
     return str(get_registry().get(kind, slug).dockerfile_path)
 
 
+def _base_dockerfile(base_image: str) -> str:
+    """Dockerfile for a base image: the plugin's when registered, else
+    the default (ubuntu) base plugin — ubuntu stays the fallback image
+    for unregistered overrides."""
+    if base_image in get_registry().base_images:
+        return _plugin_dockerfile("base-image", base_image)
+    return _plugin_dockerfile("base-image", DEFAULT_BASE_IMAGE)
+
+
 def _build_context_for(dockerfile_path: str) -> str:
     """Pick the docker build context for a given Dockerfile.
 
-    - ``sandbox/Dockerfile.base`` keeps ``sandbox/`` as its context so it
-      can ``COPY rootfs /``.
-    - Plugin Dockerfiles use **their own directory** as the context.
+    Base-image Dockerfiles ``COPY rootfs /`` from the shared
+    ``sandbox/`` tree, so every registered base image builds with
+    ``sandbox/`` as its context. Every other plugin Dockerfile uses its
+    own directory as the context.
     """
     df = os.path.abspath(dockerfile_path)
-    base_df = os.path.abspath(os.path.join(SANDBOX_DIR, "Dockerfile.base"))
-    if df == base_df:
-        return SANDBOX_DIR
+    for manifest in get_registry().base_images.values():
+        if df == os.path.abspath(manifest.dockerfile_path):
+            return SANDBOX_DIR
     return os.path.dirname(dockerfile_path)
 
 
-def _get_unique_agent_desktop_pairs() -> list[tuple[str, str]]:
+def _base_layer_name(base_image: str) -> str:
+    if base_image == DEFAULT_BASE_IMAGE:
+        return "_base"
+    return f"_{base_image}_base"
+
+
+def _desktop_layer_name(base_image: str, desktop: str) -> str:
+    if base_image == DEFAULT_BASE_IMAGE:
+        return f"_base-{desktop}"
+    return f"_{base_image}_base-{desktop}"
+
+
+def _agent_layer_name(base_image: str, agent: str, desktop: str) -> str:
+    if base_image == DEFAULT_BASE_IMAGE:
+        return f"_{agent}-{desktop}"
+    return f"_{base_image}_{agent}-{desktop}"
+
+
+def _get_unique_intermediate_parts() -> list[tuple[str, str, str]]:
+    # ``(base_image, agent, desktop)`` triples seen in the official tier.
     # Enumeration follows the official tier: intermediates for
     # community/deprecated tags are only built when explicitly targeted.
-    pairs: set[tuple[str, str]] = set()
+    parts: set[tuple[str, str, str]] = set()
     for tag in OFFICIAL_TAGS:
-        a, d, _ = tag.split("-")
-        pairs.add((a, d))
-    return sorted(pairs)
+        b, a, d, _ = parse_tag(tag)
+        parts.add((b, a, d))
+    return sorted(parts)
 
 
 def _resolve_build_chain(tag: str) -> list[tuple[str, str, str | None]]:
     """Build chain for a final tag as ``[(dockerfile, image_name, parent)]``."""
-    agent, desktop, connector = parse_tag(tag)
+    base_image, agent, desktop, connector = parse_tag(tag)
     return [
-        (os.path.join(SANDBOX_DIR, "Dockerfile.base"), "_base", None),
-        (_plugin_dockerfile("desktop", desktop), f"_base-{desktop}", "_base"),
+        (_base_dockerfile(base_image), _base_layer_name(base_image), None),
+        (_plugin_dockerfile("desktop", desktop),
+         _desktop_layer_name(base_image, desktop),
+         _base_layer_name(base_image)),
         (_plugin_dockerfile("agent", agent),
-         f"_{agent}-{desktop}", f"_base-{desktop}"),
+         _agent_layer_name(base_image, agent, desktop),
+         _desktop_layer_name(base_image, desktop)),
         (_plugin_dockerfile("connector", connector),
-         tag, f"_{agent}-{desktop}"),
+         tag, _agent_layer_name(base_image, agent, desktop)),
     ]
 
 
+def _parse_intermediate(target: str) -> tuple[str, str, str | None] | None:
+    """Split an intermediate target into ``(base_image, kind, detail)``.
+
+    Returns ``None`` when the shape isn't a known intermediate. Kind is
+    ``base`` / ``desktop`` / ``agent``; ``detail`` is the desktop slug for
+    desktop layers and the ``agent-desktop`` pair for agent layers.
+    """
+    if not target.startswith("_"):
+        return None
+    body = target[1:]
+    if "_" in body:
+        base_image, rest = body.split("_", 1)
+        if base_image not in get_registry().base_images:
+            return None
+        body = rest
+    else:
+        base_image = DEFAULT_BASE_IMAGE
+    if body == "base":
+        return base_image, "base", None
+    if body.startswith("base-"):
+        return base_image, "desktop", body[len("base-"):]
+    if "-" in body:
+        return base_image, "agent", body
+    return None
+
+
 def _resolve_intermediate_chain(target: str) -> list[tuple[str, str, str | None]]:
-    if target == "_base":
-        return [(os.path.join(SANDBOX_DIR, "Dockerfile.base"), "_base", None)]
-    if target.startswith("_base-"):
-        desktop = target[len("_base-"):]
-        if desktop not in get_registry().desktops:
+    parsed = _parse_intermediate(target)
+    if parsed is None:
+        raise ValueError(f"Unknown intermediate target: {target}")
+    base_image, kind, detail = parsed
+    reg = get_registry()
+    if kind == "base":
+        return [(_base_dockerfile(base_image), target, None)]
+    if kind == "desktop":
+        if detail not in reg.desktops:
             raise ValueError(f"Unknown intermediate target: {target}")
         return [
-            (os.path.join(SANDBOX_DIR, "Dockerfile.base"), "_base", None),
-            (_plugin_dockerfile("desktop", desktop), target, "_base"),
+            (_base_dockerfile(base_image), _base_layer_name(base_image), None),
+            (_plugin_dockerfile("desktop", detail), target, _base_layer_name(base_image)),
         ]
-    if target.startswith("_"):
-        parts = target[1:].split("-")
-        if len(parts) == 2:
-            agent, desktop = parts
-            reg = get_registry()
-            if agent in reg.agents and desktop in reg.desktops:
-                return [
-                    (os.path.join(SANDBOX_DIR, "Dockerfile.base"), "_base", None),
-                    (_plugin_dockerfile("desktop", desktop),
-                     f"_base-{desktop}", "_base"),
-                    (_plugin_dockerfile("agent", agent),
-                     target, f"_base-{desktop}"),
-                ]
-    raise ValueError(f"Unknown intermediate target: {target}")
+    # kind == "agent": detail is ``agent-desktop``
+    agent, desktop = detail.split("-", 1)
+    if agent not in reg.agents or desktop not in reg.desktops:
+        raise ValueError(f"Unknown intermediate target: {target}")
+    return [
+        (_base_dockerfile(base_image), _base_layer_name(base_image), None),
+        (_plugin_dockerfile("desktop", desktop),
+         _desktop_layer_name(base_image, desktop), _base_layer_name(base_image)),
+        (_plugin_dockerfile("agent", agent), target, _desktop_layer_name(base_image, desktop)),
+    ]
 
 
 def _generate_intermediates() -> list[str]:
-    intermediates = ["_base"]
-    desktops_needed: set[str] = set()
-    for _, d in _get_unique_agent_desktop_pairs():
-        desktops_needed.add(d)
-    for d in sorted(desktops_needed):
-        intermediates.append(f"_base-{d}")
-    for a, d in _get_unique_agent_desktop_pairs():
-        intermediates.append(f"_{a}-{d}")
-    return intermediates
+    out: list[str] = []
+    parts = _get_unique_intermediate_parts()
+    for b, _, _ in parts:
+        if _base_layer_name(b) not in out:
+            out.append(_base_layer_name(b))
+    for _, _, d in parts:
+        name = _desktop_layer_name(DEFAULT_BASE_IMAGE, d)
+        if name not in out:
+            out.append(name)
+    for b, _, d in parts:
+        if b != DEFAULT_BASE_IMAGE:
+            name = _desktop_layer_name(b, d)
+            if name not in out:
+                out.append(name)
+    for b, a, d in parts:
+        name = _agent_layer_name(b, a, d)
+        if name not in out:
+            out.append(name)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +246,7 @@ def build_plan(ctx) -> None:
             ctx.reporter.error(str(e))
             sys.exit(1)
         if base_override:
-            agent, desktop, connector = parse_tag(target)
+            _, _, _, connector = parse_tag(target)
             dockerfile = _plugin_dockerfile("connector", connector)
             ctx.plan.append((dockerfile, target, None))  # parent=None → use override
             continue
@@ -186,12 +261,49 @@ def build_plan(ctx) -> None:
             ctx.plan.append((dockerfile, image_name, parent))
 
 
+def _bases_in_official() -> list[str]:
+    return sorted({b for b, _, _ in _get_unique_intermediate_parts()})
+
+
+def _parse_layer_agent_target(target: str) -> list[tuple[str, str, str]]:
+    """Resolve a ``--layer agent`` target to ``(base, agent, desktop)``.
+
+    Accepts ``agent-desktop`` (default base), ``base-image-agent-desktop``
+    and full ``{base-image-}agent-desktop-connector`` tags.
+    """
+    parts = target.split("-")
+    if len(parts) == 2:
+        return [(DEFAULT_BASE_IMAGE, *parts)]
+    if len(parts) == 3 and parts[0] in get_registry().base_images:
+        return [(parts[0], parts[1], parts[2])]
+    try:
+        b, a, d, _ = parse_tag(target)
+        return [(b, a, d)]
+    except ValueError:
+        raise ValueError(
+            f"Unknown agent layer target: {target}. "
+            "Expected agent-desktop (e.g. ag-xfce) or base-agent-desktop "
+            "(e.g. debian-ag-xfce)"
+        ) from None
+
+
 def _plan_layer(ctx, layer_type: str, target: str | None, no_cache: bool) -> None:
     if layer_type == "base":
-        ctx.plan.extend(_resolve_intermediate_chain("_base"))
+        if target:
+            if target not in get_registry().base_images:
+                ctx.reporter.error(
+                    f"Unknown base image: {target}. "
+                    f"Valid: {', '.join(get_registry().base_images.keys())}"
+                )
+                sys.exit(1)
+            ctx.plan.extend(_resolve_intermediate_chain(_base_layer_name(target)))
+        else:
+            ctx.plan.extend(_resolve_intermediate_chain("_base"))
         return
     if layer_type == "desktop":
-        ctx.plan.extend(_resolve_intermediate_chain("_base"))
+        # Base layers first so every desktop layer has a parent.
+        for b in _bases_in_official():
+            ctx.plan.extend(_resolve_intermediate_chain(_base_layer_name(b)))
         # Enumeration follows the official tier like the agent /
         # connector branches: only desktops referenced by official tags
         # are built by default; other tiers still build when explicitly
@@ -199,29 +311,32 @@ def _plan_layer(ctx, layer_type: str, target: str | None, no_cache: bool) -> Non
         if target:
             desktops = [target]
         else:
-            desktops = sorted({d for _, d in _get_unique_agent_desktop_pairs()})
+            desktops = sorted({d for _, _, d in _get_unique_intermediate_parts()})
         for d in desktops:
-            name = f"_base-{d}"
-            if not no_cache and not ctx.dry_run and _image_exists(_image_tag(name)):
-                ctx.reporter.info(f"  Cache hit: {_image_tag(name)}")
-                continue
-            chain = _resolve_intermediate_chain(name)
-            ctx.plan.append(chain[-1])
+            for b in _bases_in_official():
+                name = _desktop_layer_name(b, d)
+                if not no_cache and not ctx.dry_run and _image_exists(_image_tag(name)):
+                    ctx.reporter.info(f"  Cache hit: {_image_tag(name)}")
+                    continue
+                chain = _resolve_intermediate_chain(name)
+                ctx.plan.append(chain[-1])
         return
     if layer_type == "agent":
-        ctx.plan.extend(_resolve_intermediate_chain("_base"))
+        # Base layers first so every agent layer has a parent.
+        for b in _bases_in_official():
+            ctx.plan.extend(_resolve_intermediate_chain(_base_layer_name(b)))
         if target:
-            pairs = [tuple(target.split("-"))]
+            parts = _parse_layer_agent_target(target)
         else:
-            pairs = _get_unique_agent_desktop_pairs()
-        seen_desktops: set[str] = set()
-        for a, d in pairs:
-            if d not in seen_desktops:
-                name = f"_base-{d}"
+            parts = _get_unique_intermediate_parts()
+        seen_desktops: set[tuple[str, str]] = set()
+        for b, a, d in parts:
+            if (b, d) not in seen_desktops:
+                name = _desktop_layer_name(b, d)
                 if no_cache or ctx.dry_run or not _image_exists(_image_tag(name)):
                     ctx.plan.append(_resolve_intermediate_chain(name)[-1])
-                seen_desktops.add(d)
-            agent_name = f"_{a}-{d}"
+                seen_desktops.add((b, d))
+            agent_name = _agent_layer_name(b, a, d)
             if not no_cache and not ctx.dry_run and _image_exists(_image_tag(agent_name)):
                 ctx.reporter.info(f"  Cache hit: {_image_tag(agent_name)}")
                 continue

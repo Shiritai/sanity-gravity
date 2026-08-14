@@ -16,19 +16,21 @@ Verifies that Docker and Docker Compose (v2.0+) are installed and the Docker dae
 
 ### `build [tag...]`
 
-Build sandbox images. Defaults to building all 19 official tags.
+Build sandbox images. Defaults to building all 38 official tags.
 
 ```bash
 ./sanity-cli build              # Build all images
 ./sanity-cli build ag-xfce-kasm # Build a specific tag (and its intermediate layers)
+./sanity-cli build debian-cc-none-ssh  # Build a non-default base variant
 ./sanity-cli build cc-none-ssh gc-none-ssh  # Build multiple tags
 ```
 
 | Flag | Description |
 |:-----|:------------|
 | `--no-cache` | Disable Docker layer cache |
+| `--base-image <base>` | Override the base OS layer (e.g. `debian`); builds the connector layer directly on it |
 | `--layer {base,desktop,agent,connector}` | Build only up to a specific layer (CI use) |
-| `--layer-target <target>` | Target within `--layer` (e.g. `xfce`, `ag-xfce`) |
+| `--layer-target <target>` | Target within `--layer` (e.g. `xfce`, `debian-ag-xfce`) |
 | `--list-intermediates` | Print intermediate image names and exit |
 | `--json` | Output in JSON format (with `--list-intermediates`) |
 

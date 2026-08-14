@@ -36,13 +36,13 @@ from collections.abc import Collection
 from pathlib import Path
 
 from sanity_gravity.domain.capability import CapabilityConflictError, solve
+from sanity_gravity.domain.tags import DEFAULT_BASE_IMAGE, Tag
 from sanity_gravity.plugins.manifest import (
     TIERS,
     ManifestError,
     PluginManifest,
     load_manifest,
 )
-from sanity_gravity.domain.tags import Tag
 
 
 __all__ = ["PluginRegistry", "default_registry", "reset_default_registry"]
@@ -57,8 +57,9 @@ __all__ = ["PluginRegistry", "default_registry", "reset_default_registry"]
 _LOADED_HOOK_MODULES: set[str] = set()
 
 
-_VALID_KINDS: tuple[str, ...] = ("agent", "desktop", "connector")
+_VALID_KINDS: tuple[str, ...] = ("base-image", "agent", "desktop", "connector")
 _KIND_TO_PLURAL: dict[str, str] = {
+    "base-image": "base-images",
     "agent": "agents",
     "desktop": "desktops",
     "connector": "connectors",
@@ -66,20 +67,21 @@ _KIND_TO_PLURAL: dict[str, str] = {
 
 
 class PluginRegistry:
-    """Three-keyed index of parsed plugin manifests.
+    """Four-keyed index of parsed plugin manifests.
 
     Attributes
     ----------
-    agents / desktops / connectors:
+    base_images / agents / desktops / connectors:
         ``dict[slug -> PluginManifest]`` for that kind.
     root:
         Root of the plugin tree (e.g. ``plugins/``). Useful for callers
         that need to resolve relative manifest paths.
     """
 
-    __slots__ = ("agents", "desktops", "connectors", "root", "_loaded_hook_modules")
+    __slots__ = ("base_images", "agents", "desktops", "connectors", "root", "_loaded_hook_modules")
 
     def __init__(self, root: Path | None = None) -> None:
+        self.base_images: dict[str, PluginManifest] = {}
         self.agents: dict[str, PluginManifest] = {}
         self.desktops: dict[str, PluginManifest] = {}
         self.connectors: dict[str, PluginManifest] = {}
@@ -177,6 +179,8 @@ class PluginRegistry:
     # -- accessors ---------------------------------------------------
 
     def _bucket(self, kind: str) -> dict[str, PluginManifest]:
+        if kind in ("base-image", "base_image", "base-images"):
+            return self.base_images
         if kind == "agent":
             return self.agents
         if kind == "desktop":
@@ -200,8 +204,9 @@ class PluginRegistry:
         return list(self._bucket(kind).keys())
 
     def all_manifests(self) -> list[PluginManifest]:
-        """Flat list of every registered manifest (agents → desktops → connectors)."""
+        """Flat list of every registered manifest (base-images → agents → desktops → connectors)."""
         return [
+            *self.base_images.values(),
             *self.agents.values(),
             *self.desktops.values(),
             *self.connectors.values(),
@@ -210,43 +215,39 @@ class PluginRegistry:
     # -- tag enumeration --------------------------------------------
 
     def tag_tier(self, tag: Tag) -> str:
-        """Most restrictive tier among the tag's three plugins.
-
-        One community or deprecated plugin taints the whole tag: a final
-        image embeds all three layers, so CI/publish eligibility follows
-        the weakest component.
-        """
-        manifests = (
+        """Most restrictive tier among the tag's plugins."""
+        manifests = [
             self.get("agent", tag.agent),
             self.get("desktop", tag.desktop),
             self.get("connector", tag.connector),
-        )
+        ]
+        if tag.base_image in self.base_images:
+            manifests.append(self.get("base-image", tag.base_image))
         return max((m.tier for m in manifests), key=TIERS.index)
 
     def valid_tags(self, tiers: Collection[str] | None = None) -> list[Tag]:
-        """All ``(agent, desktop, connector)`` combos that satisfy capabilities.
+        """All combos that satisfy capabilities.
 
-        ``tiers`` restricts the result to tags whose :meth:`tag_tier` is
-        in the given set (e.g. ``("official",)`` for the CI/publish
-        matrix). The default ``None`` keeps every tier so tag parsing
-        and lifecycle verbs still resolve deprecated tags.
-
-        Mirrors the legacy ``generate_valid_tags`` ordering: agent outer,
-        desktop middle, connector inner; each loop uses the registry's
-        own (insertion) order.
+        The default base (:data:`DEFAULT_BASE_IMAGE`) is always
+        enumerated even before any ``base-image`` plugin is registered;
+        registered non-default bases extend the matrix.
         """
         out: list[Tag] = []
-        for a in self.agents:
-            for d in self.desktops:
-                for c in self.connectors:
-                    tag = Tag(agent=a, desktop=d, connector=c)
-                    try:
-                        solve(tag, self)
-                    except CapabilityConflictError:
-                        continue
-                    if tiers is not None and self.tag_tier(tag) not in tiers:
-                        continue
-                    out.append(tag)
+        bases = [DEFAULT_BASE_IMAGE] + [
+            b for b in self.base_images if b != DEFAULT_BASE_IMAGE
+        ]
+        for b in bases:
+            for a in self.agents:
+                for d in self.desktops:
+                    for c in self.connectors:
+                        tag = Tag(agent=a, desktop=d, connector=c, base_image=b)
+                        try:
+                            solve(tag, self)
+                        except CapabilityConflictError:
+                            continue
+                        if tiers is not None and self.tag_tier(tag) not in tiers:
+                            continue
+                        out.append(tag)
         return out
 
 

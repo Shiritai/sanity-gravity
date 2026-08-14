@@ -14,7 +14,7 @@ from collections.abc import Collection
 
 from sanity_gravity.domain.capability import CapabilityConflictError
 from sanity_gravity.domain.capability import solve as _capability_solve
-from sanity_gravity.domain.tags import Tag
+from sanity_gravity.domain.tags import DEFAULT_BASE_IMAGE, Tag
 from sanity_gravity.plugins.registry import default_registry as _default_registry
 
 
@@ -39,6 +39,12 @@ def get_registry():
 
 def _legacy_dim_dicts(reg):
     """Project the registry into the legacy ``{slug: {name, ...}}`` shape."""
+    bases: dict[str, dict] = {}
+    for slug, m in reg.base_images.items():
+        bases[slug] = {
+            "name": m.name,
+            "tier": m.tier,
+        }
     agents: dict[str, dict] = {}
     for slug, m in reg.agents.items():
         agents[slug] = {
@@ -60,11 +66,16 @@ def _legacy_dim_dicts(reg):
             "has_gui": "display" in m.provides,
             "tier": m.tier,
         }
-    return agents, connectors, desktops
+    return bases, agents, connectors, desktops
 
 
 def parse_tag(tag):
-    """Parse a dimension tag into ``(agent, desktop, connector)``.
+    """Parse a dimension tag into ``(base_image, agent, desktop, connector)``.
+
+    Accepts both ``agent-desktop-connector`` (default base) and
+    ``base_image-agent-desktop-connector`` forms. The default base is
+    always valid even before a matching ``base-image`` plugin exists;
+    non-default base slugs must be registered.
 
     Validation goes through the manifest-driven registry: unknown slugs
     raise ``ValueError`` with the legacy ``Unknown <kind>`` message, and
@@ -73,13 +84,22 @@ def parse_tag(tag):
     solver is generic and supports arbitrary capabilities).
     """
     parts = tag.split("-")
-    if len(parts) != 3:
+    if len(parts) == 4:
+        base_image, agent, desktop, connector = parts
+    elif len(parts) == 3:
+        base_image, agent, desktop, connector = DEFAULT_BASE_IMAGE, *parts
+    else:
         raise ValueError(
             f"Invalid tag format '{tag}'. Expected "
-            "{agent}-{desktop}-{connector} (e.g. ag-xfce-kasm)"
+            "{base_image-}agent-desktop-connector "
+            "(e.g. ag-xfce-kasm or debian-ag-xfce-kasm)"
         )
-    agent, desktop, connector = parts
     reg = get_registry()
+    if base_image != DEFAULT_BASE_IMAGE and base_image not in reg.base_images:
+        raise ValueError(
+            f"Unknown base image '{base_image}'. "
+            f"Valid: {', '.join(reg.base_images.keys())}"
+        )
     if agent not in reg.agents:
         raise ValueError(
             f"Unknown agent '{agent}'. Valid: {', '.join(reg.agents.keys())}"
@@ -94,7 +114,7 @@ def parse_tag(tag):
             f"Valid: {', '.join(reg.connectors.keys())}"
         )
 
-    parsed = Tag(agent=agent, desktop=desktop, connector=connector)
+    parsed = Tag(agent=agent, desktop=desktop, connector=connector, base_image=base_image)
     try:
         _capability_solve(parsed, reg)
     except CapabilityConflictError as exc:
@@ -112,7 +132,7 @@ def parse_tag(tag):
                     f"but '{desktop}' is headless"
                 ) from exc
         raise ValueError(str(exc)) from exc
-    return agent, desktop, connector
+    return base_image, agent, desktop, connector
 
 
 def generate_valid_tags(tiers: Collection[str] | None = None) -> list[str]:
@@ -125,14 +145,14 @@ def generate_valid_tags(tiers: Collection[str] | None = None) -> list[str]:
 
 
 def tag_tier(tag: str) -> str:
-    """Tier of a well-formed ``agent-desktop-connector`` tag string.
+    """Tier of a well-formed ``{base_image-}agent-desktop-connector`` string.
 
     See :meth:`PluginRegistry.tag_tier` - the most restrictive tier
-    among the tag's three plugins wins.
+    among the tag's plugins wins.
     """
-    agent, desktop, connector = tag.split("-")
+    base_image, agent, desktop, connector = parse_tag(tag)
     return get_registry().tag_tier(
-        Tag(agent=agent, desktop=desktop, connector=connector)
+        Tag(agent=agent, desktop=desktop, connector=connector, base_image=base_image)
     )
 
 
@@ -153,7 +173,7 @@ def deprecation_warning(tag: str) -> str | None:
 
 # Legacy module-level views. Computed once at import time; they stay
 # stable across a process because the manifest set is filesystem-bound.
-AGENTS, CONNECTORS, DESKTOPS = _legacy_dim_dicts(get_registry())
+BASES, AGENTS, CONNECTORS, DESKTOPS = _legacy_dim_dicts(get_registry())
 VALID_TAGS = generate_valid_tags()
 # The CI build/verify and release publish matrix: official tier only.
 # Community/deprecated tags stay in VALID_TAGS (parse + lifecycle) but

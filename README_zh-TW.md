@@ -89,7 +89,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 
 ## 選擇你的沙箱
 
-每個映像檔由一個標籤描述：**`{agent}-{desktop}-{connector}`**。根據你的用途選擇：
+每個映像檔由一個標籤描述：**`{base-image-}agent-desktop-connector`**。根據你的用途選擇。基礎映像可省略，預設為 Ubuntu；其他基礎映像以字首標記（例如 `debian-ag-xfce-kasm`）：
 
 | 我想要...                       | 標籤             | 連線方式                   |
 | :------------------------------ | :--------------- | :------------------------- |
@@ -108,7 +108,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 
 > **注意：** `gc`（Gemini CLI）免費方案已於 2026-06-18 終止，現需付費 Gemini API key / Code Assist 授權。新使用者建議改用 **`agy`**（Antigravity CLI）—— Google 官方接替者，本專案已內建。
 
-共有 **23 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
+共有 **46 個有效組合**（預設 Ubuntu 基礎映像，加上每個標籤的 `debian-` 前綴變體）。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
 
 想用的代理還沒內建？新增一個只需要 manifest 加 Dockerfile —— 請參考 [自帶 Agent 指南](docs/bring-your-own-agent.md)。
 
@@ -232,13 +232,12 @@ ssh -p 2222 $USER@localhost
 sanity-gravity/
 ├── sanity-cli                  # CLI 入口（Python 3，無外部相依）
 ├── sandbox/
-│   ├── Dockerfile.base         # 基底層：Ubuntu 24.04 + SSH + supervisord
-│   ├── layers/
-│   │   ├── desktops/           # xfce、none
-│   │   ├── agents/             # ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）
-│   │   └── connectors/         # kasm（KasmVNC）、vnc（TigerVNC）、ssh
 │   └── rootfs/                 # 共用覆疊層（entrypoint、gravity-cli、supervisor 設定）
-├── lib/                        # Proxy Manager 模組
+├── plugins/                    # 清單驅動外掛（PR #6）
+│   ├── base-images/            #   ubuntu（預設）、debian
+│   ├── desktops/               #   xfce、none
+│   ├── agents/                 #   ag、agy、gc、cc、cx、oc
+│   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh
 ├── config/                     # 動態產生的 docker-compose 檔（git-ignored）
 ├── tests/                      # Pytest 整合測試套件
 ├── workspace/                  # 預設掛載的工作目錄

@@ -37,11 +37,12 @@ dockerfile = "Dockerfile"
 
 Field notes:
 
-- **slug** - short and unique; it becomes the first dimension of every tag
-  (`{agent}-{desktop}-{connector}`). Existing agents use 2-3 characters.
+- **slug** - short and unique; it becomes the agent dimension of every tag
+  (`{base-image-}agent-desktop-connector`). Existing agents use 2-3 characters.
 - **capabilities** - a pure CLI agent leaves both lists empty; the registry
   then emits every desktop/connector combination that satisfies the display
-  rule (four tags today: `<slug>-none-ssh` and `<slug>-xfce-{kasm,vnc,ssh}`).
+  rule (and every base, e.g. `<slug>-none-ssh`, `debian-<slug>-none-ssh`,
+  and `<slug>-xfce-{kasm,vnc,ssh}`).
   An agent that needs a GUI declares `requires = ["display"]` (see
   `plugins/agents/ag/`), which drops the headless variants.
 - **No host secrets** - agents declare no `[environment]` entries that leak

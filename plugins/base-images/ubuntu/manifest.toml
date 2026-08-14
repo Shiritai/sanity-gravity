@@ -1,0 +1,17 @@
+[plugin]
+slug = "ubuntu"
+name = "ubuntu (base)"
+kind = "base-image"
+api_version = "1"
+tier = "official"
+
+[capabilities]
+provides = []
+requires = []
+
+[build]
+# The default base lives here (not in sandbox/) now that the base-image
+# dimension is manifest-driven. It still builds with ``sandbox/`` as its
+# context because ``COPY rootfs /`` pulls from the shared ``sandbox/rootfs``
+# tree — see hooks/build._build_context_for.
+dockerfile = "Dockerfile"

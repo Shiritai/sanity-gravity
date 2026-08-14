@@ -1,0 +1,13 @@
+[plugin]
+slug = "debian"
+name = "debian (base)"
+kind = "base-image"
+api_version = "1"
+tier = "official"
+
+[capabilities]
+provides = []
+requires = []
+
+[build]
+dockerfile = "Dockerfile"

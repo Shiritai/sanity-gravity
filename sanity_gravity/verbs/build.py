@@ -34,6 +34,7 @@ from sanity_gravity.core.orchestrator import (
 from sanity_gravity.effects.actions import ActionFailedError
 from sanity_gravity.effects.executor import build_default_executor
 from sanity_gravity.hooks.build import (
+    _agent_layer_name,
     _generate_intermediates,
     _resolve_build_chain,
     register_builtin_build_hooks,
@@ -47,8 +48,8 @@ def resolve_build_chain(tag):  # pragma: no cover - thin shim
 
 
 def resolve_parent(tag):
-    agent, desktop, _ = parse_tag(tag)
-    return f"_{agent}-{desktop}"
+    base_image, agent, desktop, _ = parse_tag(tag)
+    return _agent_layer_name(base_image, agent, desktop)
 
 
 def generate_intermediates():
@@ -105,6 +106,7 @@ def build(args):
         targets=targets,
         reporter=reporter,
         no_cache=no_cache,
+        base_image_override=getattr(args, "base_image", None),
         layer_target=layer,
         layer_target_specific=layer_target,
         list_intermediates=False,
