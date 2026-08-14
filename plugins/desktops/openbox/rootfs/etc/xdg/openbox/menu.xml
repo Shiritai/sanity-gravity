@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu xmlns="http://openbox.org/3.5/menu">
+  <menu id="root-menu" label="Openbox 3">
+    <item label="KI Coding Agent Starter">
+      <action name="Execute"><command>x-terminal-emulator -e /usr/local/bin/agent-starter</command></action>
+    </item>
+    <item label="Terminal">
+      <action name="Execute"><command>x-terminal-emulator</command></action>
+    </item>
+    <separator/>
+    <item label="Reconfigure">
+      <action name="Reconfigure"/>
+    </item>
+    <item label="Log Out">
+      <action name="Exit"/>
+    </item>
+  </menu>
+</openbox_menu>

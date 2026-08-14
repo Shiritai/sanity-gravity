@@ -1,0 +1,16 @@
+! X resources for the openbox desktop, merged into the X server at session
+! start by the connector xstartup and /etc/xdg/openbox/autostart (xrdb from
+! x11-xserver-utils) so that every xterm (the agent-starter terminal and
+! CLI-agent TUIs) uses a large, legible DejaVu Sans Mono face instead of
+! xterm's tiny 8pt default.
+! /etc/X11/Xresources is a directory in Debian; each file is merged in turn.
+XTerm*faceName: DejaVu Sans Mono
+XTerm*faceSize: 10
+XTerm*utf8: always
+XTerm*scrollBar: false
+! Route selections to the CLIPBOARD selection instead of PRIMARY so the VNC
+! server (KasmVNC / TigerVNC via vncconfig) can forward them to the web
+! client, and so middle-click / Shift-Insert paste from the client's
+! clipboard back into the terminal. Without this, mouse-selected text stays
+! in PRIMARY, which the VNC servers do not sync.
+XTerm*selectToClipboard: true

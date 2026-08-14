@@ -135,7 +135,7 @@ class TestCliEnumeration:
         )
 
         gc_tags = [t for t in VALID_TAGS if t.startswith("gc-")]
-        assert len(gc_tags) == 4
+        assert len(gc_tags) == 7
         assert not any(t.startswith("gc-") for t in OFFICIAL_TAGS)
         # Everything else is untouched by gc's retirement.
         assert set(VALID_TAGS) - set(gc_tags) == set(OFFICIAL_TAGS)
