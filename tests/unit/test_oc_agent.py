@@ -94,6 +94,7 @@ def test_oc_tags_enter_the_official_matrix():
 
     oc_tags = [t for t in OFFICIAL_TAGS if t.startswith("oc-")]
     assert sorted(oc_tags) == [
+        "oc-lxqt-kasm", "oc-lxqt-ssh", "oc-lxqt-vnc",
         "oc-none-ssh", "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
     ]
     for t in oc_tags:

@@ -42,6 +42,20 @@ from sanity_gravity.verbs.build import (  # noqa: E402
 )
 
 
+def _running_filter(container_name: str):
+    """run_command mock: report only ``container_name`` as running.
+
+    Realistic stand-in for the verbs' scan over VALID_TAGS — the mock
+    returns "true" only for the targeted container so the scan is not
+    sensitive to the (alphabetical) ordering of valid tags.
+    """
+
+    def _fake_run(cmd, **_kw):
+        return "true" if container_name in " ".join(cmd) else "false"
+
+    return _fake_run
+
+
 class TestDimensionConstraints:
     """Tests for dimension-based tag constraint filtering."""
 
@@ -72,12 +86,15 @@ class TestDimensionConstraints:
             assert d == "none"
             assert c == "ssh"
 
-    def test_all_ag_tags_have_xfce(self):
-        """Every ag tag must use xfce desktop."""
+    def test_all_ag_tags_have_gui_desktop(self):
+        """Every ag tag must use a GUI desktop (xfce/lxqt)."""
         ag_tags = [t for t in VALID_TAGS if t.startswith("ag-")]
-        assert len(ag_tags) == 3
+        assert len(ag_tags) == 6
         for tag in ag_tags:
-            assert "-xfce-" in tag
+            assert (
+                "-xfce-" in tag
+                or "-lxqt-" in tag
+            )
 
     def test_no_headless_gui_connector_in_valid_tags(self):
         """No *-none-kasm/vnc should appear in VALID_TAGS."""
@@ -406,7 +423,7 @@ class TestNewCommands:
     @patch("sanity_gravity.verbs.shell.run_command")
     @patch("subprocess.check_call")
     def test_shell_command(self, mock_check_call, mock_run, mock_env):
-        mock_run.return_value = "true"
+        mock_run.side_effect = _running_filter("ag-xfce-kasm-1")
 
         args = argparse.Namespace(name="sanity-gravity", user=None)
 
@@ -424,7 +441,7 @@ class TestNewCommands:
     @patch("sanity_gravity.verbs.shell.run_command")
     @patch("subprocess.check_call")
     def test_shell_command_with_user(self, mock_check_call, mock_run, mock_env):
-        mock_run.return_value = "true"
+        mock_run.side_effect = _running_filter("ag-xfce-kasm-1")
 
         args = argparse.Namespace(name="sanity-gravity", user="root")
 
@@ -442,7 +459,7 @@ class TestNewCommands:
     @patch("sanity_gravity.verbs.shell.run_command")
     @patch("subprocess.check_call")
     def test_shell_command_with_use_bash(self, mock_check_call, mock_run, mock_env):
-        mock_run.return_value = "true"
+        mock_run.side_effect = _running_filter("ag-xfce-kasm-1")
 
         args = argparse.Namespace(name="sanity-gravity", user=None, use="bash")
 
@@ -463,7 +480,7 @@ class TestNewCommands:
     def test_shell_command_zsh_fallback_to_bash(
         self, mock_call, mock_check_call, mock_run, mock_env
     ):
-        mock_run.return_value = "true"
+        mock_run.side_effect = _running_filter("ag-xfce-kasm-1")
         mock_check_call.side_effect = subprocess.CalledProcessError(1, "zsh")
 
         args = argparse.Namespace(name="sanity-gravity", user=None)
@@ -490,7 +507,7 @@ class TestNewCommands:
     def test_shell_command_no_fallback_when_use_specified(
         self, mock_call, mock_check_call, mock_run, mock_env
     ):
-        mock_run.return_value = "true"
+        mock_run.side_effect = _running_filter("ag-xfce-kasm-1")
         mock_check_call.side_effect = subprocess.CalledProcessError(1, "zsh")
 
         args = argparse.Namespace(name="sanity-gravity", user=None, use="zsh")
