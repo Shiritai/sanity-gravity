@@ -78,11 +78,11 @@ KNOWN_IDENTITY_FSTRINGS = {
 }
 
 # split("-") outside domain/ is tag grammar smuggled into a call site.
-# cli/registry.py's parse_tag / tag_tier are the two survivors: they ARE
-# the registry-validating grammar shim, retired once their callers take
-# the Tag from the parse directly. This set may only shrink.
+# cli/registry.py's resolve_tag / tag_tier are the two survivors: they
+# ARE the registry-validating grammar shim, retired once their callers
+# take the Tag from the parse directly. This set may only shrink.
 KNOWN_DASH_SPLITS = frozenset({
-    "sanity_gravity/cli/registry.py::parse_tag",
+    "sanity_gravity/cli/registry.py::resolve_tag",
     "sanity_gravity/cli/registry.py::tag_tier",
 })
 

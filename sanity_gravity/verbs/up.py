@@ -23,7 +23,7 @@ from sanity_gravity.cli.io import (
     validate_project_name,
     validate_username,
 )
-from sanity_gravity.cli.registry import deprecation_warning, parse_tag
+from sanity_gravity.cli.registry import deprecation_warning, resolve_tag
 from sanity_gravity.core.orchestrator import (
     Deps,
     PortRequest,
@@ -35,7 +35,6 @@ from sanity_gravity.core.orchestrator import (
 from sanity_gravity.core.eventbus import EventBus
 from sanity_gravity.hooks.up import register_builtin_up_hooks
 from sanity_gravity.domain.naming import Naming
-from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.actions import ActionFailedError
 from sanity_gravity.effects.executor import build_default_executor
 from sanity_gravity.compose.generators import (
@@ -68,8 +67,7 @@ def up(args):
     """Start the specified tag, routed through the microkernel."""
     try:
         # registry + capability gate
-        agent, desktop, connector = parse_tag(args.variant)
-        tag = Tag(agent=agent, desktop=desktop, connector=connector)
+        tag = resolve_tag(args.variant)
     except ValueError as e:
         print_error(str(e))
         sys.exit(1)

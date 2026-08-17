@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import argparse
 
-from sanity_gravity.cli.registry import parse_tag as real_parse_tag
+from sanity_gravity.cli.registry import resolve_tag as real_resolve_tag
 from sanity_gravity.core.reporter import Reporter
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.tags import Tag
@@ -52,7 +52,7 @@ def test_up_identities_agree_across_modules(monkeypatch, tmp_path):
 
     # The canonicalizing simulation, installed at the entry parse.
     monkeypatch.setattr(
-        up_mod, "parse_tag", lambda s: real_parse_tag(s.lower())
+        up_mod, "resolve_tag", lambda s: real_resolve_tag(s.lower())
     )
     # Not a sink under test; the real one would choke on the raw alias
     # (same disease, different symptom) before the probes even run.

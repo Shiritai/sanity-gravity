@@ -11,7 +11,8 @@ from __future__ import annotations
 import pytest
 
 
-from sanity_gravity.cli.registry import parse_tag
+from sanity_gravity.cli.registry import parse_tag, resolve_tag
+from sanity_gravity.domain.tags import Tag
 
 
 class TestUnknownDimensions:
@@ -80,3 +81,18 @@ class TestHappyPath:
         # require display. Must succeed.
         agent, desktop, connector = parse_tag("gc-none-ssh")
         assert (agent, desktop, connector) == ("gc", "none", "ssh")
+
+
+class TestResolveTagValueBoundary:
+    def test_resolve_tag_returns_the_tag_value(self):
+        """The registry-validating parse hands back the identity as a
+        value: the Tag it already built for the capability solve, not a
+        tuple the caller must reassemble."""
+        parsed = resolve_tag("ag-xfce-kasm")
+        assert isinstance(parsed, Tag)
+        assert (parsed.agent, parsed.desktop, parsed.connector) == (
+            "ag", "xfce", "kasm",
+        )
+
+    def test_parse_tag_is_a_pure_shim_over_resolve_tag(self):
+        assert parse_tag("ag-xfce-kasm") == ("ag", "xfce", "kasm")

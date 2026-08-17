@@ -63,8 +63,8 @@ def _legacy_dim_dicts(reg):
     return agents, connectors, desktops
 
 
-def parse_tag(tag):
-    """Parse a dimension tag into ``(agent, desktop, connector)``.
+def resolve_tag(tag: str) -> Tag:
+    """Parse + registry-validate a dimension tag; the Tag IS the result.
 
     Validation goes through the manifest-driven registry: unknown slugs
     raise ``ValueError`` with the legacy ``Unknown <kind>`` message, and
@@ -112,7 +112,18 @@ def parse_tag(tag):
                     f"but '{desktop}' is headless"
                 ) from exc
         raise ValueError(str(exc)) from exc
-    return agent, desktop, connector
+    return parsed
+
+
+def parse_tag(tag: str) -> tuple[str, str, str]:
+    """Transitional tuple shim over :func:`resolve_tag`.
+
+    Adds no validation of its own; it exists for callers that still
+    unpack ``(agent, desktop, connector)`` and retires when they take
+    the ``Tag`` from ``resolve_tag`` directly.
+    """
+    parsed = resolve_tag(tag)
+    return parsed.agent, parsed.desktop, parsed.connector
 
 
 def generate_valid_tags(tiers: Collection[str] | None = None) -> list[str]:

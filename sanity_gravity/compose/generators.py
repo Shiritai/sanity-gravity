@@ -18,10 +18,9 @@ from sanity_gravity.cli.io import (
     print_success,
     print_warning,
 )
-from sanity_gravity.cli.registry import VALID_TAGS, get_registry, parse_tag
+from sanity_gravity.cli.registry import VALID_TAGS, get_registry, resolve_tag
 from sanity_gravity.compose.builder import ComposeBuilder, ComposeService
 from sanity_gravity.domain.naming import Naming
-from sanity_gravity.domain.tags import Tag
 
 try:
     from sanity_gravity.infra.proxy_manager import ProxyManager
@@ -39,16 +38,16 @@ def generate_compose_for_tag(tag):
     own the network-facing ports; agents and desktops typically only add
     env vars, but the schema places no restriction.
     """
-    # parse_tag stays the entry check (registry existence + capability
+    # resolve_tag stays the entry check (registry existence + capability
     # solve); Naming then owns every name derived from the identity. The
     # public boundary keeps accepting a string because upgrade discovers
     # tags from running containers as strings.
-    agent, desktop, connector = parse_tag(tag)
-    naming = Naming(Tag(agent=agent, desktop=desktop, connector=connector))
+    parsed = resolve_tag(tag)
+    naming = Naming(parsed)
     reg = get_registry()
-    connector_m = reg.connectors[connector]
-    agent_m = reg.agents.get(agent)
-    desktop_m = reg.desktops.get(desktop)
+    connector_m = reg.connectors[parsed.connector]
+    agent_m = reg.agents.get(parsed.agent)
+    desktop_m = reg.desktops.get(parsed.desktop)
 
     service_name = naming.service()
 

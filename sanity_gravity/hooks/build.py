@@ -26,7 +26,7 @@ import sys
 from sanity_gravity.cli.registry import (
     OFFICIAL_TAGS,
     get_registry,
-    parse_tag,
+    resolve_tag,
 )
 from sanity_gravity.core.command import CommandBuilder
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
@@ -124,8 +124,7 @@ def _roots(ctx) -> list[LayerRef]:
 
     tags: list[Tag] = []
     for target in targets:
-        agent, desktop, connector = parse_tag(target)  # registry + capability gate
-        tags.append(Tag(agent=agent, desktop=desktop, connector=connector))
+        tags.append(resolve_tag(target))  # registry + capability gate
     return roots_for(
         tags=tags, layer_kind=None, layer_target=None, official_tags=(),
     )

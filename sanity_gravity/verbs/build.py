@@ -23,7 +23,7 @@ from sanity_gravity.cli.registry import (
     DEFAULT_TAG,
     OFFICIAL_TAGS,
     deprecation_warning,
-    parse_tag,
+    resolve_tag,
 )
 from sanity_gravity.core.eventbus import EventBus
 from sanity_gravity.core.orchestrator import (
@@ -83,7 +83,7 @@ def build(args):
         # Validate eagerly so a bad tag aborts before we set up the kernel.
         for target in targets:
             try:
-                parse_tag(target)
+                resolve_tag(target)
             except ValueError as e:
                 print_error(str(e))
                 sys.exit(1)
