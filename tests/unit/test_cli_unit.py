@@ -80,10 +80,12 @@ class TestDimensionConstraints:
 
     def test_no_headless_gui_connector_in_valid_tags(self):
         """No *-none-kasm/vnc should appear in VALID_TAGS."""
+        from sanity_gravity.domain.tags import Tag
+
         for tag in VALID_TAGS:
-            _, desktop, connector = tag.split("-")
-            if desktop == "none":
-                assert connector == "ssh", f"Invalid combo in VALID_TAGS: {tag}"
+            t = Tag.parse(tag)
+            if t.desktop == "none":
+                assert t.connector == "ssh", f"Invalid combo in VALID_TAGS: {tag}"
 
     def test_registry_attributes(self):
         """Registries should have correct attribute structure."""

@@ -21,6 +21,7 @@ from sanity_gravity.cli.io import (
 )
 from sanity_gravity.cli.registry import VALID_TAGS
 from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.domain.tags import Tag
 from sanity_gravity.core.orchestrator import (
     CleanContext,
     DownContext,
@@ -53,7 +54,7 @@ def legacy_target_tag(service):
         return service
     conn = _LEGACY_CONNECTOR.get(service)
     if conn:
-        candidate = f"ag-xfce-{conn}"
+        candidate = str(Tag(agent="ag", desktop="xfce", connector=conn))
         if candidate in VALID_TAGS:
             return candidate
     return None

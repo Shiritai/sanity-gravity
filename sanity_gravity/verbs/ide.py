@@ -16,6 +16,7 @@ from sanity_gravity.cli.io import (
     print_info,
     print_plain,
 )
+from sanity_gravity.domain.tags import Tag
 from sanity_gravity.verbs.lifecycle import find_project_containers, get_active_projects
 
 
@@ -53,7 +54,11 @@ def ide_cmd(args):
 
     from sanity_gravity.cli.registry import get_registry
     registry = get_registry()
-    agent_slug = target_variant.split("-")[0]
+    # The service label is a boundary string, but a pre-validated one:
+    # find_project_containers only yields services in VALID_TAGS, so
+    # this parse cannot fail. If it ever does, discovery is broken and
+    # a traceback is the honest report.
+    agent_slug = Tag.parse(target_variant).agent
     agent_plugin = registry.agents.get(agent_slug)
     
     if not agent_plugin or "ide" not in agent_plugin.provides:

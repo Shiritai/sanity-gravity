@@ -54,8 +54,6 @@ class TestOpenVerb:
                           return_value=_match("proj1", "ag-xfce-kasm")), \
              patch.object(open_mod, "run_command",
                           return_value="0.0.0.0:9999"), \
-             patch.object(open_mod, "parse_tag",
-                          return_value=("ag", "xfce", "kasm")), \
              patch.object(open_mod.webbrowser, "open") as wb, \
              patch.object(open_mod, "print_success"):
             open_mod.open_cmd(argparse.Namespace(name="proj1"))
@@ -71,8 +69,6 @@ class TestOpenVerb:
                           return_value=["proj1"]), \
              patch.object(open_mod, "find_project_containers",
                           return_value=_match("proj1", "gc-none-ssh")), \
-             patch.object(open_mod, "parse_tag",
-                          return_value=("gc", "none", "ssh")), \
              patch.object(open_mod.webbrowser, "open") as wb, \
              patch.object(open_mod, "print_warning") as warn:
             open_mod.open_cmd(argparse.Namespace(name="proj1"))

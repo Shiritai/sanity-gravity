@@ -229,6 +229,27 @@ class TestIdeVerb:
             err.assert_called_once()
             assert "No running containers" in err.call_args[0][0]
 
+    def test_agent_slug_derived_from_service_tag(self):
+        """The agent lookup key is the agent dimension of the discovered
+        service tag - not a prefix split of the raw string."""
+        from sanity_gravity.verbs import ide as ide_mod
+
+        registry = MagicMock()
+        registry.agents = {}
+
+        with patch.object(ide_mod, "get_active_projects",
+                          return_value=["proj1"]), \
+             patch.object(ide_mod, "find_project_containers",
+                          return_value=[{
+                              "cid": "c1", "name": "proj1-gc-none-ssh-1",
+                              "service": "gc-none-ssh", "running": True,
+                          }]), \
+             patch("sanity_gravity.cli.registry.get_registry",
+                   return_value=registry), \
+             patch.object(ide_mod, "print_error") as err:
+            ide_mod.ide_cmd(self._args(name="proj1"))
+            assert "Agent 'gc'" in err.call_args_list[0][0][0]
+
     def test_provides_ide_without_manifest_section_errors(self):
         """An agent may claim the 'ide' capability yet ship no [ide]
         contract; the verb must fail with a clear message instead of

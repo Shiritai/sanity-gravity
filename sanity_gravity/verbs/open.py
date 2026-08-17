@@ -10,7 +10,7 @@ from sanity_gravity.cli.io import (
     print_warning,
     run_command,
 )
-from sanity_gravity.cli.registry import parse_tag
+from sanity_gravity.domain.tags import Tag
 from sanity_gravity.verbs.lifecycle import find_project_containers, get_active_projects
 
 
@@ -46,10 +46,11 @@ def open_cmd(args):
             print_warning(f"Could not resolve {service}:{internal} port ({e})")
         return None
 
-    try:
-        _, _, connector = parse_tag(target_variant)
-    except ValueError:
-        connector = None
+    # The service label is a boundary string, but a pre-validated one:
+    # find_project_containers only yields services in VALID_TAGS, so
+    # this parse cannot fail (the old except-ValueError branch was
+    # unreachable for the same reason).
+    connector = Tag.parse(target_variant).connector
 
     if connector == "kasm":
         port = resolve_port(target_variant, "8444")
