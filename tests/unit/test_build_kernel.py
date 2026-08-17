@@ -18,6 +18,9 @@ from sanity_gravity.core.orchestrator import (
     _BUILD_PHASES,
 )
 from sanity_gravity.core.reporter import Reporter
+from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
+from sanity_gravity.domain.plan import roots_for
+from sanity_gravity.domain.tags import Tag
 from sanity_gravity.domain.phase import Phase
 from sanity_gravity.effects.actions import RunSubprocess
 from sanity_gravity.hooks.build import (
@@ -50,9 +53,14 @@ def test_build_plan_populates_chain_for_single_target():
     register_builtin_build_hooks(bus)
     ctx = _ctx(["cc-none-ssh"])
     Orchestrator(bus, ctx.reporter).run(_BUILD_PHASES, ctx)
-    image_names = [step[1] for step in ctx.plan]
-    # The full chain: base → _base-none → _cc-none → cc-none-ssh
-    assert image_names == ["_base", "_base-none", "_cc-none", "cc-none-ssh"]
+    # The full chain: base -> desktop -> agent -> final. Identity, not
+    # rendered strings: command shapes are pinned by the golden master.
+    assert [node.layer for node in ctx.plan] == [
+        LayerRef.base(),
+        LayerRef.of_desktop("none"),
+        LayerRef.of_agent("cc", "none"),
+        LayerRef.of_tag(Tag.parse("cc-none-ssh")),
+    ]
 
 
 def test_build_layer_enqueues_one_action_per_plan_step():
@@ -92,12 +100,18 @@ def test_build_layer_no_cache_passes_flag():
         assert "--no-cache" in a.argv
 
 
-def test_build_layer_target_base_only_builds_base():
+def test_build_layer_target_base_plans_exactly_the_base_layer():
+    """--layer base plans the closure of the base layer: itself, nothing
+    else. Deliberately an equality on identities - the previous version
+    also pinned "a plan entry is an indexable tuple whose slot 1 is a
+    rendered name", which made every structural refactor look like a
+    behavior regression."""
     bus = EventBus()
     register_builtin_build_hooks(bus)
     ctx = _ctx([], layer_target="base")
     Orchestrator(bus, ctx.reporter).run(_BUILD_PHASES, ctx)
-    assert [s[1] for s in ctx.plan] == ["_base"]
+    assert [node.layer for node in ctx.plan] == [LayerRef.base()]
+    assert ctx.plan[0].parent is None
 
 
 def test_build_layer_target_desktop_with_specific():
@@ -105,10 +119,25 @@ def test_build_layer_target_desktop_with_specific():
     register_builtin_build_hooks(bus)
     ctx = _ctx([], layer_target="desktop", layer_target_specific="xfce")
     Orchestrator(bus, ctx.reporter).run(_BUILD_PHASES, ctx)
-    names = [s[1] for s in ctx.plan]
+    layers = [node.layer for node in ctx.plan]
     # Plan must include base + the requested desktop intermediate.
-    assert "_base" in names
-    assert "_base-xfce" in names
+    assert LayerRef.base() in layers
+    assert LayerRef.of_desktop("xfce") in layers
+
+
+def test_build_layer_connector_with_target_is_rejected():
+    """Same flag, same treatment: --layer base/desktop/agent with a
+    --layer-target selects that one layer, and BASE + target already
+    raises. The connector kind used to silently DROP the target and
+    plan the whole official connector closure; it must reject instead,
+    pointing at the plain-tag form that expresses the same request."""
+    with pytest.raises(LayerError, match="plain tag"):
+        roots_for(
+            tags=(),
+            layer_kind=LayerKind.CONNECTOR,
+            layer_target="kasm",
+            official_tags=(),
+        )
 
 
 def test_build_dry_run_in_executor_does_not_execute():

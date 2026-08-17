@@ -267,9 +267,9 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/
 
 # case=layer:agent|cold
 docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
-docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-none <REPO>/plugins/agents/agy
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-none <REPO>/plugins/agents/cc
@@ -281,9 +281,9 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/
 
 # case=layer:agent|hot
 ! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
 ! cache-hit sanity-gravity:_base-xfce
 ! cache-hit sanity-gravity:_ag-xfce
-! cache-hit sanity-gravity:_base-none
 ! cache-hit sanity-gravity:_agy-none
 ! cache-hit sanity-gravity:_agy-xfce
 ! cache-hit sanity-gravity:_cc-none
@@ -295,9 +295,9 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/
 
 # case=layer:agent|warm
 ! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
 ! cache-hit sanity-gravity:_base-xfce
 ! cache-hit sanity-gravity:_ag-xfce
-! cache-hit sanity-gravity:_base-none
 ! cache-hit sanity-gravity:_agy-none
 ! cache-hit sanity-gravity:_agy-xfce
 ! cache-hit sanity-gravity:_cc-none

@@ -33,26 +33,21 @@ from sanity_gravity.core.orchestrator import (
 )
 from sanity_gravity.effects.actions import ActionFailedError
 from sanity_gravity.effects.executor import build_default_executor
-from sanity_gravity.hooks.build import (
-    _generate_intermediates,
-    _resolve_build_chain,
-    register_builtin_build_hooks,
-)
-
-
-# Re-exports for legacy callers ----------------------------------------------
-
-def resolve_build_chain(tag):  # pragma: no cover - thin shim
-    return _resolve_build_chain(tag)
-
-
-def resolve_parent(tag):
-    agent, desktop, _ = parse_tag(tag)
-    return f"_{agent}-{desktop}"
+from sanity_gravity.domain.layers import LayerKind
+from sanity_gravity.domain.naming import Naming
+from sanity_gravity.domain.plan import official_layers
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.hooks.build import register_builtin_build_hooks
 
 
 def generate_intermediates():
-    return _generate_intermediates()
+    """Intermediate layer names of the official matrix (--list-intermediates)."""
+    tags = [Tag.parse(t) for t in OFFICIAL_TAGS]
+    return [
+        Naming.layer(ref.kind, ref.detail)
+        for ref in official_layers(tags)
+        if ref.kind is not LayerKind.CONNECTOR
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +60,7 @@ def build(args):
     # ``--list-intermediates`` is a read-only print: don't go through the
     # kernel for it.
     if getattr(args, "list_intermediates", False):
-        names = _generate_intermediates()
+        names = generate_intermediates()
         if getattr(args, "json_output", False):
             print(_json.dumps(names))
         else:

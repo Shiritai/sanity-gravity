@@ -234,8 +234,10 @@ class BuildContext:
     layer_target_specific: str | None = None     # e.g. "xfce" or "ag-xfce"
     list_intermediates: bool = False
     json_output: bool = False
-    plan: list[tuple[str, str, str | None]] = field(default_factory=list)
-    # ``plan`` entries are ``(dockerfile, image_name, parent_image_name_or_None)``.
+    plan: list = field(default_factory=list)
+    # ``plan`` entries are ``PlanNode`` values (sanity_gravity.domain.plan):
+    # structural layer identity + dockerfile + context; parent derives
+    # from the structure, never from a rendered name.
     actions: list[Action] = field(default_factory=list)
     dry_run: bool = False
 

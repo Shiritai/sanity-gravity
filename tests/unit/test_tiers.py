@@ -178,6 +178,13 @@ class TestCliEnumeration:
 # ---------------------------------------------------------------------------
 
 
+def _layer_name(node):
+    """Rendered layer name of a PlanNode, via the one grammar owner."""
+    from sanity_gravity.domain.naming import Naming
+
+    return Naming.layer(node.layer.kind, node.layer.detail)
+
+
 class TestBuildAllTierFilter:
     def _run_build(self, **ctx_kwargs):
         from sanity_gravity.core.eventbus import EventBus
@@ -207,7 +214,7 @@ class TestBuildAllTierFilter:
 
         monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
         ctx = self._run_build_all()
-        planned = [step[1] for step in ctx.plan]
+        planned = [_layer_name(node) for node in ctx.plan]
         # Finals restricted to the official set; intermediates follow.
         assert [n for n in planned if not n.startswith("_")] == ["cc-none-ssh"]
         assert set(n for n in planned if n.startswith("_")) == {
@@ -218,7 +225,10 @@ class TestBuildAllTierFilter:
         from sanity_gravity.cli.registry import OFFICIAL_TAGS
 
         ctx = self._run_build_all()
-        finals = [n for _, n, _ in ctx.plan if not n.startswith("_")]
+        finals = [
+            _layer_name(node) for node in ctx.plan
+            if not _layer_name(node).startswith("_")
+        ]
         assert finals == list(OFFICIAL_TAGS)
 
     def test_layer_desktop_follows_official_tier(self, monkeypatch):
@@ -226,7 +236,7 @@ class TestBuildAllTierFilter:
 
         monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
         ctx = self._run_build(targets=[], layer_target="desktop")
-        planned = [n for _, n, _ in ctx.plan]
+        planned = [_layer_name(node) for node in ctx.plan]
         assert "_base-none" in planned
         # xfce exists in the registry, but no official tag references it
         # in this scenario: the default enumeration must skip it, same
@@ -240,7 +250,7 @@ class TestBuildAllTierFilter:
         ctx = self._run_build(
             targets=[], layer_target="desktop", layer_target_specific="xfce",
         )
-        planned = [n for _, n, _ in ctx.plan]
+        planned = [_layer_name(node) for node in ctx.plan]
         assert "_base-xfce" in planned
 
 

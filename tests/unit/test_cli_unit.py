@@ -33,11 +33,10 @@ from sanity_gravity.verbs import shell as shell_mod
 from sanity_gravity.verbs import snapshot as snapshot_mod
 from sanity_gravity.verbs import sync as sync_mod
 from sanity_gravity.verbs import up as up_mod
-from sanity_gravity.verbs.build import (
-    generate_intermediates,
-    resolve_build_chain,
-    resolve_parent,
-)
+from sanity_gravity.domain.layers import LayerRef
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.hooks.build import _bind
+from sanity_gravity.verbs.build import generate_intermediates
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -110,27 +109,29 @@ class TestDimensionConstraints:
 
 
 class TestLayeredBuildSystem:
-    """Tests for FROM-chained layered build system."""
+    """Tests for the FROM-chained layered build structure.
 
-    def test_resolve_build_chain_length(self):
-        """Build chain always has 4 steps: base -> desktop -> agent -> connector."""
-        chain = resolve_build_chain("ag-xfce-kasm")
-        assert len(chain) == 4
+    Asserts identity (LayerRef), not plan shape: the rendered command
+    sequences are pinned by the golden master (test_build_golden.py)."""
 
-    def test_resolve_build_chain_names(self):
-        chain = resolve_build_chain("gc-none-ssh")
-        names = [step[1] for step in chain]
-        assert names == ["_base", "_base-none", "_gc-none", "gc-none-ssh"]
+    def test_chain_is_base_desktop_agent_connector(self):
+        ref = LayerRef.of_tag(Tag.parse("gc-none-ssh"))
+        assert ref.ancestors == (
+            LayerRef.base(),
+            LayerRef.of_desktop("none"),
+            LayerRef.of_agent("gc", "none"),
+        )
 
-    def test_resolve_build_chain_parents(self):
-        chain = resolve_build_chain("ag-xfce-vnc")
-        parents = [step[2] for step in chain]
-        assert parents == [None, "_base", "_base-xfce", "_ag-xfce"]
+    def test_parent_rule(self):
+        assert LayerRef.of_tag(Tag.parse("ag-xfce-kasm")).parent == \
+            LayerRef.of_agent("ag", "xfce")
+        assert LayerRef.of_tag(Tag.parse("cc-xfce-vnc")).parent == \
+            LayerRef.of_agent("cc", "xfce")
 
-    def test_resolve_parent(self):
-        assert resolve_parent("ag-xfce-kasm") == "_ag-xfce"
-        assert resolve_parent("gc-none-ssh") == "_gc-none"
-        assert resolve_parent("cc-xfce-vnc") == "_cc-xfce"
+    def test_shared_intermediates(self):
+        """Two connectors on the same agent-desktop share their parent."""
+        assert LayerRef.of_tag(Tag.parse("ag-xfce-kasm")).parent == \
+            LayerRef.of_tag(Tag.parse("ag-xfce-vnc")).parent
 
     def test_generate_intermediates(self):
         intermediates = generate_intermediates()
@@ -149,15 +150,12 @@ class TestLayeredBuildSystem:
         """At least 8 intermediates."""
         assert len(generate_intermediates()) >= 8
 
-    def test_shared_intermediates(self):
-        """ag-xfce-kasm and ag-xfce-vnc share the same parent."""
-        assert resolve_parent("ag-xfce-kasm") == resolve_parent("ag-xfce-vnc")
-
     def test_build_chain_dockerfiles_exist(self):
-        """All Dockerfiles referenced in build chains must exist."""
+        """Every layer of every valid tag binds to an existing Dockerfile."""
         for tag in VALID_TAGS:
-            chain = resolve_build_chain(tag)
-            for dockerfile, _, _ in chain:
+            ref = LayerRef.of_tag(Tag.parse(tag))
+            for layer in (*ref.ancestors, ref):
+                dockerfile, _context = _bind(layer)
                 assert os.path.exists(dockerfile), \
                     f"Missing: {dockerfile} (for {tag})"
 
