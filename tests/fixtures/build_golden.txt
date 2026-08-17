@@ -1,0 +1,795 @@
+# case=all:no-cache|cold
+docker build --no-cache -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-none <REPO>/plugins/agents/agy
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-none <REPO>/plugins/agents/cc
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-none <REPO>/plugins/agents/cx
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-none <REPO>/plugins/agents/oc
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=all|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-none <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-none <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-none <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-none <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=all|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+! cache-hit sanity-gravity:_agy-none
+! cache-hit sanity-gravity:_agy-xfce
+! cache-hit sanity-gravity:_cc-none
+! cache-hit sanity-gravity:_cc-xfce
+! cache-hit sanity-gravity:_cx-none
+! cache-hit sanity-gravity:_cx-xfce
+! cache-hit sanity-gravity:_oc-none
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=all|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+! cache-hit sanity-gravity:_agy-none
+! cache-hit sanity-gravity:_agy-xfce
+! cache-hit sanity-gravity:_cc-none
+! cache-hit sanity-gravity:_cc-xfce
+! cache-hit sanity-gravity:_cx-none
+! cache-hit sanity-gravity:_cx-xfce
+! cache-hit sanity-gravity:_oc-none
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=layer:agent:ag-xfce|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+
+# case=layer:agent:ag-xfce|hot
+! cache-hit sanity-gravity:_ag-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:ag-xfce|warm
+! cache-hit sanity-gravity:_ag-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:agy-none|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-none <REPO>/plugins/agents/agy
+
+# case=layer:agent:agy-none|hot
+! cache-hit sanity-gravity:_agy-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:agy-none|warm
+! cache-hit sanity-gravity:_agy-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:agy-xfce|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
+
+# case=layer:agent:agy-xfce|hot
+! cache-hit sanity-gravity:_agy-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:agy-xfce|warm
+! cache-hit sanity-gravity:_agy-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:cc-none|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-none <REPO>/plugins/agents/cc
+
+# case=layer:agent:cc-none|hot
+! cache-hit sanity-gravity:_cc-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:cc-none|warm
+! cache-hit sanity-gravity:_cc-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:cc-xfce|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
+
+# case=layer:agent:cc-xfce|hot
+! cache-hit sanity-gravity:_cc-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:cc-xfce|warm
+! cache-hit sanity-gravity:_cc-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:cx-none|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-none <REPO>/plugins/agents/cx
+
+# case=layer:agent:cx-none|hot
+! cache-hit sanity-gravity:_cx-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:cx-none|warm
+! cache-hit sanity-gravity:_cx-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:cx-xfce|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
+
+# case=layer:agent:cx-xfce|hot
+! cache-hit sanity-gravity:_cx-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:cx-xfce|warm
+! cache-hit sanity-gravity:_cx-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:oc-none|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-none <REPO>/plugins/agents/oc
+
+# case=layer:agent:oc-none|hot
+! cache-hit sanity-gravity:_oc-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:oc-none|warm
+! cache-hit sanity-gravity:_oc-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:oc-xfce|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
+
+# case=layer:agent:oc-xfce|hot
+! cache-hit sanity-gravity:_oc-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent:oc-xfce|warm
+! cache-hit sanity-gravity:_oc-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-none <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-none <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-none <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-none <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
+
+# case=layer:agent|hot
+! cache-hit sanity-gravity:_ag-xfce
+! cache-hit sanity-gravity:_agy-none
+! cache-hit sanity-gravity:_agy-xfce
+! cache-hit sanity-gravity:_cc-none
+! cache-hit sanity-gravity:_cc-xfce
+! cache-hit sanity-gravity:_cx-none
+! cache-hit sanity-gravity:_cx-xfce
+! cache-hit sanity-gravity:_oc-none
+! cache-hit sanity-gravity:_oc-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:agent|warm
+! cache-hit sanity-gravity:_ag-xfce
+! cache-hit sanity-gravity:_agy-none
+! cache-hit sanity-gravity:_agy-xfce
+! cache-hit sanity-gravity:_cc-none
+! cache-hit sanity-gravity:_cc-xfce
+! cache-hit sanity-gravity:_cx-none
+! cache-hit sanity-gravity:_cx-xfce
+! cache-hit sanity-gravity:_oc-none
+! cache-hit sanity-gravity:_oc-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:base|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:base|hot
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:base|warm
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:connector|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-none <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-none <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-none <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-none <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=layer:connector|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+! cache-hit sanity-gravity:_agy-none
+! cache-hit sanity-gravity:_agy-xfce
+! cache-hit sanity-gravity:_cc-none
+! cache-hit sanity-gravity:_cc-xfce
+! cache-hit sanity-gravity:_cx-none
+! cache-hit sanity-gravity:_cx-xfce
+! cache-hit sanity-gravity:_oc-none
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=layer:connector|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+! cache-hit sanity-gravity:_agy-none
+! cache-hit sanity-gravity:_agy-xfce
+! cache-hit sanity-gravity:_cc-none
+! cache-hit sanity-gravity:_cc-xfce
+! cache-hit sanity-gravity:_cx-none
+! cache-hit sanity-gravity:_cx-xfce
+! cache-hit sanity-gravity:_oc-none
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=layer:desktop:none|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+
+# case=layer:desktop:none|hot
+! cache-hit sanity-gravity:_base-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:desktop:none|warm
+! cache-hit sanity-gravity:_base-none
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:desktop:xfce|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+
+# case=layer:desktop:xfce|hot
+! cache-hit sanity-gravity:_base-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:desktop:xfce|warm
+! cache-hit sanity-gravity:_base-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:desktop|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+
+# case=layer:desktop|hot
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_base-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=layer:desktop|warm
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_base-xfce
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+
+# case=list-intermediates|-
+_base
+_base-none
+_base-xfce
+_ag-xfce
+_agy-none
+_agy-xfce
+_cc-none
+_cc-xfce
+_cx-none
+_cx-xfce
+_oc-none
+_oc-xfce
+
+# case=tag:ag-xfce-kasm:no-cache|cold
+docker build --no-cache -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:ag-xfce-kasm|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:ag-xfce-kasm|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:ag-xfce-kasm|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:ag-xfce-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:ag-xfce-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:ag-xfce-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:ag-xfce-vnc|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:ag-xfce-vnc|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:ag-xfce-vnc|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_ag-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:agy-none-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-none <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:agy-none-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_agy-none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:agy-none-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_agy-none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:agy-xfce-kasm|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:agy-xfce-kasm|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_agy-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:agy-xfce-kasm|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_agy-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:agy-xfce-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:agy-xfce-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_agy-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:agy-xfce-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_agy-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:agy-xfce-vnc|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:agy-xfce-vnc|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_agy-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:agy-xfce-vnc|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_agy-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:cc-none-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-none <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cc-none-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_cc-none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cc-none-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_cc-none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cc-xfce-kasm|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:cc-xfce-kasm|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:cc-xfce-kasm|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:cc-xfce-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cc-xfce-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cc-xfce-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cc-xfce-vnc|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:cc-xfce-vnc|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:cc-xfce-vnc|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:cx-none-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-none <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cx-none-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_cx-none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cx-none-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_cx-none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cx-xfce-kasm|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:cx-xfce-kasm|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cx-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:cx-xfce-kasm|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cx-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:cx-xfce-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cx-xfce-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cx-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cx-xfce-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cx-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:cx-xfce-vnc|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:cx-xfce-vnc|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cx-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:cx-xfce-vnc|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_cx-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:oc-none-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-none <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:oc-none-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_oc-none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:oc-none-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-none
+! cache-hit sanity-gravity:_oc-none
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:oc-xfce-kasm|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:oc-xfce-kasm|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:oc-xfce-kasm|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
+
+# case=tag:oc-xfce-ssh|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:oc-xfce-ssh|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:oc-xfce-ssh|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
+
+# case=tag:oc-xfce-vnc|cold
+docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:oc-xfce-vnc|hot
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
+
+# case=tag:oc-xfce-vnc|warm
+! cache-hit sanity-gravity:_base
+! cache-hit sanity-gravity:_base-xfce
+! cache-hit sanity-gravity:_oc-xfce
+docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
