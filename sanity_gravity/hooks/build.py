@@ -180,12 +180,26 @@ def build_plan(ctx) -> None:
             ctx.plan.append((dockerfile, image_name, parent))
 
 
+def _ensure_base(ctx, no_cache: bool) -> None:
+    """Plan the base layer unless it is already built locally.
+
+    The base is an intermediate like any other: it gets the same probe
+    and the same Cache hit report. Historically the three --layer
+    branches re-planned it unconditionally on every invocation.
+    """
+    full_tag = _image_tag("_base")
+    if not no_cache and not ctx.dry_run and _image_exists(full_tag):
+        ctx.reporter.info(f"  Cache hit: {full_tag}")
+        return
+    ctx.plan.extend(_resolve_intermediate_chain("_base"))
+
+
 def _plan_layer(ctx, layer_type: str, target: str | None, no_cache: bool) -> None:
     if layer_type == "base":
-        ctx.plan.extend(_resolve_intermediate_chain("_base"))
+        _ensure_base(ctx, no_cache)
         return
     if layer_type == "desktop":
-        ctx.plan.extend(_resolve_intermediate_chain("_base"))
+        _ensure_base(ctx, no_cache)
         # Enumeration follows the official tier like the agent /
         # connector branches: only desktops referenced by official tags
         # are built by default; other tiers still build when explicitly
@@ -203,7 +217,7 @@ def _plan_layer(ctx, layer_type: str, target: str | None, no_cache: bool) -> Non
             ctx.plan.append(chain[-1])
         return
     if layer_type == "agent":
-        ctx.plan.extend(_resolve_intermediate_chain("_base"))
+        _ensure_base(ctx, no_cache)
         if target:
             pairs = [tuple(target.split("-"))]
         else:
@@ -211,10 +225,12 @@ def _plan_layer(ctx, layer_type: str, target: str | None, no_cache: bool) -> Non
         seen_desktops: set[str] = set()
         for a, d in pairs:
             if d not in seen_desktops:
-                name = f"_base-{d}"
-                if no_cache or ctx.dry_run or not _image_exists(_image_tag(name)):
-                    ctx.plan.append(_resolve_intermediate_chain(name)[-1])
                 seen_desktops.add(d)
+                name = f"_base-{d}"
+                if not no_cache and not ctx.dry_run and _image_exists(_image_tag(name)):
+                    ctx.reporter.info(f"  Cache hit: {_image_tag(name)}")
+                else:
+                    ctx.plan.append(_resolve_intermediate_chain(name)[-1])
             agent_name = f"_{a}-{d}"
             if not no_cache and not ctx.dry_run and _image_exists(_image_tag(agent_name)):
                 ctx.reporter.info(f"  Cache hit: {_image_tag(agent_name)}")
