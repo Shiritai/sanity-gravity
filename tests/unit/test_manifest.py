@@ -435,3 +435,17 @@ def test_port_legacy_slug_optional(tmp_path):
     by_label = m.ports_by_label()
     assert by_label["unlabelled"].legacy_slug is None
     assert by_label["tagged"].legacy_slug == "http"
+
+
+@pytest.mark.parametrize("kind", ["agent", "desktop", "connector"])
+def test_reserved_slug_base_rejected(tmp_path, kind):
+    """'base' is reserved by the layer-name grammar: an agent slug
+    'base' renders '_base-<desktop>', colliding with the desktop
+    layer's name. Reserved across all kinds for one simple rule."""
+    path = _write(
+        tmp_path,
+        f'[plugin]\nslug = "base"\nname = "x"\nkind = "{kind}"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n',
+    )
+    with pytest.raises(ManifestError, match="reserved"):
+        load_manifest(path)

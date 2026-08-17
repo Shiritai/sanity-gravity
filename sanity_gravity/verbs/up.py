@@ -68,7 +68,8 @@ def up(args):
     target = args.variant
 
     try:
-        tag = Tag.parse(target, parser=parse_tag)
+        agent, desktop, connector = parse_tag(target)  # registry + capability gate
+        tag = Tag(agent=agent, desktop=desktop, connector=connector)
     except ValueError as e:
         print_error(str(e))
         sys.exit(1)

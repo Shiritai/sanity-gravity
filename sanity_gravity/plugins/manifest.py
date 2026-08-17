@@ -72,6 +72,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from sanity_gravity.domain.tags import RESERVED_SLUGS
+
 if sys.version_info >= (3, 11):
     import tomllib
 else:  # pragma: no cover - 3.11+ is the project minimum
@@ -382,6 +384,12 @@ def load_manifest(path: str | Path) -> PluginManifest:
             f"{p}: [plugin].slug must match {_SLUG_RE.pattern} "
             f"(lowercase letter then lowercase alphanumerics; '-' and '_' "
             f"are reserved by tag and layer-name grammars), got '{slug}'"
+        )
+    if slug in RESERVED_SLUGS:
+        raise ManifestError(
+            f"{p}: [plugin].slug '{slug}' is reserved: the layer-name "
+            f"grammar renders desktop layers as '_base-<desktop>', so an "
+            f"agent named 'base' would make layer names ambiguous"
         )
 
     tier = "official"

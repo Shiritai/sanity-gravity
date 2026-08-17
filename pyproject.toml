@@ -17,6 +17,7 @@ dependencies = [
 test = [
     "pytest",
     "pytest-timeout",
+    "hypothesis>=6.100",
     "requests",
     "urllib3",
 ]

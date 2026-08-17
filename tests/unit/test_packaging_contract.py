@@ -14,6 +14,7 @@ def test_pyproject_declares_test_extra():
     data = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text())
     extra = data["project"]["optional-dependencies"]["test"]
     assert {"pytest", "pytest-timeout", "requests", "urllib3"} <= set(extra)
+    assert any(dep.startswith("hypothesis") for dep in extra)
 
 
 def test_workflows_install_via_test_extra():

@@ -274,7 +274,7 @@ def test_merge_into_isolate_false_preserves_origin_flag():
 
 
 def test_tag_parse_round_trip():
-    parsed = Tag.parse("ag-xfce-kasm", parser=lambda s: tuple(s.split("-")))
+    parsed = Tag.parse("ag-xfce-kasm")
     assert parsed.agent == "ag"
     assert parsed.desktop == "xfce"
     assert parsed.connector == "kasm"
