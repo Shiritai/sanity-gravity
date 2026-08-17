@@ -120,7 +120,9 @@ def auto_port_alloc(ctx) -> None:
     })
 
     if ctx.image_override:
-        var = f"SANITY_IMAGE_{str(ctx.tag).upper().replace('-', '_')}"
+        # Naming owns this transform; the generated compose file reads
+        # the same var back, so both sides must derive it identically.
+        var = ctx.naming.env_var()
         os.environ[var] = ctx.image_override
         ctx.reporter.info(f"Using Custom Image: {ctx.image_override} for {ctx.tag}")
 

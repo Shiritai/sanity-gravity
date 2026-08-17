@@ -14,6 +14,7 @@ from typing import Any, Callable, Sequence
 
 from sanity_gravity.effects.actions import Action
 from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.phase import Phase
 from sanity_gravity.domain.tags import Tag
 
@@ -87,12 +88,17 @@ class UpContext:
         return out
 
     @property
+    def naming(self) -> Naming:
+        """Single generator for every name hooks derive from this ctx."""
+        return Naming(self.tag, self.project)
+
+    @property
     def service_name(self) -> str:
-        return str(self.tag)
+        return self.naming.service()
 
     @property
     def container_name(self) -> str:
-        return f"{self.project}-{self.service_name}-1"
+        return self.naming.container()
 
 
 _UP_PHASES: tuple[Phase, ...] = (

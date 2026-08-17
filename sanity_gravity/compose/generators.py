@@ -20,6 +20,8 @@ from sanity_gravity.cli.io import (
 )
 from sanity_gravity.cli.registry import VALID_TAGS, get_registry, parse_tag
 from sanity_gravity.compose.builder import ComposeBuilder, ComposeService
+from sanity_gravity.domain.naming import Naming
+from sanity_gravity.domain.tags import Tag
 
 try:
     from sanity_gravity.infra.proxy_manager import ProxyManager
@@ -37,18 +39,20 @@ def generate_compose_for_tag(tag):
     own the network-facing ports; agents and desktops typically only add
     env vars, but the schema places no restriction.
     """
+    # parse_tag stays the entry check (registry existence + capability
+    # solve); Naming then owns every name derived from the identity. The
+    # public boundary keeps accepting a string because upgrade discovers
+    # tags from running containers as strings.
     agent, desktop, connector = parse_tag(tag)
+    naming = Naming(Tag(agent=agent, desktop=desktop, connector=connector))
     reg = get_registry()
     connector_m = reg.connectors[connector]
     agent_m = reg.agents.get(agent)
     desktop_m = reg.desktops.get(desktop)
 
-    service_name = tag
+    service_name = naming.service()
 
-    image = (
-        f"${{SANITY_IMAGE_{tag.upper().replace('-', '_')}"
-        f":-sanity-gravity:{tag}}}"
-    )
+    image = naming.image_expr()
 
     environment = {
         "HOST_UID": "${HOST_UID:-1000}",
@@ -107,7 +111,7 @@ def generate_compose_for_tag(tag):
         # and stays the source of truth for code. ``home-volume`` label
         # lets `upgrade` tell migrated containers from un-migrated ones.
         volumes=[
-            f"sg_{tag}:/home/${{HOST_USER:-developer}}",
+            f"{naming.volume()}:/home/${{HOST_USER:-developer}}",
             "${WORKSPACE_DIR:-./workspace}:/home/${HOST_USER:-developer}/workspace",
         ],
         ports=ports,
@@ -138,12 +142,18 @@ def generate_compose_for_tag(tag):
         },
     )
 
-    config_dir = "config"
-    output_file = os.path.join(config_dir, f"docker-compose.{tag}.yml")
+    output_file = naming.compose_file()
     (
         ComposeBuilder()
         .add_service(svc)
-        .declare_volume(f"sg_{tag}", config={"name": f"sg-${{COMPOSE_PROJECT_NAME:-sanity-gravity}}-{tag}"})
+        # The external name interpolates the compose project at container
+        # start time, so the literal ${...} expression stands in for it.
+        .declare_volume(
+            naming.volume(),
+            config={"name": naming.volume_external(
+                "${COMPOSE_PROJECT_NAME:-sanity-gravity}"
+            )},
+        )
         .write(output_file)
     )
 
@@ -233,8 +243,7 @@ def generate_git_compose(username, service_name=None):
         if environment:
             builder.merge_environment(svc, environment)
 
-    config_dir = "config"
-    output_file = os.path.join(config_dir, "docker-compose.git.yml")
+    output_file = os.path.join(Naming.CONFIG_DIR, "docker-compose.git.yml")
     builder.write(output_file)
 
     return output_file
@@ -251,8 +260,7 @@ def generate_resource_compose(cpus, memory, service_name=None):
         builder.add_service(ComposeService(name=svc, image=""))
         builder.set_deploy_resources(svc, cpus=cpus, memory=memory)
 
-    config_dir = "config"
-    output_file = os.path.join(config_dir, "docker-compose.resources.yml")
+    output_file = os.path.join(Naming.CONFIG_DIR, "docker-compose.resources.yml")
     builder.write(output_file)
 
     return output_file
