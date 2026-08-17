@@ -35,6 +35,8 @@ from sanity_gravity.compose.generators import (
     generate_compose_for_tag,
     generate_git_compose,
 )
+from sanity_gravity.domain.naming import Naming
+from sanity_gravity.domain.tags import Tag
 from sanity_gravity.verbs.lifecycle import (
     get_legacy_containers,
     get_legacy_projects,
@@ -148,7 +150,20 @@ def _migrate_one(item, host_uid, host_gid, host_user, timestamp):
     """
     project, service = item["project"], item["service"]
     cid, name, tag = item["cid"], item["name"], item["tag"]
-    backup_img = f"sanity-migrate/{project}-{service}:{timestamp}"
+    # ``tag`` came out of legacy_target_tag, so it always parses.
+    naming = Naming(Tag.parse(tag), project)
+    if service == tag:
+        # A managed container migrating in place: its service label
+        # already is the target tag, so the rollback ref is a Naming
+        # render like every other identity.
+        backup_img = naming.backup_image(timestamp)
+    else:
+        # A genuine legacy container has a flat service name
+        # (core/kasm/vnc) that is not a tag. The rollback ref must keep
+        # that OLD name - it identifies what was snapshotted, and the
+        # recovery hint prints it back - so only the repo prefix is
+        # shared with Naming here.
+        backup_img = f"{Naming.BACKUP_REPO}/{project}-{service}:{timestamp}"
 
     print_header(f"Migrating {name} ({service} -> {tag})")
     stage = "snapshot"
@@ -192,7 +207,7 @@ def _migrate_one(item, host_uid, host_gid, host_user, timestamp):
         )
 
         # 6. Find the named volume mounted at the home dir.
-        new_name = f"{project}-{tag}-1"
+        new_name = naming.container()
         mount_fmt = (
             '{{range .Mounts}}{{if eq .Destination "/home/'
             + username

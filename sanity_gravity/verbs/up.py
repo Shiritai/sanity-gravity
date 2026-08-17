@@ -34,6 +34,7 @@ from sanity_gravity.core.orchestrator import (
 )
 from sanity_gravity.core.eventbus import EventBus
 from sanity_gravity.hooks.up import register_builtin_up_hooks
+from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.actions import ActionFailedError
 from sanity_gravity.effects.executor import build_default_executor
@@ -65,18 +66,21 @@ def is_port_in_use(port):
 
 def up(args):
     """Start the specified tag, routed through the microkernel."""
-    target = args.variant
-
     try:
-        agent, desktop, connector = parse_tag(target)  # registry + capability gate
+        # registry + capability gate
+        agent, desktop, connector = parse_tag(args.variant)
         tag = Tag(agent=agent, desktop=desktop, connector=connector)
     except ValueError as e:
         print_error(str(e))
         sys.exit(1)
+    # The parse boundary ends here: identity now flows as the Tag value
+    # and every derived name is a Naming render. The raw argv string
+    # must not name anything past this point.
+    naming = Naming(tag, args.name)
 
     # Deprecated tags warn but never block (tier policy) - existing
     # sandboxes keep working, only CI/publish dropped the tag.
-    notice = deprecation_warning(target)
+    notice = deprecation_warning(str(tag))
     if notice:
         print_warning(notice)
 
@@ -88,15 +92,15 @@ def up(args):
         pull(args)
     elif not getattr(args, "dry_run", False):
         check_img = run_command(
-            ("docker", "image", "inspect", f"sanity-gravity:{target}"),
+            ("docker", "image", "inspect", naming.image()),
             capture=True, check=False,
         )
         if not check_img or check_img.strip() == "[]" or "Error: No such image" in check_img:
-            print_warning(f"Local image sanity-gravity:{target} not found. Auto-pulling from GHCR...")
+            print_warning(f"Local image {naming.image()} not found. Auto-pulling from GHCR...")
             pull(args)
 
     uid, gid, username = get_uid_gid_user()
-    print_header(f"Starting {target}")
+    print_header(f"Starting {tag}")
     print_info(f"Mapping User: {username} (UID={uid}, GID={gid})")
 
     workspace_path = (
@@ -110,8 +114,13 @@ def up(args):
     # Collision Detection (skip in dry run to avoid subprocess calls)
     dry_run = bool(getattr(args, "dry_run", False))
     if not dry_run:
-        container_name = f"{args.name}-{target}-1"
-        out = run_command(f"docker ps -a -q -f name=^{container_name}$", capture=True, check=False)
+        container_name = naming.container()
+        # Argv form on purpose: nothing here needs a shell, so the name
+        # cannot be re-interpreted by one.
+        out = run_command(
+            ("docker", "ps", "-a", "-q", "-f", f"name=^{container_name}$"),
+            capture=True, check=False,
+        )
         if out and isinstance(out, str) and out.strip() != "":
             if not getattr(args, 'recreate', False):
                 print_error(f"Sandbox container '{container_name}' already exists!")

@@ -13,8 +13,24 @@ import sys
 from sanity_gravity.cli.colors import Colors
 from sanity_gravity.cli.io import run_command
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
+from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.phase import Phase
+from sanity_gravity.domain.tags import Tag, TagError
 from sanity_gravity.effects.actions import RunSubprocess
+
+
+def _container_name(project: str, variant: str) -> str:
+    """Container name for one variant of a project, via Naming.
+
+    The fallback keeps the legacy shape for a user-typed ``--variant``
+    that is not a tag: the doomed existence probe still runs and its
+    not-found message echoes the input, instead of a raw TagError
+    replacing today's graceful bail-out.
+    """
+    try:
+        return Naming(Tag.parse(variant), project).container()
+    except TagError:
+        return f"{project}-{variant}-1"
 
 
 def _container_exists(name: str) -> bool:
@@ -52,12 +68,17 @@ def snapshot_resolve_container(ctx) -> None:
         # In dry-run, fabricate a placeholder so the planned commit can render.
         v = ctx.variant or "<variant>"
         ctx.target_variant = v
-        ctx.container_id = f"{ctx.project}-{v}-1"
+        # "<variant>" is display-only, not a tag - it must not go
+        # through the grammar.
+        ctx.container_id = (
+            _container_name(ctx.project, v) if ctx.variant
+            else f"{ctx.project}-{v}-1"
+        )
         return
 
     if ctx.variant:
         ctx.target_variant = ctx.variant
-        cname = f"{ctx.project}-{ctx.variant}-1"
+        cname = _container_name(ctx.project, ctx.variant)
         if _container_exists(cname):
             ctx.container_id = cname
             return
@@ -85,7 +106,7 @@ def snapshot_resolve_container(ctx) -> None:
         return
     if len(found) == 1:
         ctx.target_variant = found[0]
-        ctx.container_id = f"{ctx.project}-{ctx.target_variant}-1"
+        ctx.container_id = _container_name(ctx.project, ctx.target_variant)
         return
 
     ctx.reporter.info(f"Multiple running environments detected: {', '.join(found)}")
@@ -107,7 +128,7 @@ def snapshot_resolve_container(ctx) -> None:
         ).strip()
         if choice.isdigit() and 1 <= int(choice) <= len(found):
             ctx.target_variant = found[int(choice) - 1]
-            ctx.container_id = f"{ctx.project}-{ctx.target_variant}-1"
+            ctx.container_id = _container_name(ctx.project, ctx.target_variant)
             return
         ctx.reporter.warning("Invalid input, please try again.")
 

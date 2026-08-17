@@ -21,6 +21,8 @@ from sanity_gravity.cli.io import (
     run_command,
 )
 from sanity_gravity.cli.registry import OFFICIAL_TAGS
+from sanity_gravity.domain.naming import Naming
+from sanity_gravity.domain.tags import Tag, TagError
 
 
 # Upstream repo, used only when neither the env var nor the git remote
@@ -100,8 +102,19 @@ def pull(args):
 
     failed = []
     for variant in variants:
-        ghcr_image = f"ghcr.io/{repo_lc}-{variant}:{version_tag}"
-        local_image = f"sanity-gravity:{variant}"
+        # Identity boundary: the CLI hands over strings; parse once and
+        # derive both refs from Naming. A malformed variant joins the
+        # failed list (aggregate + exit nonzero below) instead of being
+        # sent to docker as a ref that cannot exist - the all-or-nothing
+        # exit contract is unchanged.
+        try:
+            naming = Naming(Tag.parse(variant))
+        except TagError as e:
+            print_error(f"[{variant}] {e}")
+            failed.append(variant)
+            continue
+        ghcr_image = naming.ghcr(repo_lc, version_tag)
+        local_image = naming.image()
 
         print_info(f"[{variant}] Pulling {ghcr_image} ...")
         # Let docker pull output directly to the terminal for progress
