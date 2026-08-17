@@ -141,7 +141,6 @@ def build_plan(ctx) -> None:
     # entrypoint handles it before constructing the kernel ctx.
 
     no_cache = ctx.no_cache
-    base_override = ctx.base_image_override
 
     # Layer mode: build only up to a specific layer type.
     if ctx.layer_target:
@@ -170,11 +169,6 @@ def build_plan(ctx) -> None:
         except ValueError as e:
             ctx.reporter.error(str(e))
             sys.exit(1)
-        if base_override:
-            agent, desktop, connector = parse_tag(target)
-            dockerfile = _plugin_dockerfile("connector", connector)
-            ctx.plan.append((dockerfile, target, None))  # parent=None → use override
-            continue
         chain = _resolve_build_chain(target)
         for dockerfile, image_name, parent in chain:
             full_tag = _image_tag(image_name)
@@ -253,7 +247,6 @@ def build_layers(ctx) -> None:
     """BUILD_LAYER/100: enqueue a RunSubprocess per planned step."""
     plan = ctx.plan
     total = len(plan)
-    base_override = ctx.base_image_override
     for i, (dockerfile, image_name, parent) in enumerate(plan, 1):
         if not os.path.exists(dockerfile):
             ctx.reporter.error(f"Layer file not found: {dockerfile}")
@@ -264,9 +257,7 @@ def build_layers(ctx) -> None:
 
         context = _build_context_for(dockerfile)
         cb = CommandBuilder("docker", "build").flag("--no-cache", when=ctx.no_cache)
-        if base_override and parent is None:
-            cb.opt("--build-arg", f"BASE_IMAGE={base_override}")
-        elif parent is not None:
+        if parent is not None:
             cb.opt("--build-arg", f"BASE_IMAGE={_image_tag(parent)}")
         cb.opt("-f", dockerfile).opt("-t", full_tag).positional(context)
         ctx.actions.append(RunSubprocess(argv=cb.build()))

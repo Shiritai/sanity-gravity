@@ -230,7 +230,6 @@ class BuildContext:
     targets: list[str]
     reporter: Any
     no_cache: bool = False
-    base_image_override: str | None = None
     layer_target: str | None = None              # "base" / "desktop" / "agent" / "connector"
     layer_target_specific: str | None = None     # e.g. "xfce" or "ag-xfce"
     list_intermediates: bool = False

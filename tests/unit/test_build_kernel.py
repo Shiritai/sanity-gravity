@@ -124,3 +124,23 @@ def test_build_dry_run_in_executor_does_not_execute():
     assert fake_runtime.run_subprocess.call_count == 0
     # But the executor recorded would-execute history for each action.
     assert len(executor.history) == 4
+
+
+def test_build_context_has_no_base_override():
+    """The base OS is expressed by the tag dimension and nothing else.
+
+    base_image_override shipped as a dead field (no setter anywhere) whose
+    two consumer branches would stamp an arbitrary docker ref onto a
+    canonical tag name. The concept is eliminated; this guard keeps any
+    flag or field from quietly reintroducing a second channel."""
+    import dataclasses
+
+    from sanity_gravity.cli.parser import build_parser
+    from sanity_gravity.core.orchestrator import BuildContext
+
+    assert "base_image_override" not in {
+        f.name for f in dataclasses.fields(BuildContext)
+    }
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["build", "--base-image", "debian", "cc-none-ssh"])
