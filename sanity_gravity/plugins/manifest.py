@@ -4,12 +4,13 @@ Each plugin under ``plugins/<kind>/<slug>/`` ships a ``manifest.toml``
 describing the plugin's identity, capabilities, build artifact, and any
 optional ports / compose overlay / environment / announce template.
 
-The schema is **symmetric across kinds**: agent, desktop, and connector
-manifests may all declare any of the optional sections below. Historically
-only connectors did, but plugins of any kind sometimes need extra env
-vars (e.g. an agent that wants ``OPENAI_API_KEY``), extra ports, or a
-custom announce blurb. Generators / hooks merge contributions from all
-three plugins of a tag (agent + desktop + connector) — see
+The schema is **symmetric across kinds**: agent, desktop, connector, and
+base-image manifests may all declare any of the optional sections below.
+Historically only connectors did, but plugins of any kind sometimes need
+extra env vars (e.g. an agent that wants ``OPENAI_API_KEY``), extra
+ports, or a custom announce blurb. Generators / hooks merge
+contributions from all three plugins of a tag (agent + desktop +
+connector) - see
 ``_compose_gen.generate_compose_for_tag`` and ``up_hooks.announce`` for
 the merge semantics (last-write-wins on collisions; connector first,
 then agent, then desktop).
@@ -19,13 +20,29 @@ Schema (TOML)::
     [plugin]                                            # required
     slug = "kasm"; name = "KasmVNC"; kind = "connector"; api_version = "1"
     tier = "official"        # optional: official | community | deprecated
+    default = true           # optional, bool. At most one per kind; marks
+                             # the slug the tag grammar may elide (only
+                             # elidable kinds, i.e. base-image, may carry
+                             # it - enforced by the registry). Must be
+                             # tier = "official".
 
     [capabilities]                                      # optional
     provides = ["http-gui"]
     requires = ["display"]
 
     [build]                                             # required
-    dockerfile = "Dockerfile"
+    dockerfile = "Dockerfile"   # required. Relative to the manifest dir; may
+                                # traverse upward into a shared sibling dir
+                                # (e.g. "../_shared/os-base.Dockerfile") but
+                                # must stay inside the repo checkout.
+    from = "debian:12-slim@sha256:..."
+                                # required for kind = "base-image", rejected on
+                                # every other kind: the digest-pinned upstream
+                                # ref of a build-graph ROOT layer. Non-root
+                                # kinds get their parent from the build plan.
+    context = "."               # optional, default ".". Docker build context,
+                                # relative to the manifest dir; must stay
+                                # inside the repo checkout.
 
     # optional, any kind
     [ports.<label>]
@@ -92,7 +109,12 @@ __all__ = [
 ]
 
 
-_VALID_KINDS = {"agent", "desktop", "connector"}
+_VALID_KINDS = {"agent", "desktop", "connector", "base-image"}
+
+# Kinds whose layer is a graph root: they have no parent image, so the
+# upstream ref must come from data. Every other kind receives
+# --build-arg BASE_IMAGE=<parent> from the planner.
+_ROOT_KINDS = {"base-image"}
 
 # Support tiers, ordered least to most restrictive. A tag's tier is the
 # most restrictive tier among its three plugins. Only ``official``
@@ -200,6 +222,9 @@ class PluginManifest:
     provides: tuple[str, ...]
     requires: tuple[str, ...]
     dockerfile: str
+    from_ref: str | None = None      # [build].from  ("from" is a Python keyword)
+    context: str = "."               # [build].context
+    is_default: bool = False         # [plugin].default
     tier: str = "official"
     ports: tuple[PortSpec, ...] = ()
     compose: ComposeOverlay = field(default_factory=ComposeOverlay)
@@ -225,19 +250,30 @@ class PluginManifest:
         return self.source_path.parent
 
     @property
+    def context_path(self) -> Path:
+        """Absolute docker build context.
+
+        Same ``source_path`` precondition as :attr:`dir`; containment is
+        enforced at load time, not here.
+        """
+        return (self.dir / self.context).resolve()
+
+    @property
     def dockerfile_path(self) -> Path:
         """Absolute path to the plugin's Dockerfile.
 
         Same precondition as :attr:`dir` — raises :class:`ManifestError`
         if ``source_path`` is unset rather than yielding a misleading
-        relative path.
+        relative path. Resolved because ``dockerfile`` may hop upward
+        into a shared sibling dir; containment is enforced at load time,
+        not here.
         """
         if self.source_path is None:
             raise ManifestError(
                 f"Manifest {self.slug!r} has no source_path; "
                 f"dockerfile_path is unavailable"
             )
-        return self.dir / self.dockerfile
+        return (self.dir / self.dockerfile).resolve()
 
     def ports_by_label(self) -> dict[str, PortSpec]:
         return {p.label: p for p in self.ports}
@@ -348,6 +384,61 @@ def _parse_ide(table: dict[str, Any] | None, where: str) -> IdeSpec | None:
     return IdeSpec(command=command, inject=inject)
 
 
+def _rel_inside(value: Any, where: str, anchor: Path, root: Path) -> str:
+    """Validate a manifest-relative path that must not escape ``root``.
+
+    Mirrors the containment discipline already applied to [ide].inject
+    (:func:`_parse_ide`), but resolves against the real tree so that a
+    legitimate upward hop into a shared artifact dir stays expressible.
+    """
+    s = _str(value, where)
+    if s.startswith("/"):
+        raise ManifestError(f"{where}: '{s}' must be relative, not absolute")
+    resolved = (anchor / s).resolve()
+    if root not in resolved.parents and resolved != root:
+        raise ManifestError(
+            f"{where}: '{s}' resolves to {resolved}, outside the allowed root {root}"
+        )
+    return s
+
+
+def _parse_build(
+    table: Any, where: str, kind: str, anchor: Path, root: Path
+) -> tuple[str, str | None, str]:
+    """Parse [build]: dockerfile (required), from (root kinds), context."""
+    if not isinstance(table, dict):
+        raise ManifestError(f"{where}: must be a table")
+
+    dockerfile = _rel_inside(
+        _require(table, "dockerfile", where), f"{where}.dockerfile", anchor, root
+    )
+    context = "."
+    if "context" in table:
+        context = _rel_inside(table["context"], f"{where}.context", anchor, root)
+
+    from_ref = None
+    if "from" in table:
+        from_ref = _str(table["from"], f"{where}.from")
+        if kind not in _ROOT_KINDS:
+            raise ManifestError(
+                f"{where}.from: only {sorted(_ROOT_KINDS)} plugins may pin an upstream "
+                f"image; a '{kind}' layer's parent is decided by the build plan"
+            )
+        if "@sha256:" not in from_ref:
+            # A floating tag makes the matrix irreproducible across a rebuild;
+            # the repo's existing base Dockerfiles already pin by digest.
+            raise ManifestError(
+                f"{where}.from: '{from_ref}' must be digest-pinned (name:tag@sha256:...)"
+            )
+    elif kind in _ROOT_KINDS:
+        raise ManifestError(
+            f"{where}: [build].from is required for kind '{kind}' - the upstream "
+            f"image is this plugin's defining difference and belongs in data, "
+            f"not in an ARG default inside the Dockerfile"
+        )
+    return dockerfile, from_ref, context
+
+
 def load_manifest(path: str | Path) -> PluginManifest:
     """Load + validate a single ``manifest.toml`` file.
 
@@ -400,6 +491,23 @@ def load_manifest(path: str | Path) -> PluginManifest:
                 f"{p}: [plugin].tier must be one of {list(TIERS)}, got '{tier}'"
             )
 
+    is_default = False
+    if "default" in plugin:
+        if not isinstance(plugin["default"], bool):
+            raise ManifestError(
+                f"{p}:[plugin].default: expected bool, got "
+                f"{type(plugin['default']).__name__}"
+            )
+        is_default = plugin["default"]
+        if is_default and tier != "official":
+            # A community/deprecated default would silently empty the official
+            # matrix for its dimension: tag_tier() takes the most restrictive
+            # tier among a tag's plugins (registry.PluginRegistry.tag_tier).
+            raise ManifestError(
+                f"{p}:[plugin].default: the default plugin of a dimension must be "
+                f'tier = "official", got "{tier}"'
+            )
+
     if api_version not in SUPPORTED_API_VERSIONS:
         accepted = sorted(SUPPORTED_API_VERSIONS)
         hint = ""
@@ -427,11 +535,21 @@ def load_manifest(path: str | Path) -> PluginManifest:
         capabilities.get("requires", []), f"{p}:[capabilities].requires"
     )
 
-    build = _require(data, "build", str(p))
-    if not isinstance(build, dict):
-        raise ManifestError(f"{p}: [build] must be a table")
-    dockerfile = _str(
-        _require(build, "dockerfile", f"{p}:[build]"), f"{p}:[build].dockerfile"
+    # [build] paths may hop upward (shared Dockerfiles / build contexts live
+    # in sibling dirs discovery skips), but never outside the repository
+    # checkout. One boundary serves both keys: the repo root, not the plugins
+    # tree - a build context legitimately reaches sibling top-level dirs
+    # (e.g. "../../../sandbox"), a shared Dockerfile may live next to the
+    # context it builds, and the property both keys actually protect is the
+    # same: a build must never read outside the checkout. A manifest sits at
+    # <repo>/plugins/<kind-plural>/<slug>/manifest.toml, so the repo root is
+    # three parents above the manifest dir; chained ``.parent`` saturates at
+    # the filesystem root, so a shallower (synthetic test) manifest just gets
+    # the analogous three-levels-up boundary.
+    anchor = p.resolve().parent
+    repo_root = anchor.parent.parent.parent
+    dockerfile, from_ref, context = _parse_build(
+        _require(data, "build", str(p)), f"{p}:[build]", kind, anchor, repo_root
     )
 
     # Optional sections — the schema is symmetric: any kind (agent /
@@ -453,6 +571,9 @@ def load_manifest(path: str | Path) -> PluginManifest:
         provides=provides,
         requires=requires,
         dockerfile=dockerfile,
+        from_ref=from_ref,
+        context=context,
+        is_default=is_default,
         ports=ports,
         compose=compose,
         environment=environment,

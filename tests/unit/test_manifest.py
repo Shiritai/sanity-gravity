@@ -449,3 +449,186 @@ def test_reserved_slug_base_rejected(tmp_path, kind):
     )
     with pytest.raises(ManifestError, match="reserved"):
         load_manifest(path)
+
+
+# ---------------------------------------------------------------------------
+# base-image kind: [build].from / [build].context / [plugin].default.
+# ---------------------------------------------------------------------------
+
+
+_PIN = "debian:12-slim@sha256:" + "0" * 64
+
+_MINIMAL_BASE = (
+    '[plugin]\nslug = "deb"\nname = "deb (base)"\nkind = "base-image"\n'
+    'api_version = "1"\n'
+)
+
+
+def _write_base_plugin(root: Path, body: str, slug: str = "deb") -> Path:
+    """Lay out ``<root>/plugins/base-images/<slug>/manifest.toml``.
+
+    The containment boundary for [build] paths is three levels above the
+    manifest dir (the repo-root analog), so here it is ``root`` itself.
+    """
+    d = root / "plugins" / "base-images" / slug
+    d.mkdir(parents=True)
+    p = d / "manifest.toml"
+    p.write_text(body)
+    return p
+
+
+def test_base_image_kind_accepted(tmp_path):
+    """kind = "base-image" parses; from/context/default surface with
+    their defaults."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    m = load_manifest(path)
+    assert m.kind == "base-image"
+    assert m.from_ref == _PIN
+    assert m.context == "."
+    assert m.context_path == path.parent.resolve()
+    assert m.is_default is False
+
+
+def test_base_image_requires_from(tmp_path):
+    """A base-image layer is a build-graph root: its upstream ref must
+    come from data, not from an ARG default inside the Dockerfile."""
+    path = _write_base_plugin(
+        tmp_path, _MINIMAL_BASE + '[build]\ndockerfile = "Dockerfile"\n'
+    )
+    with pytest.raises(ManifestError, match=r"from is required for kind 'base-image'"):
+        load_manifest(path)
+
+
+def test_from_rejected_on_agent(tmp_path):
+    """Non-root kinds get their parent from the build plan; a pinned
+    upstream ref on an agent would be dead-but-plausible data."""
+    path = _write(
+        tmp_path,
+        _MINIMAL_AGENT + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match="pin an upstream"):
+        load_manifest(path)
+
+
+def test_from_must_be_digest_pinned(tmp_path):
+    """A floating tag makes the matrix irreproducible across a rebuild."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE + '[build]\ndockerfile = "Dockerfile"\nfrom = "debian:12-slim"\n',
+    )
+    with pytest.raises(ManifestError, match="digest-pinned"):
+        load_manifest(path)
+
+
+def test_context_upward_hop_inside_repo_accepted(tmp_path):
+    """A shared sibling dir (no manifest.toml, invisible to discovery)
+    is a legal build context."""
+    shared = tmp_path / "plugins" / "base-images" / "_shared"
+    shared.mkdir(parents=True)
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n'
+        'context = "../_shared"\n',
+    )
+    m = load_manifest(path)
+    assert m.context == "../_shared"
+    assert m.context_path == shared.resolve()
+
+
+def test_context_absolute_rejected(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n'
+        'context = "/etc"\n',
+    )
+    with pytest.raises(ManifestError, match="must be relative, not absolute"):
+        load_manifest(path)
+
+
+def test_context_escaping_repo_rejected(tmp_path):
+    """The manifest dir sits at <repo>/plugins/base-images/<slug>/, so
+    four upward hops leave the repo checkout."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n'
+        'context = "../../../.."\n',
+    )
+    with pytest.raises(ManifestError, match="outside the allowed root"):
+        load_manifest(path)
+
+
+def test_shared_dockerfile_upward_hop_accepted(tmp_path):
+    """dockerfile may traverse into a shared sibling dir; the resolved
+    path stays inside the repo checkout."""
+    shared = tmp_path / "plugins" / "base-images" / "_shared"
+    shared.mkdir(parents=True)
+    (shared / "os-base.Dockerfile").write_text("ARG BASE_IMAGE\nFROM ${BASE_IMAGE}\n")
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "../_shared/os-base.Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    m = load_manifest(path)
+    assert m.dockerfile_path == (shared / "os-base.Dockerfile").resolve()
+    assert m.dockerfile_path.is_file()
+
+
+def test_dockerfile_absolute_rejected(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE + f'[build]\ndockerfile = "/etc/Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match="must be relative, not absolute"):
+        load_manifest(path)
+
+
+def test_dockerfile_escaping_repo_rejected(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "../../../../Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match="outside the allowed root"):
+        load_manifest(path)
+
+
+def test_default_true_on_official_accepted(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + 'default = true\n'
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    m = load_manifest(path)
+    assert m.is_default is True
+    assert m.tier == "official"
+
+
+def test_default_wrong_type_rejected(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + 'default = "yes"\n'
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match="expected bool"):
+        load_manifest(path)
+
+
+def test_default_on_community_rejected(tmp_path):
+    """A community/deprecated default would silently empty the official
+    matrix for its dimension (tag_tier takes the most restrictive tier)."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + 'tier = "community"\ndefault = true\n'
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match='must be tier = "official"'):
+        load_manifest(path)
