@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 
 from sanity_gravity.plugins.manifest import (
@@ -522,6 +524,54 @@ def test_from_must_be_digest_pinned(tmp_path):
     )
     with pytest.raises(ManifestError, match="digest-pinned"):
         load_manifest(path)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "@sha256:",                                   # bare marker, no name/digest
+        "garbage@sha256:zz",                          # digest is not hex
+        f"@sha256:{'0' * 64}",                        # empty name:tag
+        f"debian@sha256:{'0' * 64}",                  # no tag - the promise is name:tag
+        f"debian:12-slim@sha256:{'0' * 63}",          # 63 hex chars
+        f"debian:12-slim@sha256:{'0' * 65}",          # 65 hex chars
+        f"debian:12-slim@sha256:{'A' * 64}",          # uppercase hex
+        f"debian:12-slim@sha256:{'0' * 64} ",         # trailing junk
+        f"x debian:12-slim@sha256:{'0' * 64}",        # leading junk
+        f"debian:12-slim@sha512:{'0' * 64}",          # wrong algorithm
+    ],
+)
+def test_from_pin_rejects_lookalikes(tmp_path, bad, request):
+    """The old check was ``"@sha256:" in from_ref`` - a substring probe
+    that accepted '@sha256:' itself and 'garbage@sha256:zz'. The pin
+    must be the error message's promise, made executable: a non-empty
+    name:tag followed by an anchored @sha256:<exactly 64 hex>."""
+    slug = f"deb{request.node.callspec.indices['bad']}"
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE.replace('slug = "deb"', f'slug = "{slug}"')
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{bad}"\n',
+        slug=slug,
+    )
+    with pytest.raises(ManifestError, match="digest-pinned"):
+        load_manifest(path, repo_root=tmp_path)
+
+
+@given(
+    name=st.from_regex(r"[a-z0-9]{1,8}(/[a-z0-9]{1,8}){0,2}", fullmatch=True),
+    tag=st.from_regex(r"[A-Za-z0-9_][A-Za-z0-9._-]{0,16}", fullmatch=True),
+    digest=st.text(alphabet="0123456789abcdef", min_size=64, max_size=64),
+)
+def test_from_pin_accepts_well_formed_refs(tmp_path_factory, name, tag, digest):
+    """Property: every name:tag@sha256:<64 lowercase hex> loads, and the
+    parsed from_ref round-trips verbatim."""
+    tmp = tmp_path_factory.mktemp("pin")
+    ref = f"{name}:{tag}@sha256:{digest}"
+    path = _write_base_plugin(
+        tmp,
+        _MINIMAL_BASE + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{ref}"\n',
+    )
+    assert load_manifest(path, repo_root=tmp).from_ref == ref
 
 
 def test_context_upward_hop_inside_repo_accepted(tmp_path):

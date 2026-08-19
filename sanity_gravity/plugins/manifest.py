@@ -138,6 +138,19 @@ SUPPORTED_API_VERSIONS: frozenset[str] = frozenset({"1"})
 # character inside a slug produces names that cannot be split back.
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9]*$")
 
+# [build].from is the error message's promise made executable:
+# name:tag@sha256:<exactly 64 lowercase hex>. The name may carry a
+# registry host, port and path components; the whole ref is anchored so
+# neither a bare '@sha256:' marker, a truncated or non-hex digest, nor
+# surrounding junk can ride in on a substring match.
+_FROM_REF_RE = re.compile(
+    r"^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*"      # host or first name component
+    r"(?::[0-9]+)?"                             # optional registry port
+    r"(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*"       # path components
+    r":[A-Za-z0-9_][A-Za-z0-9._-]{0,127}"       # tag (required by the schema)
+    r"@sha256:[0-9a-f]{64}$"                    # anchored digest
+)
+
 
 class ManifestError(ValueError):
     """Raised on schema or value violations in a plugin manifest."""
@@ -424,11 +437,14 @@ def _parse_build(
                 f"{where}.from: only {sorted(_ROOT_KINDS)} plugins may pin an upstream "
                 f"image; a '{kind}' layer's parent is decided by the build plan"
             )
-        if "@sha256:" not in from_ref:
+        if not _FROM_REF_RE.fullmatch(from_ref):
             # A floating tag makes the matrix irreproducible across a rebuild;
-            # the repo's existing base Dockerfiles already pin by digest.
+            # the repo's existing base Dockerfiles already pin by digest. The
+            # regex validates the whole promised shape - a substring probe for
+            # '@sha256:' accepted 'garbage@sha256:zz' and even '@sha256:'.
             raise ManifestError(
-                f"{where}.from: '{from_ref}' must be digest-pinned (name:tag@sha256:...)"
+                f"{where}.from: '{from_ref}' must be digest-pinned "
+                f"(name:tag@sha256:<64 hex digits>)"
             )
     elif kind in _ROOT_KINDS:
         raise ManifestError(
