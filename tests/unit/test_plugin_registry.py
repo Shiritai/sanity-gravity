@@ -131,6 +131,58 @@ def test_from_dir_empty_root_returns_empty_registry(tmp_path):
     assert reg.valid_tags() == []
 
 
+def test_all_manifests_covers_every_bucket(tmp_path):
+    """all_manifests() is the cross-kind fan-in; its one production
+    consumer is hooks/up's _port_specs_by_slug, so a bucket missing
+    here silently drops that kind's [ports] on the floor. It once
+    splatted three hand-listed buckets and forgot base_images - the
+    flat list must cover exactly the kinds discovery registers."""
+    from sanity_gravity.plugins import registry as registry_mod
+
+    _write_plugin(
+        tmp_path, "base-images", "ubuntu",
+        "\n".join([
+            "[plugin]",
+            'slug = "ubuntu"',
+            'name = "ubuntu (base)"',
+            'kind = "base-image"',
+            'api_version = "1"',
+            "default = true",
+            "[ports.web]",
+            "internal = 80",
+            "default = 8080",
+            'env_var = "WEB_PORT"',
+            "[build]",
+            'dockerfile = "Dockerfile"',
+            f'from = "{"ubuntu:24.04@sha256:" + "0" * 64}"',
+        ]) + "\n",
+    )
+    _write_plugin(
+        tmp_path, "agents", "aa",
+        '[plugin]\nslug = "aa"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n',
+    )
+    reg = PluginRegistry.from_dir(tmp_path)
+
+    everything = {(m.kind, m.slug) for m in reg.all_manifests()}
+    expected = {
+        (m.kind, m.slug)
+        for kind in registry_mod._VALID_KINDS
+        for m in reg._bucket(kind).values()
+    }
+    assert everything == expected, (
+        f"all_manifests() omits buckets: {sorted(expected - everything)}"
+    )
+    # The consequence that made this a bug, not a nit: the base image's
+    # declared ports must reach the flat list the port union reads.
+    ports = {
+        spec.legacy_slug or spec.label
+        for m in reg.all_manifests()
+        for spec in m.ports
+    }
+    assert "web" in ports
+
+
 # ---------------------------------------------------------------------------
 # [plugin].default invariants (load-time assertions).
 # ---------------------------------------------------------------------------

@@ -280,11 +280,17 @@ class PluginRegistry:
         return list(self._bucket(kind).keys())
 
     def all_manifests(self) -> list[PluginManifest]:
-        """Flat list of every registered manifest (agents → desktops → connectors)."""
+        """Flat list of every registered manifest, every kind.
+
+        Derived from the same kind table discovery walks, so a kind
+        that can register plugins cannot be silently absent from this
+        fan-in (a hand-splatted three-bucket version once dropped
+        base_images, and with it every base-image [ports] declaration
+        consumed via hooks/up's port union). Order follows
+        ``_VALID_KINDS``: agents, desktops, connectors, base images.
+        """
         return [
-            *self.agents.values(),
-            *self.desktops.values(),
-            *self.connectors.values(),
+            m for kind in _VALID_KINDS for m in self._bucket(kind).values()
         ]
 
     # -- tag enumeration --------------------------------------------
