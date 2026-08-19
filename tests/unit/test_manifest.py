@@ -467,8 +467,9 @@ _MINIMAL_BASE = (
 def _write_base_plugin(root: Path, body: str, slug: str = "deb") -> Path:
     """Lay out ``<root>/plugins/base-images/<slug>/manifest.toml``.
 
-    The containment boundary for [build] paths is three levels above the
-    manifest dir (the repo-root analog), so here it is ``root`` itself.
+    ``root`` plays the checkout root: tests that exercise [build] path
+    containment pass ``repo_root=root`` explicitly, exactly like the
+    registry does for the real tree.
     """
     d = root / "plugins" / "base-images" / slug
     d.mkdir(parents=True)
@@ -534,7 +535,7 @@ def test_context_upward_hop_inside_repo_accepted(tmp_path):
         + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n'
         'context = "../_shared"\n',
     )
-    m = load_manifest(path)
+    m = load_manifest(path, repo_root=tmp_path)
     assert m.context == "../_shared"
     assert m.context_path == shared.resolve()
 
@@ -560,7 +561,7 @@ def test_context_escaping_repo_rejected(tmp_path):
         'context = "../../../.."\n',
     )
     with pytest.raises(ManifestError, match="outside the allowed root"):
-        load_manifest(path)
+        load_manifest(path, repo_root=tmp_path)
 
 
 def test_shared_dockerfile_upward_hop_accepted(tmp_path):
@@ -574,7 +575,7 @@ def test_shared_dockerfile_upward_hop_accepted(tmp_path):
         _MINIMAL_BASE
         + f'[build]\ndockerfile = "../_shared/os-base.Dockerfile"\nfrom = "{_PIN}"\n',
     )
-    m = load_manifest(path)
+    m = load_manifest(path, repo_root=tmp_path)
     assert m.dockerfile_path == (shared / "os-base.Dockerfile").resolve()
     assert m.dockerfile_path.is_file()
 
@@ -595,7 +596,57 @@ def test_dockerfile_escaping_repo_rejected(tmp_path):
         + f'[build]\ndockerfile = "../../../../Dockerfile"\nfrom = "{_PIN}"\n',
     )
     with pytest.raises(ManifestError, match="outside the allowed root"):
-        load_manifest(path)
+        load_manifest(path, repo_root=tmp_path)
+
+
+def test_shallow_manifest_cannot_escape_containment():
+    """Depth-collapse probe: the old boundary was 'three .parent above
+    the manifest dir', and ``.parent`` saturates at the filesystem
+    root - a manifest only two directories deep (e.g. /tmp/x/) got
+    root '/', i.e. no boundary at all, and could read /etc/passwd.
+    Containment must not depend on how deep the manifest happens to
+    sit."""
+    import shutil
+    import tempfile
+
+    # Deliberately shallow: /tmp/<x>/manifest.toml is 2 levels below /.
+    d = Path(tempfile.mkdtemp(dir="/tmp"))
+    try:
+        p = d / "manifest.toml"
+        p.write_text(
+            _MINIMAL_BASE
+            + f'[build]\ndockerfile = "{"../" * 12}etc/passwd"\nfrom = "{_PIN}"\n'
+        )
+        with pytest.raises(ManifestError, match="outside the allowed root"):
+            load_manifest(p)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_containment_is_position_independent(tmp_path):
+    """The same manifest content must get the same verdict at any
+    depth: the boundary is the explicitly supplied checkout root (or,
+    without one, the manifest's own directory) - never a count of
+    parent directories."""
+    body = (
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "../_shared/os-base.Dockerfile"\nfrom = "{_PIN}"\n'
+    )
+    # Canonical depth, boundary supplied: the upward hop is legal.
+    shared = tmp_path / "canon" / "plugins" / "base-images" / "_shared"
+    shared.mkdir(parents=True)
+    (shared / "os-base.Dockerfile").write_text("ARG BASE_IMAGE\n")
+    canon = _write_base_plugin(tmp_path / "canon", body)
+    m = load_manifest(canon, repo_root=tmp_path / "canon")
+    assert m.dockerfile_path == (shared / "os-base.Dockerfile").resolve()
+
+    # Depth 0 under tmp, no boundary supplied: the hop fails closed
+    # instead of being judged against an accidental ancestor.
+    solo = tmp_path / "solo"
+    solo.mkdir()
+    (solo / "manifest.toml").write_text(body)
+    with pytest.raises(ManifestError, match="outside the allowed root"):
+        load_manifest(solo / "manifest.toml")
 
 
 def test_default_true_on_official_accepted(tmp_path):

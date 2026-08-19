@@ -112,6 +112,11 @@ class PluginRegistry:
         """
         r = Path(root)
         reg = cls(root=r)
+        # The registry is the one caller that KNOWS the checkout root:
+        # it scans <checkout>/plugins, so the containment boundary for
+        # every [build] path is the plugin tree's parent - passed down
+        # explicitly instead of letting the loader guess from depth.
+        checkout_root = r.resolve().parent
         for kind in _VALID_KINDS:
             kind_dir = r / _KIND_TO_PLURAL[kind]
             if not kind_dir.is_dir():
@@ -122,7 +127,7 @@ class PluginRegistry:
                 manifest_path = slug_dir / "manifest.toml"
                 if not manifest_path.is_file():
                     continue
-                m = load_manifest(manifest_path)
+                m = load_manifest(manifest_path, repo_root=checkout_root)
                 if m.kind != kind:
                     raise ManifestError(
                         f"{manifest_path}: kind '{m.kind}' does not match "

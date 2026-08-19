@@ -439,8 +439,20 @@ def _parse_build(
     return dockerfile, from_ref, context
 
 
-def load_manifest(path: str | Path) -> PluginManifest:
+def load_manifest(
+    path: str | Path, *, repo_root: str | Path | None = None
+) -> PluginManifest:
     """Load + validate a single ``manifest.toml`` file.
+
+    ``repo_root`` is the containment boundary for [build] paths
+    (``dockerfile`` / ``context``): they may hop upward into shared
+    sibling dirs but never resolve outside it. The registry supplies it
+    (the parent of the plugin tree it scans); a direct call that omits
+    it gets the manifest's own directory, so upward hops fail closed
+    rather than being judged against a guessed ancestor. The boundary
+    is never derived by counting ``.parent`` steps: ``.parent``
+    saturates at the filesystem root, so a depth-based rule silently
+    degrades to "no boundary" for a shallow manifest.
 
     Raises :class:`ManifestError` on schema violations.
     """
@@ -541,15 +553,15 @@ def load_manifest(path: str | Path) -> PluginManifest:
     # tree - a build context legitimately reaches sibling top-level dirs
     # (e.g. "../../../sandbox"), a shared Dockerfile may live next to the
     # context it builds, and the property both keys actually protect is the
-    # same: a build must never read outside the checkout. A manifest sits at
-    # <repo>/plugins/<kind-plural>/<slug>/manifest.toml, so the repo root is
-    # three parents above the manifest dir; chained ``.parent`` saturates at
-    # the filesystem root, so a shallower (synthetic test) manifest just gets
-    # the analogous three-levels-up boundary.
+    # same: a build must never read outside the checkout. The boundary is
+    # DATA (the caller states it), never a directory-depth convention: the
+    # registry knows the checkout root it scanned, and a boundary counted in
+    # ``.parent`` steps saturates at the filesystem root, turning "three
+    # levels up" into "/" - no boundary at all - for any shallow manifest.
     anchor = p.resolve().parent
-    repo_root = anchor.parent.parent.parent
+    root = Path(repo_root).resolve() if repo_root is not None else anchor
     dockerfile, from_ref, context = _parse_build(
-        _require(data, "build", str(p)), f"{p}:[build]", kind, anchor, repo_root
+        _require(data, "build", str(p)), f"{p}:[build]", kind, anchor, root
     )
 
     # Optional sections — the schema is symmetric: any kind (agent /
