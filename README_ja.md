@@ -42,7 +42,7 @@ Agentic なコーディングツール — Antigravity、Claude Code、Codex —
 ## 前提条件
 
 * Docker & Docker Compose (v2.0+)
-* Python 3.7+
+* Python 3.11+
 * **検証済み環境**: Ubuntu (amd64/arm64)、macOS (Apple Silicon)、Windows (WSL2 + Docker Desktop)
 
 > **Windows / WSL2:** サンドボックス内のブラウザ / エージェントがクラッシュした際に WSL が数 GB のクラッシュダンプを書き出すのを防ぐため、初回に一度 `scripts/setup-wsl-crashdump-policy.ps1` を実行してください。

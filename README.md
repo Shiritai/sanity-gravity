@@ -42,7 +42,7 @@ Let the agent go full YOLO. The blast radius stops at the container wall.
 ## Prerequisites
 
 * Docker & Docker Compose (v2.0+)
-* Python 3.7+
+* Python 3.11+
 * **Tested on**: Ubuntu (amd64/arm64), macOS (Apple Silicon), Windows (WSL2 + Docker Desktop)
 
 > **Windows / WSL2:** run `scripts/setup-wsl-crashdump-policy.ps1` once to stop WSL from writing gigabyte crash dumps when a sandboxed browser/agent segfaults.

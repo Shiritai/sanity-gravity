@@ -1,0 +1,205 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sanity-gravity"
+version = "0.3.0"
+description = "Sanity-Gravity: sandboxed, manifest-driven Docker environments for AI coding agents"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "hypothesis>=6.100",
+    "requests",
+    "urllib3",
+    "import-linter",  # test_architecture.py shells out to lint-imports
+]
+# Lint tooling is not a test dependency: CI installs it in a separate
+# job via `pip install -e ".[lint]"` (see test_packaging_contract.py).
+# import-linter appears in both extras on purpose: the lint job runs it
+# as a first-class linter, while tests/unit/test_architecture.py embeds
+# it in the suite (no skip-if-not-installed), so every environment that
+# runs the unit suite must be able to execute lint-imports.
+lint = [
+    "ruff",
+    "import-linter",
+]
+# Mutation testing is neither a test nor a lint dependency: only the
+# scheduled mutation workflow installs it (alongside ".[test]").
+mutation = [
+    "mutmut",
+]
+
+[project.scripts]
+sanity-gravity = "sanity_gravity.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["sanity_gravity*"]
+
+# Mutation testing (mutmut 3.x; keys verified against 3.7: the 2.x
+# names paths_to_mutate/tests_dir/runner are deprecated or gone).
+# Scope, first pass: the code the new guards claim to protect - domain/
+# is the identity grammar; core/registry.py owns tag parsing + the tier
+# filter that feeds every CI matrix. plugins/ joins on a later pass.
+# The whole package is copied (imports must resolve inside mutants/)
+# but only the scoped files grow mutants.
+[tool.mutmut]
+source_paths = ["sanity_gravity"]
+only_mutate = [
+    "sanity_gravity/domain/*",
+    "sanity_gravity/core/registry.py",
+]
+# Never the integration suite: a docker-bound run turns minutes into an
+# overnight job and imports flakiness as "survived".
+pytest_add_cli_args_test_selection = ["tests/unit"]
+# mutmut copies tests/ and pyproject.toml on its own; everything else
+# the unit suite reads from the repo root must tag along or the mutant
+# runs diverge from the real suite: pytest.ini (suite config), plugins/
+# (manifests the registry discovers), sandbox/ (layer Dockerfiles the
+# planner stats), .github/ (workflow files the matrix/packaging guards
+# parse), CONTRIBUTING.md and the READMEs (docs contract), sanity-cli
+# (the launcher the reporter parity test execs).
+also_copy = [
+    "pytest.ini",
+    "plugins/",
+    "sandbox/",
+    ".github/",
+    "CONTRIBUTING.md",
+    "README.md",
+    "README_ja.md",
+    "README_zh-TW.md",
+    "sanity-cli",
+]
+
+# Architecture contracts, executable via lint-imports (CI lint job) and
+# embedded in the unit suite (tests/unit/test_architecture.py). Config
+# lives here rather than in a separate .importlinter INI: pyproject is
+# already the single config surface (ruff, mutmut), the packaging
+# contract tests parse it with tomllib, and import-linter reads
+# [tool.importlinter] natively.
+#
+# Every ignore_imports entry is frozen debt: the list may only shrink.
+# import-linter errors on unmatched ignores by default, so a retired
+# edge forces its line to be deleted - the ratchet is self-enforcing.
+[tool.importlinter]
+root_packages = ["sanity_gravity"]
+include_external_packages = true
+# Type-only imports are not runtime coupling: domain/capability.py
+# imports PluginRegistry under TYPE_CHECKING purely for annotations.
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "domain imports nothing internal (and no process/OS access)"
+type = "forbidden"
+source_modules = ["sanity_gravity.domain"]
+forbidden_modules = [
+    "sanity_gravity.cli",
+    "sanity_gravity.verbs",
+    "sanity_gravity.hooks",
+    "sanity_gravity.compose",
+    "sanity_gravity.infra",
+    "sanity_gravity.core",
+    "sanity_gravity.effects",
+    "sanity_gravity.plugins",
+    "sanity_gravity.events",
+    "subprocess",
+    "os",
+    "sys",
+]
+# No ignore_imports: this contract is debt-free and must stay that way.
+# It is the load-bearing one - Tag/Naming/plan stay value objects that a
+# property test can hammer with no docker daemon anywhere in scope.
+
+[[tool.importlinter.contracts]]
+name = "layering: cli on top, domain at the bottom"
+type = "layers"
+containers = ["sanity_gravity"]
+layers = [
+    "cli",
+    "verbs",
+    "hooks",
+    "compose",
+    "infra",
+    "core",
+    "effects",
+    "plugins",
+    "domain",
+]
+# Frozen debt, re-derived from the tree at contract birth (31 edges;
+# 15 retired when colors/registry - pure downward-importing services
+# that only accidentally lived under cli/ - moved to core/). Every
+# remaining entry is a lower layer reaching up for CLI-shaped services;
+# the io split migration retires the 13 cli.io edges. Entries are exact
+# module-to-module edges, never wildcards: a new module importing
+# upward must show up as a red build, not slip through a glob.
+ignore_imports = [
+    # verbs -> cli (12)
+    "sanity_gravity.verbs.build -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.check -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.ide -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.open -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.proxy -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.pull -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.shell -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.status -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.sync -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.test_suite -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.up -> sanity_gravity.cli.io",
+    "sanity_gravity.verbs.upgrade -> sanity_gravity.cli.io",
+    # hooks -> verbs (2): function-local imports dodging the runtime
+    # import cycle, not the design one - exactly what this pins.
+    "sanity_gravity.hooks.lifecycle -> sanity_gravity.verbs.lifecycle",
+    "sanity_gravity.hooks.snapshot -> sanity_gravity.verbs.lifecycle",
+    # compose -> cli (1)
+    "sanity_gravity.compose.generators -> sanity_gravity.cli.io",
+    # plugins -> core (1)
+    "sanity_gravity.plugins.registry -> sanity_gravity.core.eventbus",
+]
+
+[[tool.importlinter.contracts]]
+name = "only the process boundary may import subprocess"
+type = "forbidden"
+source_modules = ["sanity_gravity"]
+forbidden_modules = ["subprocess"]
+ignore_imports = [
+    # By design (not debt): core.proc IS the boundary this contract
+    # protects; ide/shell hand the terminal to an interactive
+    # `docker exec -it` and need the raw TTY-inheriting call.
+    "sanity_gravity.core.proc -> subprocess",
+    "sanity_gravity.verbs.ide -> subprocess",
+    "sanity_gravity.verbs.shell -> subprocess",
+    # Frozen debt: SystemRuntime still shells out directly; it retires
+    # when the action runtime is rebased onto core.proc.
+    "sanity_gravity.effects.actions -> subprocess",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [".venv", "workspace", "sanity_gravity.egg-info"]
+
+[tool.ruff.lint]
+# Deliberately narrow for the first pass: correctness-flavored rules
+# only, and the tree is clean under them - a red here is a real finding,
+# not baseline noise. E501 (line length) stays out until a separate
+# formatting-only commit; mixing reflows into behavior changes destroys
+# diff reviewability.
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+ignore = [
+    "B008",  # function call in default arg - not a pattern this repo misuses
+    "B905",  # zip() strict= is a per-site semantic decision, not a sweep
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests legitimately import for side effects and shadow builtins in fixtures.
+"tests/**" = ["F811"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sanity_gravity"]
