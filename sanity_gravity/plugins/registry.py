@@ -36,14 +36,13 @@ from collections.abc import Collection
 from pathlib import Path
 
 from sanity_gravity.domain.capability import CapabilityConflictError, solve
+from sanity_gravity.domain.tags import Tag
 from sanity_gravity.plugins.manifest import (
     TIERS,
     ManifestError,
     PluginManifest,
     load_manifest,
 )
-from sanity_gravity.domain.tags import Tag
-
 
 __all__ = ["PluginRegistry", "default_registry", "reset_default_registry"]
 
@@ -92,7 +91,7 @@ class PluginRegistry:
     # -- construction ------------------------------------------------
 
     @classmethod
-    def from_dir(cls, root: str | Path) -> "PluginRegistry":
+    def from_dir(cls, root: str | Path) -> PluginRegistry:
         """Walk ``<root>/{agents,desktops,connectors}/<slug>/manifest.toml``.
 
         Each subdirectory missing a ``manifest.toml`` is silently skipped
@@ -259,7 +258,7 @@ def default_registry(root: str | Path | None = None) -> PluginRegistry:
     """Return a process-wide registry, lazily loaded from ``root``.
 
     Subsequent calls ignore ``root`` (the first call wins) so the CLI's
-    ``parse_tag``/``generate_valid_tags`` see a stable view.
+    ``resolve_tag``/``generate_valid_tags`` see a stable view.
     """
     global _DEFAULT
     if _DEFAULT is None:

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import sys
 
-from sanity_gravity.cli.colors import Colors
+from sanity_gravity.core.colors import Colors
 from sanity_gravity.core.command import CommandBuilder
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
 from sanity_gravity.domain.phase import Phase

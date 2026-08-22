@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 from pathlib import Path
 
-from sanity_gravity.effects.actions import RunSubprocess
 from sanity_gravity.core.command import CommandBuilder
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
 from sanity_gravity.domain.phase import Phase
+from sanity_gravity.effects.actions import RunSubprocess
 from sanity_gravity.plugins.manifest import PortSpec
 from sanity_gravity.plugins.registry import default_registry
 
@@ -120,7 +119,9 @@ def auto_port_alloc(ctx) -> None:
     })
 
     if ctx.image_override:
-        var = f"SANITY_IMAGE_{str(ctx.tag).upper().replace('-', '_')}"
+        # Naming owns this transform; the generated compose file reads
+        # the same var back, so both sides must derive it identically.
+        var = ctx.naming.env_var()
         os.environ[var] = ctx.image_override
         ctx.reporter.info(f"Using Custom Image: {ctx.image_override} for {ctx.tag}")
 
@@ -145,9 +146,9 @@ def docker_compose_up(ctx) -> None:
 def resolve_ephemeral(ctx) -> None:
     """UP_DOCKER/200: replace ``"0"`` ports with what Docker actually bound.
 
-    Direct ``run_command`` callable on purpose: the hook needs the
-    captured stdout to feed back into ``ctx.resolved_ports``. Wrapping
-    this as a typed Action with result piping is a future refinement.
+    Direct ``try_run`` callable on purpose: the hook needs the captured
+    stdout to feed back into ``ctx.resolved_ports``. Wrapping this as a
+    typed Action with result piping is a future refinement.
 
     Declared ``skip_in_dry_run=True`` at subscription time so the
     orchestrator drops the hook entirely in dry-run — no docker probe,
@@ -166,16 +167,17 @@ def resolve_ephemeral(ctx) -> None:
     ctx.reporter.info("Resolving ephemeral ports...")
 
     def _get(internal: str) -> str:
-        try:
-            out = ctx.deps.run_command(
-                _compose_cmd(ctx, "port", ctx.service_name, internal), capture=True,
-            )
-            if isinstance(out, str) and ":" in out:
-                return out.split(":")[-1]
-        except (subprocess.CalledProcessError, SystemExit) as e:
+        res = ctx.deps.try_run(
+            _compose_cmd(ctx, "port", ctx.service_name, internal),
+        )
+        if not res.ok:
             ctx.reporter.warning(
-                f"Could not resolve {ctx.service_name}:{internal} port ({e})"
+                f"Could not resolve {ctx.service_name}:{internal} port "
+                f"({res.stderr or f'exit {res.returncode}'})"
             )
+            return "?"
+        if ":" in res.stdout:
+            return res.stdout.split(":")[-1]
         return "?"
 
     reg = default_registry()
