@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Any, Iterable
+from typing import IO, Any
 
 from sanity_gravity.effects.actions import (
     Action,
@@ -30,7 +31,6 @@ from sanity_gravity.events import (
     ActionStarted,
     WouldExecute,
 )
-
 
 _DRY_RUN_RESULT = ActionResult(exit_code=0, duration_ms=0)
 
@@ -62,7 +62,7 @@ class Executor:
         )
         argv: tuple[str, ...] | str
         if isinstance(action, RunSubprocess):
-            argv = action.shell_str if action.shell_str is not None else action.argv
+            argv = action.argv
         else:
             argv = action.explain()
 
@@ -110,7 +110,6 @@ class Executor:
                 argv=argv,
                 exit_code=result.exit_code,
                 stderr_tail=tail,
-                hint=None,
                 explain_str=action.explain(),
             )
             raise ActionFailedError(action, result, phase=phase_str)
