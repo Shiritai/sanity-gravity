@@ -8,12 +8,13 @@ import sys
 from sanity_gravity.cli.io import (
     print_error,
     print_info,
+    print_plain,
     print_warning,
     set_reporter,
 )
 from sanity_gravity.cli.parser import build_parser
 from sanity_gravity.core.reporter import build_default_reporter
-
+from sanity_gravity.domain.errors import CommandError, SanityError
 
 # Flags accepted at the top level. We pre-process argv so they may also
 # appear AFTER the subcommand without confusing argparse, which by
@@ -125,16 +126,24 @@ def main():
         print()
         print_warning("Interrupted by user.")
         sys.exit(130)
-    except SystemExit:
-        raise
-    except Exception as e:
-        print_error(f"Unexpected error: {type(e).__name__}: {e}")
+    except SanityError as e:
+        # The ONE place that turns a failure into a process exit.
+        print_error(str(e))
+        if e.hint:
+            for line in e.hint.splitlines():
+                print_info(line)
+        if isinstance(e, CommandError) and e.stderr:
+            print_plain(e.stderr.rstrip())
         if os.environ.get("SANITY_DEBUG"):
             import traceback
             traceback.print_exc()
-        else:
-            print_info("Re-run with SANITY_DEBUG=1 for a full traceback.")
-        sys.exit(1)
+        sys.exit(e.exit_code)
+    # NOTE: no blanket ``except Exception``. An unexpected exception is
+    # a BUG in this tool and must surface as a full traceback --
+    # flattening it to one line costs the stack frame that names the
+    # culprit. ``SystemExit`` needs no clause either: it subclasses
+    # BaseException and propagates by itself (the sys.exit ratchet is
+    # draining the library sites that still raise it).
 
 
 if __name__ == "__main__":

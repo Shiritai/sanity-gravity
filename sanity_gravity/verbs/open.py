@@ -1,18 +1,16 @@
 """``open`` verb: open the running project's web interface in a browser."""
 from __future__ import annotations
 
-import subprocess
 import webbrowser
 
 from sanity_gravity.cli.io import (
     print_error,
-    print_info,
     print_success,
     print_warning,
-    run_command,
 )
-from sanity_gravity.cli.registry import VALID_TAGS, parse_tag
-from sanity_gravity.verbs.lifecycle import get_active_projects
+from sanity_gravity.core.proc import try_run
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.verbs.lifecycle import find_project_containers, get_active_projects
 
 
 def open_cmd(args):
@@ -26,45 +24,37 @@ def open_cmd(args):
             return
         project_name = active[0]
 
-    target_variant = None
-    container_name = None
-    for v in VALID_TAGS:
-        cname = f"{project_name}-{v}-1"
-        try:
-            out = run_command(
-                ("docker", "inspect", "-f", "{{.State.Running}}", cname),
-                capture=True, check=False,
-            )
-            if out == "true":
-                target_variant = v
-                container_name = cname
-                break
-        except subprocess.CalledProcessError:
-            pass
-
-    if not container_name:
+    matches = find_project_containers(project_name)
+    if not matches:
         print_error(f"No running containers found for {project_name}.")
         return
+    target_variant = matches[0]["service"]
 
     url = None
 
     def resolve_port(service, internal):
-        try:
-            out = run_command(
-                ("docker", "compose", "-p", project_name,
-                 "port", service, str(internal)),
-                capture=True, check=False,
+        res = try_run(
+            ("docker", "compose", "-p", project_name,
+             "port", service, str(internal)),
+        )
+        if not res.ok:
+            # The rc distinguishes "docker broke" from "nothing bound";
+            # the old except-CalledProcessError arm here was dead code
+            # (check=False never raised) so this warning never fired.
+            print_warning(
+                f"Could not resolve {service}:{internal} port "
+                f"({res.stderr or f'exit {res.returncode}'})"
             )
-            if ":" in out:
-                return out.split(":")[-1]
-        except subprocess.CalledProcessError as e:
-            print_warning(f"Could not resolve {service}:{internal} port ({e})")
+            return None
+        if ":" in res.stdout:
+            return res.stdout.split(":")[-1]
         return None
 
-    try:
-        _, _, connector = parse_tag(target_variant)
-    except ValueError:
-        connector = None
+    # The service label is a boundary string, but a pre-validated one:
+    # find_project_containers only yields services in VALID_TAGS, so
+    # this parse cannot fail (the old except-ValueError branch was
+    # unreachable for the same reason).
+    connector = Tag.parse(target_variant).connector
 
     if connector == "kasm":
         port = resolve_port(target_variant, "8444")

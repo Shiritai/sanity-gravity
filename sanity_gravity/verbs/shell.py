@@ -4,13 +4,15 @@ from __future__ import annotations
 import subprocess
 
 from sanity_gravity.cli.io import (
-    print_error,
     print_info,
     print_warning,
-    run_command,
 )
-from sanity_gravity.cli.registry import VALID_TAGS
-from sanity_gravity.verbs.lifecycle import get_active_projects, get_project_env
+from sanity_gravity.domain.errors import SanityError
+from sanity_gravity.verbs.lifecycle import (
+    find_project_containers,
+    get_active_projects,
+    get_project_env,
+)
 
 
 def shell_cmd(args):
@@ -20,8 +22,9 @@ def shell_cmd(args):
     if project_name == "sanity-gravity":
         active = get_active_projects()
         if not active:
-            print_error("No active projects found.")
-            return
+            # print_error + return would exit 0 (the dispatcher drops the
+            # return value); a precondition failure is an expected error.
+            raise SanityError("No active projects found.")
         if len(active) > 1:
             print_info(f"Multiple active projects: {', '.join(active)}")
             print_warning(f"Defaulting to first active project: {active[0]}")
@@ -29,25 +32,10 @@ def shell_cmd(args):
         else:
             project_name = active[0]
 
-    target_variant = None
-    container_name = None
-    for v in VALID_TAGS:
-        cname = f"{project_name}-{v}-1"
-        try:
-            out = run_command(
-                ("docker", "inspect", "-f", "{{.State.Running}}", cname),
-                capture=True, check=False,
-            )
-            if out == "true":
-                target_variant = v
-                container_name = cname
-                break
-        except subprocess.CalledProcessError:
-            pass
-
-    if not container_name:
-        print_error(f"No running containers found for {project_name}.")
-        return
+    matches = find_project_containers(project_name)
+    if not matches:
+        raise SanityError(f"No running containers found for {project_name}.")
+    container_name = matches[0]["name"]
 
     env = get_project_env(project_name)
     user = args.user if args.user else env.get("HOST_USER", "developer")
@@ -64,12 +52,20 @@ def shell_cmd(args):
     cmd = ("docker", "exec", "-it", "-u", user, container_name, shell)
     try:
         subprocess.check_call(cmd)
-    except subprocess.CalledProcessError:
-        if fallback_to_bash:
-            print_warning(f"{shell} failed, falling back to bash...")
-            cmd = ("docker", "exec", "-it", "-u", user, container_name, "bash")
-            subprocess.call(cmd)
-        else:
-            print_error(
-                f"{shell} failed. Specify the --use parameter to pick another shell."
-            )
+    except subprocess.CalledProcessError as e:
+        if not fallback_to_bash:
+            raise SanityError(
+                f"{shell} exited with status {e.returncode}.",
+                hint="Specify the --use parameter to pick another shell.",
+                exit_code=e.returncode or 1,
+            ) from e
+        print_warning(f"{shell} failed, falling back to bash...")
+        cmd = ("docker", "exec", "-it", "-u", user, container_name, "bash")
+        # The rc used to be discarded here, so zsh AND bash failing
+        # still exited 0 - the one lie an interactive verb can tell.
+        rc = subprocess.call(cmd)
+        if rc != 0:
+            raise SanityError(
+                f"bash fallback also exited with status {rc}.",
+                exit_code=rc,
+            ) from e

@@ -9,11 +9,9 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
-import subprocess
 import sys
 import time
 
-from sanity_gravity.cli.colors import Colors
 from sanity_gravity.cli.io import (
     get_uid_gid_user,
     print_error,
@@ -22,9 +20,10 @@ from sanity_gravity.cli.io import (
     print_plain,
     print_success,
     print_warning,
-    run_command,
 )
-from sanity_gravity.cli.registry import VALID_TAGS
+from sanity_gravity.core.colors import Colors
+from sanity_gravity.core.proc import run_shell, try_run
+from sanity_gravity.domain.errors import SanityError
 
 
 def sync_config(project_name, container_name, username, config_source="config"):
@@ -86,11 +85,12 @@ def sync_config(project_name, container_name, username, config_source="config"):
 
         user_ready = False
         for _ in range(30):
-            out = run_command(
+            # Polling loop: failure is expected while the container
+            # boots, so the rc is inspected rather than escalated.
+            res = try_run(
                 ("docker", "exec", container_name, "id", "-u", username),
-                capture=True, check=False,
             )
-            if out and out.strip().isdigit():
+            if res.ok and res.stdout.isdigit():
                 user_ready = True
                 break
             time.sleep(1)
@@ -103,9 +103,10 @@ def sync_config(project_name, container_name, username, config_source="config"):
 
         target_dir = f"/home/{username}/.gemini"
 
-        run_command(
-            ("docker", "exec", container_name, "mkdir", "-p", target_dir)
-        )
+        try_run(
+            ("docker", "exec", container_name, "mkdir", "-p", target_dir),
+            capture=False, echo=True,
+        ).raise_for_status()
 
         print_info("Transferring files (excluding runtime state)...")
         # Genuine shell requirement: this is a pipe between two processes.
@@ -117,27 +118,39 @@ def sync_config(project_name, container_name, username, config_source="config"):
             f"| docker exec -i {shlex.quote(container_name)} "
             f"tar -xf - -C {shlex.quote(target_dir)}"
         )
-        run_command(tar_cmd, shell=True)
+        run_shell(tar_cmd)
 
-        out = run_command(
+        # chown reports failure on stderr + rc; keying the warning on
+        # stdout (as the old code did) meant a real failure printed
+        # "synced successfully" while rc-0 chatter warned spuriously.
+        res = try_run(
             ("docker", "exec", container_name, "chown", "-R",
              f"{username}:{username}", target_dir),
-            capture=True, check=False,
         )
-        if out:
+        if not res.ok:
             print_warning(
-                f"Failed to set permissions on {target_dir}: {out} "
+                f"Failed to set permissions on {target_dir}: "
+                f"{res.stderr or f'exit {res.returncode}'} "
                 "(User mismatch?)"
             )
-
-        print_success("Configuration synced successfully.")
+            # A partial outcome must read as one: the files landed but
+            # the ownership step failed, so no success is declared.
+            print_warning(
+                "Configuration transferred, but ownership was not applied."
+            )
+        else:
+            print_success("Configuration synced successfully.")
 
 
 def sync_config_cmd(args):
     """Sync configuration to running containers without restarting."""
     # Lazy import to avoid the circular dep with status.get_active_projects /
     # upgrade.get_project_env that all live in lifecycle modules.
-    from sanity_gravity.verbs.lifecycle import get_active_projects, get_project_env
+    from sanity_gravity.verbs.lifecycle import (
+        find_project_containers,
+        get_active_projects,
+        get_project_env,
+    )
 
     target_project = getattr(args, "name", "sanity-gravity")
 
@@ -157,30 +170,17 @@ def sync_config_cmd(args):
 
     print_header("Syncing Configuration")
 
-    host_uid, host_gid, host_user = get_uid_gid_user()
+    host_user = get_uid_gid_user()[2]
 
+    failed = []
     for project in projects_to_sync:
         try:
             env_vars = get_project_env(project)
             username = env_vars.get("HOST_USER", host_user)
 
-            target_variant = None
-            for v in VALID_TAGS:
-                container_name = f"{project}-{v}-1"
-                try:
-                    out = run_command(
-                        ("docker", "inspect", "-f",
-                         "{{.State.Running}}", container_name),
-                        capture=True, check=False,
-                    )
-                    if out == "true":
-                        target_variant = v
-                        break
-                except subprocess.CalledProcessError:
-                    pass
-
-            if target_variant:
-                container_name = f"{project}-{target_variant}-1"
+            matches = find_project_containers(project)
+            if matches:
+                container_name = matches[0]["name"]
                 print_info(f"Syncing {project} ({container_name})...")
                 sync_config(project, container_name, username)
             else:
@@ -188,7 +188,17 @@ def sync_config_cmd(args):
                     f"Project {project} has no running containers. Skipping."
                 )
 
-        except Exception as e:
+        except (SanityError, OSError) as e:
+            # Deliberate per-project match so one broken project does
+            # not abort the batch -- but the failure is counted, not
+            # swallowed into a bogus "Sync complete." (and only
+            # expected error types qualify; a bug still tracebacks).
             print_error(f"Failed to sync {project}: {e}")
+            failed.append(project)
 
+    if failed:
+        raise SanityError(
+            f"Sync failed for {len(failed)} of {len(projects_to_sync)} "
+            f"project(s): {', '.join(failed)}"
+        )
     print_success("Sync complete.")

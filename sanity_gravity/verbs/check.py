@@ -2,15 +2,19 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
-import sys
 
 from sanity_gravity.cli.io import (
-    print_error,
     print_header,
     print_success,
-    run_command,
 )
+from sanity_gravity.core.proc import try_run
+from sanity_gravity.domain.errors import SanityError
+
+
+def _failure_detail(res) -> str:
+    """Human detail for a failed probe: stderr head, or the bare rc."""
+    head = res.stderr.splitlines()[0] if res.stderr else ""
+    return head or f"exit {res.returncode}"
 
 
 def check_prereqs(args):
@@ -20,19 +24,27 @@ def check_prereqs(args):
     if shutil.which("docker"):
         print_success("Docker is installed")
     else:
-        print_error("Docker is NOT installed. Please install Docker first.")
-        sys.exit(1)
+        raise SanityError(
+            "Docker is NOT installed.",
+            hint="Please install Docker first: https://docs.docker.com/get-docker/",
+        )
 
-    try:
-        run_command(("docker", "compose", "version"), capture=True)
-        print_success("Docker Compose is installed")
-    except (subprocess.CalledProcessError, FileNotFoundError, SystemExit) as e:
-        print_error(f"Docker Compose is NOT installed or not accessible. ({e})")
-        sys.exit(1)
+    # try_run captures quietly and hands back the rc: probing IS the
+    # intent here (the old code abused capture=True as a "quiet" flag
+    # and had to catch its own SystemExit).
+    res = try_run(("docker", "compose", "version"))
+    if not res.ok:
+        raise SanityError(
+            "Docker Compose is NOT installed or not accessible. "
+            f"({_failure_detail(res)})",
+            hint="Install the Docker Compose plugin (docker-compose-plugin).",
+        )
+    print_success("Docker Compose is installed")
 
-    try:
-        run_command(("docker", "info"), capture=True)
-        print_success("Docker Daemon is running")
-    except (subprocess.CalledProcessError, FileNotFoundError, SystemExit) as e:
-        print_error(f"Docker Daemon is NOT running. Please start Docker. ({e})")
-        sys.exit(1)
+    res = try_run(("docker", "info"))
+    if not res.ok:
+        raise SanityError(
+            f"Docker Daemon is NOT running. ({_failure_detail(res)})",
+            hint="Please start Docker.",
+        )
+    print_success("Docker Daemon is running")

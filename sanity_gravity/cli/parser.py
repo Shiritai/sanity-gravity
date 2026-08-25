@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 
-from sanity_gravity.cli.registry import DEFAULT_TAG
+from sanity_gravity.core.registry import DEFAULT_TAG
 from sanity_gravity.verbs.build import build
 from sanity_gravity.verbs.check import check_prereqs
 from sanity_gravity.verbs.ide import ide_cmd
@@ -19,11 +19,11 @@ from sanity_gravity.verbs.proxy import (
     proxy_setup_cmd,
     proxy_status_cmd,
 )
+from sanity_gravity.verbs.pull import pull_cmd
 from sanity_gravity.verbs.shell import shell_cmd
 from sanity_gravity.verbs.snapshot import snapshot_cmd
 from sanity_gravity.verbs.status import list_variants, plugins_list, status
 from sanity_gravity.verbs.sync import sync_config_cmd
-from sanity_gravity.verbs.pull import pull
 from sanity_gravity.verbs.test_suite import test_suite
 from sanity_gravity.verbs.up import up
 from sanity_gravity.verbs.upgrade import upgrade
@@ -211,7 +211,7 @@ def build_parser():
         "--tag", default=None,
         help="Explicit version tag to pull (default: auto-detected from git)",
     )
-    p_pull.set_defaults(func=pull)
+    p_pull.set_defaults(func=pull_cmd)
 
     # open
     p_open = subparsers.add_parser("open", help="Open web interface")

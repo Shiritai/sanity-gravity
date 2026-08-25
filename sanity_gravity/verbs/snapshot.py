@@ -6,16 +6,13 @@ published by :class:`Orchestrator`; per-phase behaviour lives in
 """
 from __future__ import annotations
 
-import sys
-
-from sanity_gravity.cli.io import get_reporter
 from sanity_gravity.core.eventbus import EventBus
 from sanity_gravity.core.orchestrator import (
+    _SNAPSHOT_PHASES,
     Orchestrator,
     SnapshotContext,
-    _SNAPSHOT_PHASES,
 )
-from sanity_gravity.effects.actions import ActionFailedError
+from sanity_gravity.core.reporter import get_active_reporter as get_reporter
 from sanity_gravity.effects.executor import build_default_executor
 from sanity_gravity.hooks.snapshot import register_builtin_snapshot_hooks
 
@@ -35,14 +32,7 @@ def snapshot_cmd(args):
     register_builtin_snapshot_hooks(bus)
     executor = build_default_executor(reporter, dry_run=ctx.dry_run)
 
-    try:
-        with Orchestrator(bus, reporter, executor=executor) as orch:
-            orch.run(_SNAPSHOT_PHASES, ctx)
-    except ActionFailedError as e:
-        sys.exit(e.result.exit_code or 1)
-
-
-def explain_snapshot(args):
-    """``explain snapshot`` alias: dry-run the plan without executing."""
-    args.dry_run = True
-    return snapshot_cmd(args)
+    # ActionFailedError is a SanityError: it flies to the boundary,
+    # which exits with e.exit_code (== the action result's code).
+    with Orchestrator(bus, reporter, executor=executor) as orch:
+        orch.run(_SNAPSHOT_PHASES, ctx)
