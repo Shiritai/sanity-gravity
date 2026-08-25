@@ -19,11 +19,11 @@ Two failure modes:
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from sanity_gravity.domain.phase import Phase
-
 
 HookFn = Callable[[Any], None]
 
@@ -152,7 +152,7 @@ class EventBus:
         out.sort(key=lambda h: h._seq)
         return out
 
-    def merge_into(self, other: "EventBus", *, isolate: bool = True) -> None:
+    def merge_into(self, other: EventBus, *, isolate: bool = True) -> None:
         """Re-subscribe every hook on ``self`` onto ``other``.
 
         Used to splice plugin-contributed hooks (registered against the

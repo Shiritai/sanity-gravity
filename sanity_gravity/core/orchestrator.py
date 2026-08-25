@@ -8,14 +8,17 @@ under :mod:`sanity_gravity.hooks`; this file is just orchestration glue.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any
 
-from sanity_gravity.effects.actions import Action
 from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.core.proc import Completed
+from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.phase import Phase
 from sanity_gravity.domain.tags import Tag
+from sanity_gravity.effects.actions import Action
 
 
 @dataclass(frozen=True)
@@ -51,7 +54,7 @@ class Deps:
     generate_resource_compose: Callable[[str | None, str | None, str], str | None]
     sync_config: Callable[[str, str, str], None]
     is_port_in_use: Callable[[int], bool]
-    run_command: Callable[..., Any]
+    try_run: Callable[..., Completed]
 
 
 @dataclass
@@ -87,12 +90,17 @@ class UpContext:
         return out
 
     @property
+    def naming(self) -> Naming:
+        """Single generator for every name hooks derive from this ctx."""
+        return Naming(self.tag, self.project)
+
+    @property
     def service_name(self) -> str:
-        return str(self.tag)
+        return self.naming.service()
 
     @property
     def container_name(self) -> str:
-        return f"{self.project}-{self.service_name}-1"
+        return self.naming.container()
 
 
 _UP_PHASES: tuple[Phase, ...] = (
@@ -230,13 +238,14 @@ class BuildContext:
     targets: list[str]
     reporter: Any
     no_cache: bool = False
-    base_image_override: str | None = None
     layer_target: str | None = None              # "base" / "desktop" / "agent" / "connector"
     layer_target_specific: str | None = None     # e.g. "xfce" or "ag-xfce"
     list_intermediates: bool = False
     json_output: bool = False
-    plan: list[tuple[str, str, str | None]] = field(default_factory=list)
-    # ``plan`` entries are ``(dockerfile, image_name, parent_image_name_or_None)``.
+    plan: list = field(default_factory=list)
+    # ``plan`` entries are ``PlanNode`` values (sanity_gravity.domain.plan):
+    # structural layer identity + dockerfile + context; parent derives
+    # from the structure, never from a rendered name.
     actions: list[Action] = field(default_factory=list)
     dry_run: bool = False
 

@@ -16,8 +16,8 @@ Design notes
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Mapping
 
 
 @dataclass(frozen=True)
@@ -82,7 +82,8 @@ class ErrorEvent(Event):
 
 @dataclass(frozen=True)
 class CommandIssued(Event):
-    """Echoed ``$ cmd`` line emitted by ``run_command`` before exec.
+    """Echoed ``$ cmd`` line emitted by the subprocess boundary
+    (:mod:`sanity_gravity.core.proc`) before exec.
 
     ``argv`` is either a tuple of argv tokens (preferred) or a raw shell
     string for the few legacy ``shell=True`` sites.
@@ -166,7 +167,6 @@ class ActionFailed(Event):
     argv: tuple[str, ...] | str = ()
     exit_code: int = 0
     stderr_tail: str = ""
-    hint: str | None = None
     explain_str: str = ""
 
 

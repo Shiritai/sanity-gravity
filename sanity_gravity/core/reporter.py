@@ -16,12 +16,12 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
 import sys
 import time
 import uuid
+from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Iterable, Protocol
+from typing import IO, Protocol
 
 from sanity_gravity.events import (
     AccessInfo,
@@ -42,7 +42,6 @@ from sanity_gravity.events import (
     Warning,
     WouldExecute,
 )
-
 
 # ANSI escapes — kept here so AnsiSink is self-contained, but they match
 # the legacy ``Colors`` block in sanity-cli byte-for-byte.
@@ -140,8 +139,6 @@ class AnsiSink:
             out.write(f"    exit:    {event.exit_code}\n")
             if event.stderr_tail:
                 out.write(f"    stderr:  {event.stderr_tail}\n")
-            if event.hint:
-                out.write(f"\n{_WARNING}Hint: {event.hint}{_ENDC}\n")
         elif isinstance(event, WouldExecute):
             out.write(f"{_OKCYAN}» would: {event.explain_str}{_ENDC}\n")
         elif isinstance(event, (CacheHit, LayerBuilding, LayerBuilt)):
@@ -418,6 +415,26 @@ class Reporter:
                 sys.stderr.write(
                     f"warning: sink {type(sink).__name__} close failed: {exc}\n"
                 )
+
+
+# -- process-wide reporter handle ------------------------------------
+#
+# Installed once by cli/main.py, consulted by every legacy print_*
+# helper (via cli/io re-exports) and by core/proc's command echo. Lives
+# here rather than in cli/io so core code can reach it without the
+# core -> cli layering inversion.
+_active_reporter: Reporter | None = None
+
+
+def set_active_reporter(reporter: Reporter | None) -> None:
+    """Install the active Reporter for this process."""
+    global _active_reporter
+    _active_reporter = reporter
+
+
+def get_active_reporter() -> Reporter | None:
+    """Return the currently installed reporter (or ``None``)."""
+    return _active_reporter
 
 
 def build_default_reporter(

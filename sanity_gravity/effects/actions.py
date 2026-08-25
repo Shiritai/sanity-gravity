@@ -23,8 +23,11 @@ import shlex
 import subprocess
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping, Protocol
+from typing import Protocol
+
+from sanity_gravity.domain.errors import SanityError
 
 
 @dataclass(frozen=True)
@@ -47,13 +50,11 @@ class ActionRuntime(Protocol):
 
     def run_subprocess(
         self,
-        argv: tuple[str, ...] | str,
+        argv: tuple[str, ...],
         *,
         env: Mapping[str, str] | None,
         cwd: str | None,
         capture: bool,
-        check: bool,
-        shell: bool,
     ) -> ActionResult: ...
 
     def write_file(self, path: str, content: str, mode: int) -> None: ...
@@ -75,8 +76,6 @@ class SystemRuntime:
         env=None,
         cwd=None,
         capture=False,
-        check=True,
-        shell=False,
     ) -> ActionResult:
         run_env = None
         if env is not None:
@@ -85,27 +84,23 @@ class SystemRuntime:
         start = time.monotonic()
         if capture:
             proc = subprocess.run(
-                argv, shell=shell, cwd=cwd, check=False,
+                argv, cwd=cwd, check=False,
                 capture_output=True, text=True, env=run_env,
             )
             dur = int((time.monotonic() - start) * 1000)
-            res = ActionResult(
+            return ActionResult(
                 exit_code=proc.returncode,
                 stdout=(proc.stdout or "").strip(),
                 stderr=(proc.stderr or "").strip(),
                 duration_ms=dur,
             )
-        else:
-            try:
-                rc = subprocess.call(argv, shell=shell, cwd=cwd, env=run_env)
-            except FileNotFoundError as exc:
-                dur = int((time.monotonic() - start) * 1000)
-                return ActionResult(exit_code=127, stderr=str(exc), duration_ms=dur)
+        try:
+            rc = subprocess.call(argv, cwd=cwd, env=run_env)
+        except FileNotFoundError as exc:
             dur = int((time.monotonic() - start) * 1000)
-            res = ActionResult(exit_code=rc, duration_ms=dur)
-        if check and res.exit_code != 0:
-            return res
-        return res
+            return ActionResult(exit_code=127, stderr=str(exc), duration_ms=dur)
+        dur = int((time.monotonic() - start) * 1000)
+        return ActionResult(exit_code=rc, duration_ms=dur)
 
     def write_file(self, path: str, content: str, mode: int) -> None:
         with open(path, "w", encoding="utf-8") as fp:
@@ -143,11 +138,16 @@ class Action(ABC):
 
 @dataclass(frozen=True)
 class RunSubprocess(Action):
-    """Execute an argv (or shell string) through subprocess.
+    """Execute an argv through subprocess - never a shell.
 
     This single Action covers every docker / docker-compose / system
-    binary invocation in the codebase. ``shell_str`` is reserved for the
-    one legacy tar-pipe in ``sync_config`` that genuinely needs a shell.
+    binary invocation in the codebase. The one genuine shell need (the
+    tar-pipe in ``sync_config``) goes through ``core.proc.run_shell``;
+    keeping no shell affordance here means an Action cannot smuggle
+    ``shell=True`` in through a field.
+
+    ``check`` is consumed by the Executor (raise vs hand back the
+    result), not by the runtime: execution is the same either way.
     """
 
     argv: tuple[str, ...] = ()
@@ -155,29 +155,19 @@ class RunSubprocess(Action):
     cwd: str | None = None
     capture: bool = False
     check: bool = True
-    shell_str: str | None = None
 
     def explain(self) -> str:
-        if self.shell_str is not None:
-            return f"sh -c {shlex.quote(self.shell_str)}"
         return " ".join(shlex.quote(str(a)) for a in self.argv)
 
     def execute(self, runtime: ActionRuntime) -> ActionResult:
-        if self.shell_str is not None:
-            return runtime.run_subprocess(
-                self.shell_str, env=self.env, cwd=self.cwd,
-                capture=self.capture, check=self.check, shell=True,
-            )
         return runtime.run_subprocess(
-            self.argv, env=self.env, cwd=self.cwd,
-            capture=self.capture, check=self.check, shell=False,
+            self.argv, env=self.env, cwd=self.cwd, capture=self.capture,
         )
 
     def to_log_dict(self) -> dict:
         return {
             "action_type": "RunSubprocess",
             "argv": list(self.argv),
-            "shell_str": self.shell_str,
             "cwd": self.cwd,
             "capture": self.capture,
             "check": self.check,
@@ -251,7 +241,7 @@ class WaitForUserInContainer(Action):
         while True:
             res = runtime.run_subprocess(
                 ("docker", "exec", self.container, "id", "-u", self.username),
-                env=None, cwd=None, capture=True, check=False, shell=False,
+                env=None, cwd=None, capture=True,
             )
             if res.stdout and res.stdout.strip().isdigit():
                 return ActionResult(exit_code=0, stdout=res.stdout)
@@ -269,19 +259,22 @@ class WaitForUserInContainer(Action):
         }
 
 
-class ActionFailedError(Exception):
+class ActionFailedError(SanityError):
     """Raised when an action's ``execute`` returns non-zero exit_code.
 
     Carries the offending action plus its result so the CLI boundary can
-    render a structured failure block.
+    render a structured failure block. Under the SanityError root:
+    ``exit_code`` mirrors the action result's code (0 -> 1), so the
+    boundary reproduces the historical ``sys.exit(e.result.exit_code or
+    1)`` behaviour without any per-verb wrapper.
     """
 
     def __init__(self, action: Action, result: ActionResult, *,
-                 phase: str | None = None, hint: str | None = None) -> None:
+                 phase: str | None = None) -> None:
         self.action = action
         self.result = result
         self.phase = phase
-        self.hint = hint
         super().__init__(
-            f"action failed: {action.explain()} (exit={result.exit_code})"
+            f"action failed: {action.explain()} (exit={result.exit_code})",
+            exit_code=result.exit_code or 1,
         )

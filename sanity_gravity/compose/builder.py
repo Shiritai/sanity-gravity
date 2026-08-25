@@ -41,7 +41,6 @@ from typing import Any
 
 import yaml  # PyYAML — required by sanity-cli compose generation
 
-
 __all__ = ["ComposeService", "ComposeBuilder"]
 
 
@@ -129,12 +128,12 @@ class ComposeBuilder:
 
     # -- service management ------------------------------------------
 
-    def add_service(self, svc: ComposeService) -> "ComposeBuilder":
+    def add_service(self, svc: ComposeService) -> ComposeBuilder:
         """Register a service. Replaces any existing entry of the same name."""
         self.services[svc.name] = svc
         return self
 
-    def patch(self, name: str, **kw: Any) -> "ComposeBuilder":
+    def patch(self, name: str, **kw: Any) -> ComposeBuilder:
         """Partial update of an existing service.
 
         Equivalent to ``setattr`` for each kw on the registered service.
@@ -152,7 +151,7 @@ class ComposeBuilder:
         self,
         name: str,
         config: dict[str, Any] | None = None,
-    ) -> "ComposeBuilder":
+    ) -> ComposeBuilder:
         """Declare a top-level named volume.
 
         ``config=None`` (the default) emits a bare ``<name>:`` entry —
@@ -165,13 +164,13 @@ class ComposeBuilder:
 
     # -- additive merges ---------------------------------------------
 
-    def merge_environment(self, name: str, env: dict[str, str]) -> "ComposeBuilder":
+    def merge_environment(self, name: str, env: dict[str, str]) -> ComposeBuilder:
         """Update the service's environment dict (later values win)."""
         svc = self.services[name]
         svc.environment.update(env)
         return self
 
-    def merge_volumes(self, name: str, volumes: list[str]) -> "ComposeBuilder":
+    def merge_volumes(self, name: str, volumes: list[str]) -> ComposeBuilder:
         """Append volumes to the service, skipping exact duplicates.
 
         Idempotent: re-applying the same overlay does not multiply mounts.
@@ -182,7 +181,7 @@ class ComposeBuilder:
                 svc.volumes.append(v)
         return self
 
-    def merge_ports(self, name: str, ports: list[str]) -> "ComposeBuilder":
+    def merge_ports(self, name: str, ports: list[str]) -> ComposeBuilder:
         """Append ports to the service, skipping exact duplicates."""
         svc = self.services[name]
         for p in ports:
@@ -190,7 +189,7 @@ class ComposeBuilder:
                 svc.ports.append(p)
         return self
 
-    def merge_labels(self, name: str, labels: dict[str, str]) -> "ComposeBuilder":
+    def merge_labels(self, name: str, labels: dict[str, str]) -> ComposeBuilder:
         """Merge labels into the service (later values win)."""
         svc = self.services[name]
         svc.labels.update(labels)
@@ -202,7 +201,7 @@ class ComposeBuilder:
         *,
         cpus: str | None = None,
         memory: str | None = None,
-    ) -> "ComposeBuilder":
+    ) -> ComposeBuilder:
         """Set ``deploy.resources.limits`` on the service.
 
         Quotes values via ``str()``; YAML emits ``cpus: '1.5'`` so the
