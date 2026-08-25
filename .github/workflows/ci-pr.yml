@@ -16,6 +16,30 @@ permissions:
   contents: read
 
 jobs:
+  # One runner, once per PR - lint never joins the per-tag/per-arch
+  # fan-out, and a red here fails fast without blocking tag discovery.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Lint Tooling
+        run: pip install -e ".[lint]"
+
+      - name: Ruff
+        run: ruff check .
+
+      # Also embedded in the unit suite (test_architecture.py); this
+      # step is the fast PR-time red for the same contracts.
+      - name: Import Linter
+        run: lint-imports
+
   setup:
     runs-on: ubuntu-latest
     outputs:

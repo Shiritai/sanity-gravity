@@ -1,0 +1,49 @@
+name: Mutation Testing
+
+# Observational only - never wired into PR checks. First-pass policy is
+# artifact-only; if this ever becomes a gate it will be a frozen
+# survivor allowlist that may only shrink (same shape as the repo's
+# other ratchets), never a floating score threshold.
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday 03:17 UTC (offset to dodge top-of-hour load).
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  mutmut:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: |
+          pip install -e ".[test]"
+          pip install -e ".[mutation]"
+
+      - name: Run mutation testing
+        # Surviving mutants are the expected steady state of an
+        # observational run; the results artifact is the signal.
+        continue-on-error: true
+        run: mutmut run
+
+      - name: Collect results
+        if: always()
+        run: mutmut results | tee mutmut-results.txt
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutmut-results
+          path: mutmut-results.txt

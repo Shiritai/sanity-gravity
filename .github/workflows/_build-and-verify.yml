@@ -34,9 +34,11 @@ jobs:
       - name: Install test dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y socat
-          pip install pytest requests urllib3 PyYAML pytest-timeout
+          pip install -e ".[test]"
 
       - name: Run integration tests
+        env:
+          SANITY_REQUIRE_IMAGES: "1" # a skipped image test here means `build all` produced nothing
         run: ./sanity-cli test
 
       - name: Install Trivy CLI
