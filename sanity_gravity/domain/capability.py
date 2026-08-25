@@ -49,7 +49,7 @@ class CapabilityConflictError(ValueError):
         return self.args[0] if self.args else super().__str__()
 
 
-def solve(tag: Tag, registry: "PluginRegistry") -> Tag:
+def solve(tag: Tag, registry: PluginRegistry) -> Tag:
     """Validate ``tag`` against ``registry``; return the tag on success.
 
     Resolves the three plugins, unions their ``provides`` and ``requires``,
