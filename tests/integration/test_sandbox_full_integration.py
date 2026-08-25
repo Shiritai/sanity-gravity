@@ -1,16 +1,20 @@
-import pytest
 import time
+
+import pytest
+
 from tests.utils import wait_for_port
-from tests.conftest import DEFAULT_KASM_IMAGE
+
+pytestmark = pytest.mark.requires_image("ag-xfce-kasm")
+
 
 @pytest.fixture(scope="function")
-def test_kasm_container(clean_container, docker_cli, host_env, free_port):
+def test_kasm_container(clean_container, docker_cli, host_env, free_port, image):
     """Start a single Kasm container for all sandbox integration tests."""
     container_name = clean_container("sanity-test-sandbox-full")
     port = free_port()
     docker_cli.run_container(
         name=container_name,
-        image=DEFAULT_KASM_IMAGE,
+        image=image,
         ports={str(port): "8444"},
         env=host_env
     )
@@ -84,7 +88,7 @@ class TestSandboxFullIntegration:
             # Capture more info for debugging
             ps_all = docker_cli.exec(test_kasm_container, "ps aux").stdout
             xdg_log = docker_cli.exec(test_kasm_container, f"su - {user} -c 'tail -n 20 ~/.xsession-errors'").stdout
-            assert False, f"xdg-open returned 0, but no browser process (chrome/chromium) detected after 40s.\nProcess List:\n{ps_all}\nXsession Errors:\n{xdg_log}"
+            pytest.fail(f"xdg-open returned 0, but no browser process (chrome/chromium) detected after 40s.\nProcess List:\n{ps_all}\nXsession Errors:\n{xdg_log}")
 
     def test_antigravity_chat_capability(self, test_kasm_container, docker_cli, host_env):
         """Verify that Antigravity can use chat functionality (Language Server stability)."""

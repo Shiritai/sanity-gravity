@@ -1,6 +1,6 @@
 """Unit-style tests for the ``ide`` verb (no real Docker calls).
 
-The patches target ``sanity_gravity.verbs.ide.{run_command,get_active_projects}``
+The patches target ``sanity_gravity.verbs.ide.{find_project_containers,get_active_projects}``
 because that is where those names are looked up by ``ide_cmd``.
 """
 from __future__ import annotations
@@ -8,14 +8,16 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
+import pytest
 
-from sanity_gravity.verbs import ide as ide_verb  # noqa: E402
+from sanity_gravity.verbs import ide as ide_verb
+
+pytestmark = pytest.mark.no_image
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 _REPO = str(_REPO_ROOT)
@@ -40,12 +42,15 @@ def _expected_calls(cname: str, subcommand: str):
 
 
 class TestIdeCommand:
-    @patch("sanity_gravity.verbs.ide.run_command")
+    @patch("sanity_gravity.verbs.ide.find_project_containers")
     @patch("subprocess.check_call")
     @patch("sanity_gravity.verbs.ide.get_active_projects")
-    def test_ide_update_success(self, mock_get_active, mock_check_call, mock_run):
+    def test_ide_update_success(self, mock_get_active, mock_check_call, mock_find):
         mock_get_active.return_value = ["sanity-gravity"]
-        mock_run.return_value = "true"  # container running
+        mock_find.return_value = [{
+            "cid": "c1", "name": "sanity-gravity-ag-xfce-kasm-1",
+            "service": "ag-xfce-kasm", "running": True,
+        }]
 
         args = argparse.Namespace(name="sanity-gravity", ide_command="update")
         ide_verb.ide_cmd(args)
@@ -53,12 +58,15 @@ class TestIdeCommand:
         cname = "sanity-gravity-ag-xfce-kasm-1"
         assert mock_check_call.call_args_list == _expected_calls(cname, "update")
 
-    @patch("sanity_gravity.verbs.ide.run_command")
+    @patch("sanity_gravity.verbs.ide.find_project_containers")
     @patch("subprocess.check_call")
     @patch("sanity_gravity.verbs.ide.get_active_projects")
-    def test_ide_reinstall_success(self, mock_get_active, mock_check_call, mock_run):
+    def test_ide_reinstall_success(self, mock_get_active, mock_check_call, mock_find):
         mock_get_active.return_value = ["my-project"]
-        mock_run.return_value = "true"
+        mock_find.return_value = [{
+            "cid": "c1", "name": "my-project-ag-xfce-kasm-1",
+            "service": "ag-xfce-kasm", "running": True,
+        }]
 
         args = argparse.Namespace(name="my-project", ide_command="reinstall")
         ide_verb.ide_cmd(args)

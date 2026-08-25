@@ -1,11 +1,15 @@
 
-import sys
 import os
+import sys
 import unittest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from sanity_gravity.infra.proxy_manager import ProxyManager
+import pytest
+
 from sanity_gravity.compose import generators as cli
+from sanity_gravity.infra.proxy_manager import ProxyManager
+
+pytestmark = pytest.mark.no_image
+
 
 class TestProxyStrict(unittest.TestCase):
     def setUp(self):
@@ -42,7 +46,7 @@ class TestProxyStrict(unittest.TestCase):
         if not os.path.exists(self.config_file):
             self.fail("config file not generated")
         else:
-            with open(self.config_file, "r") as f:
+            with open(self.config_file) as f:
                 content = f.read()
             if pm.get_socket_path() in content:
                 print("PASS: Proxy socket found in config")
@@ -64,7 +68,7 @@ class TestProxyStrict(unittest.TestCase):
         cli.generate_git_compose("testuser")
         
         if os.path.exists(self.config_file):
-            with open(self.config_file, "r") as f:
+            with open(self.config_file) as f:
                 content = f.read()
                 if "ssh-agent.sock" in content:
                      self.fail("SSH Agent socket found in Strict Mode! Should be skipped.")

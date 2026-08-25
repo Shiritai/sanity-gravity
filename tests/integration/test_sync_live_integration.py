@@ -1,16 +1,13 @@
 
 import os
 import subprocess
-import sys
 import tempfile
-from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
+from sanity_gravity.verbs.sync import sync_config
 
-from sanity_gravity.verbs.sync import sync_config  # noqa: E402
+pytestmark = pytest.mark.requires_docker
 
 TEST_CONTAINER_NAME = "sanity-test-sync-live"
 TEST_USER = "testuser"

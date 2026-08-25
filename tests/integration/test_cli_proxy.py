@@ -1,7 +1,11 @@
-import unittest
-import subprocess
 import os
-import shutil
+import subprocess
+import unittest
+
+import pytest
+
+pytestmark = pytest.mark.requires_docker
+
 
 class TestCliProxy(unittest.TestCase):
     CLI = "./sanity-cli"
@@ -11,8 +15,7 @@ class TestCliProxy(unittest.TestCase):
         cmd = [self.CLI] + args
         result = subprocess.run(
             cmd, 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE, 
+            capture_output=True,
             text=True
         )
         return result
