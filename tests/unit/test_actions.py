@@ -1,16 +1,7 @@
 """Tests for the Action type hierarchy (PR #5)."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-import pytest
-
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.effects.actions import (  # noqa: E402
-    Action,
+from sanity_gravity.effects.actions import (
     ActionFailedError,
     ActionResult,
     MakeDirs,
@@ -19,7 +10,6 @@ from sanity_gravity.effects.actions import (  # noqa: E402
     WaitForUserInContainer,
     WriteFile,
 )
-
 
 # ---------------------------------------------------------------------------
 # FakeRuntime: records calls without touching the system.
@@ -35,10 +25,10 @@ class FakeRuntime:
         self._sub_results = list(sub_results or [])
         self._now_seq = list(now_seq or [0.0, 1.0, 2.0, 3.0, 4.0])
 
-    def run_subprocess(self, argv, *, env, cwd, capture, check, shell):
+    def run_subprocess(self, argv, *, env, cwd, capture):
         self.subprocess_calls.append({
             "argv": argv, "env": dict(env) if env else None,
-            "cwd": cwd, "capture": capture, "check": check, "shell": shell,
+            "cwd": cwd, "capture": capture,
         })
         if self._sub_results:
             return self._sub_results.pop(0)
@@ -71,10 +61,14 @@ def test_run_subprocess_explain_quotes_argv():
     assert a.explain().startswith("docker compose -p")
 
 
-def test_run_subprocess_explain_shell_str():
-    a = RunSubprocess(argv=(), shell_str="tar -cf - . | docker exec -i c tar -xf -")
-    assert a.explain().startswith("sh -c ")
-    assert "tar -cf -" in a.explain()
+def test_run_subprocess_has_no_shell_affordance():
+    """The Action layer is argv-only by construction: the frozen
+    dataclass rejects a shell_str field, so a second shell=True path
+    cannot come back in through field occupancy."""
+    import pytest
+
+    with pytest.raises(TypeError):
+        RunSubprocess(argv=(), shell_str="echo hi | cat")
 
 
 def test_write_file_explain():
@@ -103,15 +97,6 @@ def test_run_subprocess_execute_records_argv():
     res = a.execute(rt)
     assert res.exit_code == 0 and res.stdout == "ok"
     assert rt.subprocess_calls[0]["argv"] == ("docker", "ps")
-    assert rt.subprocess_calls[0]["shell"] is False
-
-
-def test_run_subprocess_shell_str_routes_via_shell_true():
-    rt = FakeRuntime()
-    a = RunSubprocess(argv=(), shell_str="echo hi | cat")
-    a.execute(rt)
-    assert rt.subprocess_calls[0]["shell"] is True
-    assert rt.subprocess_calls[0]["argv"] == "echo hi | cat"
 
 
 def test_write_file_calls_runtime():
@@ -163,11 +148,10 @@ def test_wait_for_user_times_out():
 def test_action_failed_error_carries_action_and_result():
     a = RunSubprocess(argv=("false",))
     res = ActionResult(exit_code=2, stderr="nope")
-    err = ActionFailedError(a, res, phase="up.docker", hint="check ports")
+    err = ActionFailedError(a, res, phase="up.docker")
     assert err.action is a
     assert err.result.exit_code == 2
     assert err.phase == "up.docker"
-    assert err.hint == "check ports"
     assert "false" in str(err)
 
 
@@ -178,8 +162,7 @@ def test_action_failed_error_carries_action_and_result():
 
 def test_system_runtime_runs_true():
     rt = SystemRuntime()
-    res = rt.run_subprocess(("true",), env=None, cwd=None,
-                            capture=True, check=False, shell=False)
+    res = rt.run_subprocess(("true",), env=None, cwd=None, capture=True)
     assert res.exit_code == 0
 
 

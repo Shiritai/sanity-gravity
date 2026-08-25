@@ -10,16 +10,9 @@ The bus is the smallest piece of the microkernel; we cover:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-# Make the package importable the same way sanity-cli does.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.core.eventbus import EventBus, Hook, get_default_bus, on  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.domain.tags import Tag  # noqa: E402
+from sanity_gravity.core.eventbus import EventBus, get_default_bus, on
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.domain.tags import Tag
 
 
 def test_subscribe_and_publish_invokes_hook():
@@ -48,7 +41,7 @@ def test_equal_priority_preserves_registration_order():
     bus = EventBus()
     order = []
     for label in ("first", "second", "third"):
-        bus.subscribe(Phase.UP_DOCKER, lambda c, l=label: order.append(l))
+        bus.subscribe(Phase.UP_DOCKER, lambda c, lb=label: order.append(lb))
     bus.publish(Phase.UP_DOCKER, None)
     assert order == ["first", "second", "third"]
 
@@ -281,7 +274,7 @@ def test_merge_into_isolate_false_preserves_origin_flag():
 
 
 def test_tag_parse_round_trip():
-    parsed = Tag.parse("ag-xfce-kasm", parser=lambda s: tuple(s.split("-")))
+    parsed = Tag.parse("ag-xfce-kasm")
     assert parsed.agent == "ag"
     assert parsed.desktop == "xfce"
     assert parsed.connector == "kasm"

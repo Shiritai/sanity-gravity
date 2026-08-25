@@ -1,24 +1,18 @@
 """Tests for ``verbs/upgrade.py`` — the lossless persistent-home migration.
 
-The verb shells out to docker heavily; these tests mock ``run_step`` /
-``run_command`` and the compose generators so the *ordering* and
+The verb shells out to docker heavily; these tests mock ``run_step``
+and the compose generators -- and script the ``fake_proc`` boundary
+where ``run_step`` itself is under test -- so the *ordering* and
 *safety invariants* of the migration are exercised without a daemon.
 """
 from __future__ import annotations
 
 import argparse
-import subprocess
-import sys
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.verbs import upgrade as up_mod  # noqa: E402
-
+from sanity_gravity.verbs import upgrade as up_mod
 
 # ---------------------------------------------------------------------------
 # run_step
@@ -26,26 +20,31 @@ from sanity_gravity.verbs import upgrade as up_mod  # noqa: E402
 
 
 class TestRunStep:
-    def test_returns_stdout_on_success(self):
-        fake = MagicMock(returncode=0, stdout="  hello\n", stderr="")
-        with patch.object(up_mod.subprocess, "run", return_value=fake):
-            assert up_mod.run_step(("docker", "ps"), capture=True) == "hello"
+    """``run_step`` is the thin wrapper over ``try_run``; scripting the
+    proc boundary keeps the wrapper itself unmocked.
 
-    def test_raises_runtimeerror_on_failure(self):
-        fake = MagicMock(returncode=1, stdout="", stderr="boom\n")
-        with patch.object(up_mod.subprocess, "run", return_value=fake):
-            with pytest.raises(RuntimeError, match="boom"):
-                up_mod.run_step(("docker", "commit", "x", "y"))
+    Scripted stdout/stderr are already stripped because the real
+    ``try_run`` strips at the boundary -- run_step never sees the raw
+    trailing newline, so pinning one here would test the fake.
+    """
 
-    def test_failure_never_calls_sys_exit(self):
+    def test_returns_stdout_on_success(self, fake_proc):
+        fake_proc.script("docker ps", stdout="hello")
+        assert up_mod.run_step(("docker", "ps"), capture=True) == "hello"
+
+    def test_raises_runtimeerror_on_failure(self, fake_proc):
+        fake_proc.script("docker commit", rc=1, stderr="boom")
+        with pytest.raises(RuntimeError, match="boom"):
+            up_mod.run_step(("docker", "commit", "x", "y"))
+
+    def test_failure_never_calls_sys_exit(self, fake_proc):
         """run_step must raise, not sys.exit — a half-done migration has
         to be catchable so it can report its stage."""
-        fake = MagicMock(returncode=2, stdout="", stderr="")
-        with patch.object(up_mod.subprocess, "run", return_value=fake):
-            with pytest.raises(RuntimeError):
-                up_mod.run_step(("docker", "x"))
-            # (pytest.raises catching SystemExit would also pass, so be
-            # explicit: the raised type is RuntimeError, not SystemExit.)
+        fake_proc.script("docker x", rc=2)
+        with pytest.raises(RuntimeError):
+            up_mod.run_step(("docker", "x"))
+        # (pytest.raises catching SystemExit would also pass, so be
+        # explicit: the raised type is RuntimeError, not SystemExit.)
 
 
 # ---------------------------------------------------------------------------
@@ -113,23 +112,30 @@ class TestRecoverEnv:
 
 
 class TestGetPublishedPorts:
-    def test_maps_container_ports_to_env_vars(self):
+    """Scripted on the ``docker inspect`` shape, so these also pin that
+    the bindings are read by inspecting the container at all."""
+
+    def test_maps_container_ports_to_env_vars(self, fake_proc):
         # Two bound ports; docker inspect emits "<cport>=<hostport> ..."
-        out = "22/tcp=33001 8444/tcp=33007 "
-        with patch.object(up_mod, "run_command", return_value=out):
-            ports = up_mod.get_published_ports("cid")
+        fake_proc.script("docker inspect", stdout="22/tcp=33001 8444/tcp=33007")
+        ports = up_mod.get_published_ports("cid")
         assert ports == {"SSH_HOST_PORT": "33001", "KASM_PORT": "33007"}
 
-    def test_unbound_or_unknown_ports_ignored(self):
-        # 9999/tcp is not a sanity connector port → dropped.
-        out = "9999/tcp=40000 5901/tcp=33010"
-        with patch.object(up_mod, "run_command", return_value=out):
-            ports = up_mod.get_published_ports("cid")
+    def test_unbound_or_unknown_ports_ignored(self, fake_proc):
+        # 9999/tcp is not a sanity connector port -> dropped.
+        fake_proc.script("docker inspect", stdout="9999/tcp=40000 5901/tcp=33010")
+        ports = up_mod.get_published_ports("cid")
         assert ports == {"VNC_PORT": "33010"}
 
-    def test_empty_inspect_output_yields_empty(self):
-        with patch.object(up_mod, "run_command", return_value=""):
-            assert up_mod.get_published_ports("cid") == {}
+    def test_empty_inspect_output_yields_empty(self, fake_proc):
+        fake_proc.script("docker inspect", stdout="")
+        assert up_mod.get_published_ports("cid") == {}
+
+    def test_uninspectable_container_yields_empty(self, fake_proc):
+        """The documented tolerance, pinned on the rc: gone container ->
+        no known bindings -> caller falls back to ephemeral ports."""
+        fake_proc.script("docker inspect", rc=1)
+        assert up_mod.get_published_ports("cid") == {}
 
 
 # ---------------------------------------------------------------------------

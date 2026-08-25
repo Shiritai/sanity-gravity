@@ -4,15 +4,9 @@ unknown project, daemon failure, empty active list.
 from __future__ import annotations
 
 import argparse
-import subprocess
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
+from sanity_gravity.domain.errors import CommandError
 
 
 class TestStatusEdges:
@@ -38,7 +32,7 @@ class TestStatusEdges:
         with patch.object(status_mod, "get_active_projects",
                           return_value=["other"]), \
              patch.object(status_mod, "get_legacy_projects", return_value=[]), \
-             patch.object(status_mod, "run_command", return_value=""), \
+             patch.object(status_mod, "capture", return_value=""), \
              patch.object(status_mod, "print_warning") as warn, \
              patch.object(status_mod, "print_info"), \
              patch.object(status_mod, "print_header"), \
@@ -54,12 +48,12 @@ class TestStatusEdges:
         from sanity_gravity.verbs import status as status_mod
 
         def fail(cmd, **_kw):
-            raise subprocess.CalledProcessError(1, cmd, stderr="daemon down")
+            raise CommandError(tuple(cmd), 1, stderr="daemon down")
 
         with patch.object(status_mod, "get_active_projects",
                           return_value=["proj1"]), \
              patch.object(status_mod, "get_legacy_projects", return_value=[]), \
-             patch.object(status_mod, "run_command", side_effect=fail), \
+             patch.object(status_mod, "capture", side_effect=fail), \
              patch.object(status_mod, "print_error") as err, \
              patch.object(status_mod, "print_info"), \
              patch.object(status_mod, "print_header"), \

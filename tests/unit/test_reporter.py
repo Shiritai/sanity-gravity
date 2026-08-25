@@ -5,25 +5,26 @@ import io
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
-import pytest
-
-# Make the package importable the same way sanity-cli does.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.events import (  # noqa: E402
-    AccessInfo, CommandIssued, Header, Info, Success,
-)
-from sanity_gravity.core.reporter import (  # noqa: E402
+from sanity_gravity.core.reporter import (
     AnsiSink,
     FileSink,
     JsonlSink,
     Reporter,
     build_default_reporter,
 )
+
+# Make the package importable the same way sanity-cli does.
+from sanity_gravity.events import (
+    AccessInfo,
+    CommandIssued,
+    Header,
+    Info,
+    Success,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class RecorderSink:

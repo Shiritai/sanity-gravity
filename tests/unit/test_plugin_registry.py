@@ -1,17 +1,22 @@
-"""Tests for ``lib/plugins.py`` registry discovery + tag enumeration."""
+"""Tests for ``lib/plugins.py`` registry discovery + tag enumeration.
+
+``from_dir``'s duplicate-slug guard has no test on purpose: a bucket is
+keyed by ``m.slug``, the preceding guard already requires ``m.slug ==
+slug_dir.name``, and directory names are unique within a kind — so the
+branch is unreachable from any on-disk tree.
+"""
 from __future__ import annotations
 
-import sys
+import importlib.util
 from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.plugins.manifest import ManifestError
+from sanity_gravity.plugins.registry import PluginRegistry
 
-from sanity_gravity.plugins.manifest import ManifestError  # noqa: E402
-from sanity_gravity.domain.tags import Tag  # noqa: E402
-from sanity_gravity.plugins.registry import PluginRegistry  # noqa: E402
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 PLUGINS_DIR = _REPO_ROOT / "plugins"
@@ -47,8 +52,22 @@ def test_get_returns_manifest(reg):
 
 
 def test_get_unknown_raises(reg):
-    with pytest.raises(KeyError):
+    """The KeyError names the (kind, slug) that was asked for.
+
+    Matched on the accessor's own wording rather than the bare type:
+    with the explicit raise deleted the lookup still fails, only with
+    the dict's own ``KeyError('nope')`` — so ``pytest.raises(KeyError)``
+    alone stays green with the guard gone.
+    """
+    with pytest.raises(KeyError, match=r"no agent plugin with slug 'nope'"):
         reg.get("agent", "nope")
+
+
+def test_get_unknown_kind_raises(reg):
+    """``kind`` is a closed set: an unrecognised one is a caller bug,
+    not an empty bucket."""
+    with pytest.raises(KeyError, match=r"unknown plugin kind: 'weapon'"):
+        reg.get("weapon", "ag")
 
 
 def test_valid_tags_returns_expected(reg):
@@ -123,6 +142,25 @@ def test_from_dir_rejects_slug_dir_mismatch(tmp_path):
         '[build]\ndockerfile = "Dockerfile"\n',
     )
     with pytest.raises(ManifestError, match="slug 'different' does not match"):
+        PluginRegistry.from_dir(tmp_path)
+
+
+def test_from_dir_reports_unbuildable_hooks_spec(tmp_path, monkeypatch):
+    """When importlib cannot build a spec the loader must say which
+    file it failed on; otherwise the None spec is only noticed later as
+    an attribute error with no provenance."""
+    _write_plugin(
+        tmp_path,
+        "agents",
+        "ag2",
+        '[plugin]\nslug = "ag2"\nname = "ag2"\nkind = "agent"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n',
+    )
+    (tmp_path / "agents" / "ag2" / "hooks.py").write_text("")
+    monkeypatch.setattr(
+        importlib.util, "spec_from_file_location", lambda *a, **kw: None
+    )
+    with pytest.raises(ManifestError, match="failed to build import spec"):
         PluginRegistry.from_dir(tmp_path)
 
 

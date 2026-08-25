@@ -11,30 +11,25 @@ and assert on the recorded calls. This is enough to verify:
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-# Make the package importable the same way sanity-cli does.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.core.eventbus import EventBus  # noqa: E402
-from sanity_gravity.core.orchestrator import (  # noqa: E402
+from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.core.orchestrator import (
+    _UP_PHASES,
     Deps,
     Orchestrator,
     PortRequest,
     RequestedPort,
     UpContext,
-    _UP_PHASES,
 )
-from sanity_gravity.hooks import up as up_hooks  # noqa: E402
-from sanity_gravity.hooks.up import register_builtin_up_hooks  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.domain.tags import Tag  # noqa: E402
-from sanity_gravity.plugins.manifest import PluginManifest, PortSpec  # noqa: E402
-
+from sanity_gravity.core.proc import Completed
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.hooks import up as up_hooks
+from sanity_gravity.hooks.up import register_builtin_up_hooks
+from sanity_gravity.plugins.manifest import PluginManifest, PortSpec
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -81,7 +76,7 @@ def _make_deps(**overrides):
         generate_resource_compose=_rec("generate_resource_compose", None),
         sync_config=_rec("sync_config"),
         is_port_in_use=_rec("is_port_in_use", False),
-        run_command=_rec("run_command"),
+        try_run=_rec("try_run", Completed(("true",), 0)),
     )
     base.update(overrides)
     deps = Deps(**base)
@@ -163,7 +158,7 @@ def test_full_up_flow_invokes_expected_deps_in_order():
     Orchestrator(bus, ctx.reporter).run(_UP_PHASES, ctx)
 
     # PR #5: ``docker compose up`` is now enqueued as an Action rather
-    # than calling ``run_command`` directly. ``sync_config`` still runs
+    # than shelling out directly. ``sync_config`` still runs
     # eagerly (its tar-pipe + interactive prompts haven't migrated).
     names = [c[0] for c in calls]
     assert names.index("validate_project_name") < names.index("generate_compose_for_tag")
@@ -348,10 +343,10 @@ def test_resolve_ephemeral_probes_manifest_internal_ports(monkeypatch):
     def _run(cmd, **kw):
         if isinstance(cmd, tuple) and "port" in cmd:
             port_calls.append(cmd)
-            return "0.0.0.0:41000"
-        return None
+            return Completed(tuple(cmd), 0, stdout="0.0.0.0:41000")
+        return Completed(tuple(cmd), 0)
 
-    deps, _ = _make_deps(run_command=_run)
+    deps, _ = _make_deps(try_run=_run)
     ctx = _make_ctx(deps, connector="obs")
     ctx.resolved_ports = {"metrics": "0"}
     up_hooks.resolve_ephemeral(ctx)
@@ -370,10 +365,10 @@ def test_resolve_ephemeral_only_runs_when_port_is_zero():
         # Distinguish ``port`` lookups from the initial ``up -d``.
         if isinstance(cmd, tuple) and "port" in cmd:
             port_calls.append(cmd)
-            return "0.0.0.0:32768"
-        return None
+            return Completed(tuple(cmd), 0, stdout="0.0.0.0:32768")
+        return Completed(tuple(cmd), 0)
 
-    deps, _ = _make_deps(run_command=_run)
+    deps, _ = _make_deps(try_run=_run)
     ctx = _make_ctx(deps, project="other")  # forces ephemeral
     Orchestrator(bus, ctx.reporter).run(_UP_PHASES, ctx)
     # We requested kasm-connector; expect lookups for 22 + 8444.

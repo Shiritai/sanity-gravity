@@ -8,17 +8,13 @@ these tests pin the contract.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.core.eventbus import get_default_bus  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.plugins.registry import (  # noqa: E402
+from sanity_gravity.core.eventbus import get_default_bus
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.plugins.registry import (
     PluginRegistry,
     reset_default_registry,
 )

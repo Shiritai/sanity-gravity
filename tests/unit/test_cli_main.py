@@ -7,13 +7,7 @@ with explicit round-trip cases.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.cli.main import _preprocess_argv  # noqa: E402
+from sanity_gravity.cli.main import _preprocess_argv
 
 
 class TestPreprocessArgv:

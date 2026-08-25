@@ -6,34 +6,36 @@ similar) and the existing unit tests wouldn't catch it.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.cli.parser import build_parser  # noqa: E402
-from sanity_gravity.verbs.build import build  # noqa: E402
-from sanity_gravity.verbs.check import check_prereqs  # noqa: E402
-from sanity_gravity.verbs.ide import ide_cmd  # noqa: E402
-from sanity_gravity.verbs.lifecycle import (  # noqa: E402
-    clean, down, restart, start, stop,
+from sanity_gravity.cli.parser import build_parser
+from sanity_gravity.verbs.build import build
+from sanity_gravity.verbs.check import check_prereqs
+from sanity_gravity.verbs.ide import ide_cmd
+from sanity_gravity.verbs.lifecycle import (
+    clean,
+    down,
+    restart,
+    start,
+    stop,
 )
-from sanity_gravity.verbs.open import open_cmd  # noqa: E402
-from sanity_gravity.verbs.proxy import (  # noqa: E402
-    proxy_remove_cmd, proxy_setup_cmd, proxy_status_cmd,
+from sanity_gravity.verbs.open import open_cmd
+from sanity_gravity.verbs.proxy import (
+    proxy_remove_cmd,
+    proxy_setup_cmd,
+    proxy_status_cmd,
 )
-from sanity_gravity.verbs.shell import shell_cmd  # noqa: E402
-from sanity_gravity.verbs.snapshot import snapshot_cmd  # noqa: E402
-from sanity_gravity.verbs.status import (  # noqa: E402
-    list_variants, plugins_list, status,
+from sanity_gravity.verbs.shell import shell_cmd
+from sanity_gravity.verbs.snapshot import snapshot_cmd
+from sanity_gravity.verbs.status import (
+    list_variants,
+    plugins_list,
+    status,
 )
-from sanity_gravity.verbs.sync import sync_config_cmd  # noqa: E402
-from sanity_gravity.verbs.test_suite import test_suite as _test_suite_verb  # noqa: E402
-from sanity_gravity.verbs.up import up  # noqa: E402
-from sanity_gravity.verbs.upgrade import upgrade  # noqa: E402
+from sanity_gravity.verbs.sync import sync_config_cmd
+from sanity_gravity.verbs.test_suite import test_suite as _test_suite_verb
+from sanity_gravity.verbs.up import up
+from sanity_gravity.verbs.upgrade import upgrade
 
 
 def _parse(*argv):

@@ -1,8 +1,9 @@
-import time
 import socket
-import requests
 import subprocess
-import urllib3
+import time
+
+import requests
+
 
 def wait_for_port(port, host='localhost', timeout=10):
     """Wait for a TCP port to be open."""
