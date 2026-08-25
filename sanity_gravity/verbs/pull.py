@@ -19,7 +19,7 @@ from sanity_gravity.cli.io import (
     print_warning,
 )
 from sanity_gravity.core.proc import try_run
-from sanity_gravity.core.registry import OFFICIAL_TAGS
+from sanity_gravity.core.registry import OFFICIAL_TAG_VALUES
 from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.tags import Tag, TagError
@@ -113,6 +113,17 @@ class PullReport:
         return not self.failed
 
 
+
+def _as_tag(variant: Tag | str) -> Tag:
+    """The argv boundary for ``pull``: a user-typed variant becomes a
+    value here, once.
+
+    ``--variant all`` expands to the registry's already-parsed matrix, so
+    those arrive as values and are passed through untouched rather than
+    rendered and re-parsed.
+    """
+    return variant if isinstance(variant, Tag) else Tag.parse(variant)
+
 def pull(args) -> PullReport:
     """Pull + locally re-tag each requested variant; aggregate outcomes."""
     variants = args.variant
@@ -122,9 +133,10 @@ def pull(args) -> PullReport:
     if isinstance(variants, str):
         variants = [variants]
     if "all" in variants:
-        # Only official-tier tags are published to GHCR, so the
-        # wildcard expands to exactly the CI/publish matrix.
-        variants = list(OFFICIAL_TAGS)
+        # Only official-tier tags are published to GHCR, so the wildcard
+        # expands to exactly the CI/publish matrix - as values, since the
+        # registry already parsed them.
+        variants = list(OFFICIAL_TAG_VALUES)
 
     version_tag = args.tag if hasattr(args, "tag") and args.tag else get_target_version_tag()
     repo_lc = resolve_ghcr_repo()
@@ -140,7 +152,7 @@ def pull(args) -> PullReport:
         # sent to docker as a ref that cannot exist - the all-or-nothing
         # exit contract is unchanged.
         try:
-            naming = Naming(Tag.parse(variant))
+            naming = Naming(_as_tag(variant))
         except TagError as e:
             print_error(f"[{variant}] {e}")
             failed.append(variant)

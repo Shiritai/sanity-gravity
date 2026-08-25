@@ -100,7 +100,6 @@ _KNOWN_FAMILIES = {k: frozenset(v) for k, v in KNOWN_IDENTITY_FSTRINGS.items()}
 # take the Tag from the parse directly. This set may only shrink.
 KNOWN_DASH_SPLITS = frozenset({
     "sanity_gravity/core/registry.py::resolve_tag",
-    "sanity_gravity/core/registry.py::tag_tier",
 })
 
 

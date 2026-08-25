@@ -17,7 +17,7 @@ from sanity_gravity.core.registry import (
     DEFAULT_TAG,
     DESKTOPS,
     OFFICIAL_TAGS,
-    VALID_TAGS,
+    VALID_TAG_VALUES,
     get_registry,
     tag_tier,
 )
@@ -144,12 +144,13 @@ def list_variants(args):
     print_plain(f"  {Colors.BOLD}Default:{Colors.ENDC} {DEFAULT_TAG}")
 
     print_plain(f"\n  {Colors.BOLD}All valid tags:{Colors.ENDC}")
-    for tag in VALID_TAGS:
+    for value in VALID_TAG_VALUES:
+        tag = str(value)
         marker = (
             f" {Colors.OKGREEN}(default){Colors.ENDC}"
             if tag == DEFAULT_TAG else ""
         )
-        marker += _tier_marker(tag_tier(tag))
+        marker += _tier_marker(tag_tier(value))
         print_plain(f"    {Colors.OKCYAN}{tag}{Colors.ENDC}{marker}")
 
 

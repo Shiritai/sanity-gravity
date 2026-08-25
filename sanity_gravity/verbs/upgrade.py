@@ -34,7 +34,6 @@ from sanity_gravity.compose.generators import (
 from sanity_gravity.core.colors import Colors
 from sanity_gravity.core.proc import try_run
 from sanity_gravity.domain.naming import Naming
-from sanity_gravity.domain.tags import Tag
 from sanity_gravity.verbs.lifecycle import (
     get_legacy_containers,
     get_legacy_projects,
@@ -145,9 +144,9 @@ def _migrate_one(item, host_uid, host_gid, host_user, timestamp):
     """
     project, service = item["project"], item["service"]
     cid, name, tag = item["cid"], item["name"], item["tag"]
-    # ``tag`` came out of legacy_target_tag, so it always parses.
-    naming = Naming(Tag.parse(tag), project)
-    if service == tag:
+    # ``tag`` is the Tag value legacy_target_tag already produced.
+    naming = Naming(tag, project)
+    if service == str(tag):
         # A managed container migrating in place: its service label
         # already is the target tag, so the rollback ref is a Naming
         # render like every other identity.

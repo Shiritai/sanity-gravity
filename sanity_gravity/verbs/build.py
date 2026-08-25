@@ -25,6 +25,7 @@ from sanity_gravity.core.orchestrator import (
 )
 from sanity_gravity.core.registry import (
     DEFAULT_TAG,
+    OFFICIAL_TAG_VALUES,
     OFFICIAL_TAGS,
     deprecation_warning,
     resolve_tag,
@@ -32,17 +33,15 @@ from sanity_gravity.core.registry import (
 from sanity_gravity.domain.layers import LayerKind
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.plan import official_layers
-from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.executor import build_default_executor
 from sanity_gravity.hooks.build import register_builtin_build_hooks
 
 
 def generate_intermediates():
     """Intermediate layer names of the official matrix (--list-intermediates)."""
-    tags = [Tag.parse(t) for t in OFFICIAL_TAGS]
     return [
         Naming.layer(ref.kind, ref.detail)
-        for ref in official_layers(tags)
+        for ref in official_layers(OFFICIAL_TAG_VALUES)
         if ref.kind is not LayerKind.CONNECTOR
     ]
 
@@ -82,9 +81,9 @@ def build(args):
         # boundary renders it and exits 1, exactly as the old
         # print+exit pair did.
         for target in targets:
-            resolve_tag(target)
-            # Deprecated tags warn but never block (tier policy).
-            notice = deprecation_warning(target)
+            # resolve_tag IS the boundary: keep its value rather than
+            # throwing it away and re-parsing the string downstream.
+            notice = deprecation_warning(resolve_tag(target))
             if notice:
                 print_warning(notice)
         print_header(f"Building: {', '.join(targets)}")

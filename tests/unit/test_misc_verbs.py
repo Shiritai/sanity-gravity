@@ -9,13 +9,12 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.conftest import container_record
+
 
 def _match(project, service):
     """One discovery record, shaped like find_project_containers returns."""
-    return [{
-        "cid": "c1", "name": f"{project}-{service}-1",
-        "service": service, "running": True,
-    }]
+    return [container_record(service, project)]
 
 
 # ---------------------------------------------------------------------------

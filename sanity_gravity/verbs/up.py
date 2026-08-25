@@ -76,7 +76,7 @@ def up(args):
 
     # Deprecated tags warn but never block (tier policy) - existing
     # sandboxes keep working, only CI/publish dropped the tag.
-    notice = deprecation_warning(str(tag))
+    notice = deprecation_warning(tag)
     if notice:
         print_warning(notice)
 

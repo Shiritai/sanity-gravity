@@ -9,7 +9,6 @@ from sanity_gravity.cli.io import (
     print_warning,
 )
 from sanity_gravity.core.proc import try_run
-from sanity_gravity.domain.tags import Tag
 from sanity_gravity.verbs.lifecycle import find_project_containers, get_active_projects
 
 
@@ -29,6 +28,7 @@ def open_cmd(args):
         print_error(f"No running containers found for {project_name}.")
         return
     target_variant = matches[0]["service"]
+    target_tag = matches[0]["tag"]
 
     url = None
 
@@ -50,11 +50,8 @@ def open_cmd(args):
             return res.stdout.split(":")[-1]
         return None
 
-    # The service label is a boundary string, but a pre-validated one:
-    # find_project_containers only yields services in VALID_TAGS, so
-    # this parse cannot fail (the old except-ValueError branch was
-    # unreachable for the same reason).
-    connector = Tag.parse(target_variant).connector
+    # Discovery already parsed the service label; read the value.
+    connector = target_tag.connector
 
     if connector == "kasm":
         port = resolve_port(target_variant, "8444")

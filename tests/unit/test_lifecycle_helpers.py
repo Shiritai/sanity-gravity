@@ -160,16 +160,16 @@ class TestLegacyTargetTag:
     def test_flat_legacy_services_map_to_ag_xfce(self):
         from sanity_gravity.verbs.lifecycle import legacy_target_tag
 
-        assert legacy_target_tag("core") == "ag-xfce-ssh"
-        assert legacy_target_tag("kasm") == "ag-xfce-kasm"
-        assert legacy_target_tag("vnc") == "ag-xfce-vnc"
+        assert str(legacy_target_tag("core")) == "ag-xfce-ssh"
+        assert str(legacy_target_tag("kasm")) == "ag-xfce-kasm"
+        assert str(legacy_target_tag("vnc")) == "ag-xfce-vnc"
 
     def test_already_tagged_service_migrates_in_place(self):
         from sanity_gravity.core.registry import VALID_TAGS
         from sanity_gravity.verbs.lifecycle import legacy_target_tag
 
         tag = VALID_TAGS[0]
-        assert legacy_target_tag(tag) == tag
+        assert str(legacy_target_tag(tag)) == tag
 
     def test_unknown_service_unmappable(self):
         from sanity_gravity.verbs.lifecycle import legacy_target_tag

@@ -36,6 +36,7 @@ from sanity_gravity.verbs import snapshot as snapshot_mod
 from sanity_gravity.verbs import sync as sync_mod
 from sanity_gravity.verbs import up as up_mod
 from sanity_gravity.verbs.build import generate_intermediates
+from tests.conftest import container_record
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -511,10 +512,7 @@ class TestRunResourceArgs:
         assert "config/docker-compose.resources.yml" in argv
 
 
-_RUNNING_MATCH = [{
-    "cid": "c1", "name": "sanity-gravity-ag-xfce-kasm-1",
-    "service": "ag-xfce-kasm", "running": True,
-}]
+_RUNNING_MATCH = [container_record("ag-xfce-kasm")]
 
 
 class TestNewCommands:

@@ -14,6 +14,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.conftest import container_record
+
 # ---------------------------------------------------------------------------
 # verbs/check.py
 # ---------------------------------------------------------------------------
@@ -225,10 +227,7 @@ class TestIdeVerb:
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["proj1"]), \
              patch.object(ide_mod, "find_project_containers",
-                          return_value=[{
-                              "cid": "c1", "name": "proj1-gc-none-ssh-1",
-                              "service": "gc-none-ssh", "running": True,
-                          }]), \
+                          return_value=[container_record("gc-none-ssh")]), \
              patch("sanity_gravity.core.registry.get_registry",
                    return_value=registry), \
              patch.object(ide_mod, "print_error") as err:
@@ -252,10 +251,7 @@ class TestIdeVerb:
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["proj1"]), \
              patch.object(ide_mod, "find_project_containers",
-                          return_value=[{
-                              "cid": "c1", "name": "proj1-ag-xfce-kasm-1",
-                              "service": "ag-xfce-kasm", "running": True,
-                          }]), \
+                          return_value=[container_record("ag-xfce-kasm")]), \
              patch("sanity_gravity.core.registry.get_registry",
                    return_value=registry), \
              patch.object(ide_mod.subprocess, "check_call") as check_call, \
@@ -272,10 +268,7 @@ class TestIdeVerb:
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["proj1"]), \
              patch.object(ide_mod, "find_project_containers",
-                          return_value=[{
-                              "cid": "c1", "name": "proj1-ag-xfce-kasm-1",
-                              "service": "ag-xfce-kasm", "running": True,
-                          }]), \
+                          return_value=[container_record("ag-xfce-kasm")]), \
              patch.object(ide_mod.subprocess, "check_call",
                           side_effect=subprocess.CalledProcessError(1, "docker cp")), \
              patch.object(ide_mod, "print_header"), \

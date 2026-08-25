@@ -95,7 +95,7 @@ def test_oc_tags_enter_the_official_matrix():
         "oc-none-ssh", "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
     ]
     for t in oc_tags:
-        assert tag_tier(t) == "official"
+        assert tag_tier(resolve_tag(t)) == "official"
 
 
 # -- capability solving -------------------------------------------------

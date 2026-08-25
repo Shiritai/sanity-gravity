@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import sanity_gravity.verbs.lifecycle as lc
 from sanity_gravity.core.registry import VALID_TAGS
+from tests.conftest import container_record
 
 
 def _line(cid, name, service, state):
@@ -31,10 +32,7 @@ def test_single_ps_call_results_in_valid_tags_order():
     assert any("com.docker.compose.project=p" in part for part in cmd)
 
     assert [r["service"] for r in got] == ["ag-xfce-kasm", "cc-none-ssh"]
-    assert got[0] == {
-        "cid": "c1", "name": "p-ag-xfce-kasm-1",
-        "service": "ag-xfce-kasm", "running": True,
-    }
+    assert got[0] == container_record("ag-xfce-kasm", "p")
     assert VALID_TAGS.index(got[0]["service"]) < VALID_TAGS.index(got[1]["service"])
 
 

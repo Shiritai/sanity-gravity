@@ -14,6 +14,7 @@ from unittest.mock import patch
 import pytest
 
 from sanity_gravity.verbs import ide as ide_verb
+from tests.conftest import container_record
 
 pytestmark = pytest.mark.no_image
 
@@ -47,10 +48,7 @@ class TestIdeCommand:
     @patch("sanity_gravity.verbs.ide.get_active_projects")
     def test_ide_update_success(self, mock_get_active, mock_check_call, mock_find):
         mock_get_active.return_value = ["sanity-gravity"]
-        mock_find.return_value = [{
-            "cid": "c1", "name": "sanity-gravity-ag-xfce-kasm-1",
-            "service": "ag-xfce-kasm", "running": True,
-        }]
+        mock_find.return_value = [container_record("ag-xfce-kasm")]
 
         args = argparse.Namespace(name="sanity-gravity", ide_command="update")
         ide_verb.ide_cmd(args)
@@ -63,10 +61,9 @@ class TestIdeCommand:
     @patch("sanity_gravity.verbs.ide.get_active_projects")
     def test_ide_reinstall_success(self, mock_get_active, mock_check_call, mock_find):
         mock_get_active.return_value = ["my-project"]
-        mock_find.return_value = [{
-            "cid": "c1", "name": "my-project-ag-xfce-kasm-1",
-            "service": "ag-xfce-kasm", "running": True,
-        }]
+        mock_find.return_value = [
+            container_record("ag-xfce-kasm", "my-project")
+        ]
 
         args = argparse.Namespace(name="my-project", ide_command="reinstall")
         ide_verb.ide_cmd(args)

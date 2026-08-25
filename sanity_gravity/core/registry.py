@@ -128,28 +128,39 @@ def resolve_tag(tag: str) -> Tag:
     return parsed
 
 
+def generate_tag_values(tiers: Collection[str] | None = None) -> tuple[Tag, ...]:
+    """The matrix as parsed values - the registry builds Tags from
+    manifest slugs, so this is where they are already values.
+
+    Exposed alongside the string view because the string view is a
+    rendering of this, not the other way round: callers that want
+    structure took to re-parsing ``VALID_TAGS`` item by item, which put
+    the tag grammar back into three separate call sites.
+    """
+    return tuple(get_registry().valid_tags(tiers=tiers))
+
+
 def generate_valid_tags(tiers: Collection[str] | None = None) -> list[str]:
     """Return all tag combinations whose plugins satisfy capabilities.
 
     ``tiers`` optionally restricts the result to tags whose tier is in
     the given set (see :meth:`PluginRegistry.valid_tags`).
     """
-    return [str(t) for t in get_registry().valid_tags(tiers=tiers)]
+    return [str(t) for t in generate_tag_values(tiers=tiers)]
 
 
-def tag_tier(tag: str) -> str:
-    """Tier of a well-formed ``agent-desktop-connector`` tag string.
+def tag_tier(tag: Tag) -> str:
+    """Tier of a tag value.
 
     See :meth:`PluginRegistry.tag_tier` - the most restrictive tier
-    among the tag's three plugins wins.
+    among the tag's three plugins wins. Takes the value rather than the
+    string: splitting a rendered tag back into dimensions here made this
+    a second, quieter copy of the tag grammar.
     """
-    agent, desktop, connector = tag.split("-")
-    return get_registry().tag_tier(
-        Tag(agent=agent, desktop=desktop, connector=connector)
-    )
+    return get_registry().tag_tier(tag)
 
 
-def deprecation_warning(tag: str) -> str | None:
+def deprecation_warning(tag: Tag) -> str | None:
     """Warning text for a deprecated tag, or ``None`` for other tiers.
 
     Kept here (next to the tier data) so build/up print the same
@@ -167,8 +178,12 @@ def deprecation_warning(tag: str) -> str | None:
 # Legacy module-level views. Computed once at import time; they stay
 # stable across a process because the manifest set is filesystem-bound.
 AGENTS, CONNECTORS, DESKTOPS = _legacy_dim_dicts(get_registry())
-VALID_TAGS = generate_valid_tags()
+#: The matrix as values. VALID_TAGS is its rendering, so the two cannot
+#: drift and no caller needs to parse a tag back out of the string list.
+VALID_TAG_VALUES = generate_tag_values()
+VALID_TAGS = [str(t) for t in VALID_TAG_VALUES]
 # The CI build/verify and release publish matrix: official tier only.
 # Community/deprecated tags stay in VALID_TAGS (parse + lifecycle) but
 # leave every CI enumeration (``list --json`` / ``build all``).
-OFFICIAL_TAGS = generate_valid_tags(tiers=("official",))
+OFFICIAL_TAG_VALUES = generate_tag_values(tiers=("official",))
+OFFICIAL_TAGS = [str(t) for t in OFFICIAL_TAG_VALUES]

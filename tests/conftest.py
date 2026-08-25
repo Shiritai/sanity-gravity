@@ -480,3 +480,23 @@ def fake_proc(monkeypatch) -> FakeProc:
     fp = FakeProc()
     fp.install(monkeypatch)
     return fp
+
+
+def container_record(service: str, project: str = "sanity-gravity", *,
+                     cid: str = "c1", running: bool = True) -> dict:
+    """One discovery record, shaped like find_project_containers returns.
+
+    Built here rather than inline so the shape has one definition: the
+    record grew a parsed ``tag`` when the docker-label parse moved to the
+    boundary, and hand-written copies in six test modules would each have
+    had to learn about it.
+    """
+    from sanity_gravity.domain.tags import Tag
+
+    return {
+        "cid": cid,
+        "name": f"{project}-{service}-1",
+        "service": service,
+        "tag": Tag.parse(service),
+        "running": running,
+    }

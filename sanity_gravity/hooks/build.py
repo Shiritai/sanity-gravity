@@ -20,12 +20,13 @@ Phase split:
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 
 from sanity_gravity.core.command import CommandBuilder
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
 from sanity_gravity.core.proc import try_run
 from sanity_gravity.core.registry import (
-    OFFICIAL_TAGS,
+    OFFICIAL_TAG_VALUES,
     get_registry,
     resolve_tag,
 )
@@ -90,10 +91,10 @@ def _bind(ref: LayerRef) -> tuple[str, str]:
     return str(manifest.dockerfile_path), str(manifest.dir)
 
 
-def _official_tags() -> list[Tag]:
+def _official_tags() -> Sequence[Tag]:
     # Reads the module attribute (not the import site) so tests may
-    # monkeypatch build_hooks.OFFICIAL_TAGS to shrink the matrix.
-    return [Tag.parse(t) for t in OFFICIAL_TAGS]
+    # monkeypatch build_hooks.OFFICIAL_TAG_VALUES to shrink the matrix.
+    return OFFICIAL_TAG_VALUES
 
 
 def _roots(ctx) -> list[LayerRef]:
@@ -176,8 +177,12 @@ def build_done(ctx) -> None:
     elif "all" in targets:
         ctx.reporter.success("All builds complete!")
     else:
-        for t in targets:
-            ctx.reporter.success(f"Built {Naming(Tag.parse(t)).image()}")
+        # The plan already holds each final image as structure; naming
+        # it from the LayerRef avoids re-parsing the target string that
+        # produced it.
+        for node in ctx.plan:
+            if node.layer.kind is LayerKind.CONNECTOR:
+                ctx.reporter.success(f"Built {Naming.layer_image(node.layer)}")
 
 
 def register_builtin_build_hooks(bus: EventBus) -> None:

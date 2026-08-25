@@ -40,15 +40,16 @@ def legacy_target_tag(service):
     the connector carries over). A service that is already a valid tag —
     a managed container created before the persistent-home model — keeps
     its tag and migrates in place, the point being only to attach the
-    ``sanity_home`` volume. Returns the target tag, or ``None`` if the
-    service cannot be mapped.
+    ``sanity_home`` volume. Returns the target tag as a value, or
+    ``None`` if the service cannot be mapped - a legacy service name is
+    a boundary string, and this is where it becomes a Tag.
     """
     if service in VALID_TAGS:
-        return service
+        return Tag.parse(service)
     conn = _LEGACY_CONNECTOR.get(service)
     if conn:
-        candidate = str(Tag(agent="ag", desktop="xfce", connector=conn))
-        if candidate in VALID_TAGS:
+        candidate = Tag(agent="ag", desktop="xfce", connector=conn)
+        if str(candidate) in VALID_TAGS:
             return candidate
     return None
 
@@ -102,8 +103,18 @@ def find_project_containers(project_name, include_stopped=False):
         running = state in ("running", "paused")
         if not running and not include_stopped:
             continue
+        # The service label IS the tag: this is the boundary where the
+        # string becomes a value, so consumers read record["tag"] instead
+        # of parsing the label again in each verb. Membership in
+        # VALID_TAGS above means the parse cannot fail.
         records.append(
-            {"cid": cid, "name": name, "service": service, "running": running}
+            {
+                "cid": cid,
+                "name": name,
+                "service": service,
+                "tag": Tag.parse(service),
+                "running": running,
+            }
         )
     records.sort(key=lambda r: VALID_TAGS.index(r["service"]))
     return records

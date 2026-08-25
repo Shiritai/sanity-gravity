@@ -138,7 +138,7 @@ class TestCliEnumeration:
         # Everything else is untouched by gc's retirement.
         assert set(VALID_TAGS) - set(gc_tags) == set(OFFICIAL_TAGS)
         for t in gc_tags:
-            assert tag_tier(t) == "deprecated"
+            assert tag_tier(resolve_tag(t)) == "deprecated"
             resolve_tag(t)  # must not raise
 
     def test_list_json_emits_official_tags_only(self, capsys):
@@ -148,7 +148,8 @@ class TestCliEnumeration:
 
         with patch.object(status_mod, "OFFICIAL_TAGS", ["aa-none-ssh"]), \
              patch.object(
-                 status_mod, "VALID_TAGS", ["aa-none-ssh", "dd-none-ssh"]
+                 status_mod, "VALID_TAG_VALUES",
+                 (Tag.parse("aa-none-ssh"), Tag.parse("dd-none-ssh")),
              ):
             status_mod.list_variants(argparse.Namespace(json_output=True))
         assert json.loads(capsys.readouterr().out) == ["aa-none-ssh"]
@@ -162,7 +163,7 @@ class TestCliEnumeration:
             )
 
         with patch.object(
-                 status_mod, "VALID_TAGS",
+                 status_mod, "VALID_TAG_VALUES",
                  ["aa-none-ssh", "dd-none-ssh", "co-none-ssh"],
              ), \
              patch.object(status_mod, "tag_tier", side_effect=fake_tier):
@@ -211,7 +212,8 @@ class TestBuildAllTierFilter:
     def test_build_all_plans_only_official_tags(self, monkeypatch):
         import sanity_gravity.hooks.build as build_hooks
 
-        monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
+        monkeypatch.setattr(build_hooks, "OFFICIAL_TAG_VALUES",
+                            (Tag.parse("cc-none-ssh"),))
         ctx = self._run_build_all()
         planned = [_layer_name(node) for node in ctx.plan]
         # Finals restricted to the official set; intermediates follow.
@@ -233,7 +235,8 @@ class TestBuildAllTierFilter:
     def test_layer_desktop_follows_official_tier(self, monkeypatch):
         import sanity_gravity.hooks.build as build_hooks
 
-        monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
+        monkeypatch.setattr(build_hooks, "OFFICIAL_TAG_VALUES",
+                            (Tag.parse("cc-none-ssh"),))
         ctx = self._run_build(targets=[], layer_target="desktop")
         planned = [_layer_name(node) for node in ctx.plan]
         assert "_base-none" in planned
@@ -245,7 +248,8 @@ class TestBuildAllTierFilter:
     def test_layer_desktop_explicit_target_ignores_tier(self, monkeypatch):
         import sanity_gravity.hooks.build as build_hooks
 
-        monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
+        monkeypatch.setattr(build_hooks, "OFFICIAL_TAG_VALUES",
+                            (Tag.parse("cc-none-ssh"),))
         ctx = self._run_build(
             targets=[], layer_target="desktop", layer_target_specific="xfce",
         )
@@ -391,10 +395,10 @@ def test_legacy_dim_dicts_projects_capabilities_not_just_keys():
 
 
 def test_deprecation_warning_text_and_none_for_other_tiers():
-    from sanity_gravity.core.registry import deprecation_warning
+    from sanity_gravity.core.registry import deprecation_warning, resolve_tag
 
-    assert deprecation_warning("ag-xfce-kasm") is None
-    msg = deprecation_warning("gc-xfce-kasm")
+    assert deprecation_warning(resolve_tag("ag-xfce-kasm")) is None
+    msg = deprecation_warning(resolve_tag("gc-xfce-kasm"))
     assert msg is not None
     assert "deprecated plugin" in msg
     assert "excluded from CI" in msg
