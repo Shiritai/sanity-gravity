@@ -19,24 +19,21 @@ guard exists to catch.
 from __future__ import annotations
 
 import ast
-import os
 import re
-from pathlib import Path
 
-import pytest
-
-# Source-tree fingerprint: under mutmut the scanned files are the
-# generated mutant tree (x_*__mutmut_N clones of every function), so
-# the guard would measure the mutation codegen, not the repo. The test
-# executes no package code and thus can never kill a mutant; skipping
-# it there loses nothing. The real suite always runs it.
-pytestmark = pytest.mark.skipif(
-    "MUTANT_UNDER_TEST" in os.environ,
-    reason="source-tree guard is meaningless against mutmut's generated tree",
+from tests.support import (
+    PKG_ROOT,
+    REPO_ROOT,
+    QualnameVisitor,
+    node_name,
+    parse,
+    py_files,
+    source_tree_guard,
+    uncovered,
+    walk,
 )
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_PKG_ROOT = _REPO_ROOT / "sanity_gravity"
+pytestmark = source_tree_guard
 
 # The only module allowed to render identity grammar. (domain/tags.py
 # was exempt too until its last identity f-string left; a stale-entry
@@ -93,6 +90,10 @@ KNOWN_IDENTITY_FSTRINGS = {
     "sanity_gravity/verbs/upgrade.py::_migrate_one": ("backup",),
 }
 
+# The ratchet compared as sets; the seed above stays a literal of
+# tuples so it reads as a frozen list rather than as machinery.
+_KNOWN_FAMILIES = {k: frozenset(v) for k, v in KNOWN_IDENTITY_FSTRINGS.items()}
+
 # split("-") outside domain/ is tag grammar smuggled into a call site.
 # core/registry.py's resolve_tag / tag_tier are the two survivors: they
 # ARE the registry-validating grammar shim, retired once their callers
@@ -106,11 +107,7 @@ KNOWN_DASH_SPLITS = frozenset({
 def _fv_text(expr: ast.expr) -> str:
     """Shape text for one interpolation: prefix constants are seen
     through (their literal value), everything else collapses to {}."""
-    if isinstance(expr, ast.Attribute) and expr.attr in _PREFIX_VALUES:
-        return _PREFIX_VALUES[expr.attr]
-    if isinstance(expr, ast.Name) and expr.id in _PREFIX_VALUES:
-        return _PREFIX_VALUES[expr.id]
-    return "{}"
+    return _PREFIX_VALUES.get(node_name(expr), "{}")
 
 
 def _shape(node: ast.JoinedStr) -> str:
@@ -125,26 +122,13 @@ def _shape(node: ast.JoinedStr) -> str:
     return "".join(parts)
 
 
-class _Visitor(ast.NodeVisitor):
+class _Visitor(QualnameVisitor):
     """Collect per-qualname identity f-strings and split("-") calls."""
 
     def __init__(self) -> None:
-        self.stack: list[str] = []
+        super().__init__()
         self.fstring_families: dict[str, set[str]] = {}
         self.dash_splits: set[str] = set()
-
-    @property
-    def qualname(self) -> str:
-        return ".".join(self.stack) if self.stack else "<module>"
-
-    def _visit_scope(self, node) -> None:
-        self.stack.append(node.name)
-        self.generic_visit(node)
-        self.stack.pop()
-
-    visit_FunctionDef = _visit_scope
-    visit_AsyncFunctionDef = _visit_scope
-    visit_ClassDef = _visit_scope
 
     def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
         shape = _shape(node)
@@ -165,17 +149,16 @@ class _Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _scan():
+def _scan() -> tuple[dict[str, frozenset[str]], set[str]]:
     """Scan the production tree once; both guards read the result."""
-    fstrings: dict[str, tuple[str, ...]] = {}
+    fstrings: dict[str, frozenset[str]] = {}
     splits: set[str] = set()
-    for path in sorted(_PKG_ROOT.rglob("*.py")):
-        rel = path.relative_to(_REPO_ROOT).as_posix()
+    for path, rel in py_files(PKG_ROOT):
         visitor = _Visitor()
-        visitor.visit(ast.parse(path.read_text(), filename=rel))
+        visitor.visit(parse(path))
         if rel not in _ALLOWED:
             for qualname, families in visitor.fstring_families.items():
-                fstrings[f"{rel}::{qualname}"] = tuple(sorted(families))
+                fstrings[f"{rel}::{qualname}"] = frozenset(families)
         if not rel.startswith("sanity_gravity/domain/"):
             splits.update(f"{rel}::{q}" for q in visitor.dash_splits)
     return fstrings, splits
@@ -188,9 +171,8 @@ def test_prefix_constants_mirror_naming_reality():
     if a constant is renamed or its value moves, this reddens instead
     of the guard silently losing a whole family's detection - and a
     ghost entry that names no real constant reddens the same way."""
-    src = (_PKG_ROOT / "domain" / "naming.py").read_text()
     naming_cls = next(
-        n for n in ast.parse(src).body
+        n for n in parse(PKG_ROOT / "domain" / "naming.py").body
         if isinstance(n, ast.ClassDef) and n.name == "Naming"
     )
     declared = {
@@ -215,9 +197,7 @@ def test_allowed_exemptions_are_load_bearing():
     ghost that would silently swallow a future violation there."""
     for rel in sorted(_ALLOWED):
         visitor = _Visitor()
-        visitor.visit(
-            ast.parse((_REPO_ROOT / rel).read_text(), filename=rel)
-        )
+        visitor.visit(parse(REPO_ROOT / rel))
         assert visitor.fstring_families, (
             f"{rel} is in _ALLOWED but renders no identity family - "
             "delete the stale exemption"
@@ -227,9 +207,10 @@ def test_allowed_exemptions_are_load_bearing():
 def test_no_new_identity_fstrings():
     found, _ = _scan()
     new = {
-        key: families
-        for key, families in found.items()
-        if not set(families) <= set(KNOWN_IDENTITY_FSTRINGS.get(key, ()))
+        key: sorted(families)
+        for key, (families, _) in uncovered(
+            found, _KNOWN_FAMILIES, empty=frozenset()
+        ).items()
     }
     assert not new, (
         f"identity f-strings outside domain/naming.py: {new}. Render this "
@@ -241,9 +222,10 @@ def test_no_new_identity_fstrings():
 def test_identity_fstring_ratchet_only_shrinks():
     found, _ = _scan()
     stale = {
-        key: tuple(sorted(set(families) - set(found.get(key, ()))))
-        for key, families in KNOWN_IDENTITY_FSTRINGS.items()
-        if not set(families) <= set(found.get(key, ()))
+        key: sorted(frozen - present)
+        for key, (frozen, present) in uncovered(
+            _KNOWN_FAMILIES, found, empty=frozenset()
+        ).items()
     }
     assert not stale, (
         f"ratchet entries no longer present - delete them so the debt "
@@ -253,11 +235,10 @@ def test_identity_fstring_ratchet_only_shrinks():
 
 def test_prefix_constants_only_in_naming():
     offenders = []
-    for path in sorted(_PKG_ROOT.rglob("*.py")):
-        rel = path.relative_to(_REPO_ROOT).as_posix()
+    for path, rel in py_files(PKG_ROOT):
         if rel in _ALLOWED:
             continue
-        for node in ast.walk(ast.parse(path.read_text(), filename=rel)):
+        for node in walk(path):
             if isinstance(node, ast.Assign):
                 names = [t.id for t in node.targets if isinstance(t, ast.Name)]
             elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):

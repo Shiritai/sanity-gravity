@@ -23,9 +23,10 @@ import re
 from pathlib import Path
 
 from sanity_gravity.core.registry import OFFICIAL_TAGS, VALID_TAGS
+from tests.support import REPO_ROOT, py_files, walk
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_INTEGRATION_DIR = _REPO_ROOT / "tests" / "integration"
+_TESTS_DIR = REPO_ROOT / "tests"
+_INTEGRATION_DIR = _TESTS_DIR / "integration"
 _PRECONDITION_MARKS = frozenset({"requires_image", "requires_docker", "no_image"})
 
 # Raising this ceiling is a CI budget review, not a formality: build all
@@ -67,6 +68,14 @@ def _mark_name(node: ast.AST) -> str | None:
     return None
 
 
+def _integration_modules():
+    """Every integration test module, as ``(path, rel)``. Recursive
+    where the original scan was flat, which cannot change the answer:
+    test_no_test_files_outside_the_two_suites already forbids a
+    ``test_*.py`` below tests/integration/."""
+    return py_files(_INTEGRATION_DIR, pattern="test_*.py")
+
+
 def _declared(path: Path) -> tuple[set[str], set[str]]:
     """Return (marker names, requires_image tags) declared in one module.
 
@@ -76,7 +85,7 @@ def _declared(path: Path) -> tuple[set[str], set[str]]:
     """
     marks: set[str] = set()
     tags: set[str] = set()
-    for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+    for node in walk(path):
         if isinstance(node, ast.Attribute):          # bare `pytest.mark.requires_docker`
             name = _mark_name(node)
             if name:
@@ -102,9 +111,8 @@ def test_every_integration_file_declares_a_precondition():
     reporting a missing image as RuntimeError instead of a skip.
     """
     undeclared = [
-        str(p.relative_to(_REPO_ROOT))
-        for p in sorted(_INTEGRATION_DIR.glob("test_*.py"))
-        if not (_declared(p)[0] & _PRECONDITION_MARKS)
+        rel for path, rel in _integration_modules()
+        if not (_declared(path)[0] & _PRECONDITION_MARKS)
     ]
     assert not undeclared, (
         "integration tests must declare a precondition with one of "
@@ -120,11 +128,10 @@ def test_no_test_files_outside_the_two_suites():
     above scan only tests/integration, and the hermeticity conventions
     bind only tests/unit. Every test module must live in exactly one of
     the two suites."""
-    allowed = {_REPO_ROOT / "tests" / "unit", _REPO_ROOT / "tests" / "integration"}
+    allowed = {_TESTS_DIR / "unit", _INTEGRATION_DIR}
     strays = [
-        str(p.relative_to(_REPO_ROOT))
-        for p in sorted((_REPO_ROOT / "tests").rglob("test_*.py"))
-        if p.parent not in allowed
+        rel for path, rel in py_files(_TESTS_DIR, pattern="test_*.py")
+        if path.parent not in allowed
     ]
     assert not strays, (
         "test modules outside tests/unit and tests/integration are "
@@ -136,8 +143,8 @@ def test_no_test_files_outside_the_two_suites():
 def _marker_coverage() -> set[str]:
     """Tags an integration test actually declares it needs an image for."""
     covered: set[str] = set()
-    for p in sorted(_INTEGRATION_DIR.glob("test_*.py")):
-        covered |= _declared(p)[1]
+    for path, _ in _integration_modules():
+        covered |= _declared(path)[1]
     return covered
 
 
@@ -172,16 +179,19 @@ def test_official_tags_are_exercised_or_declared_debt():
 
 
 def test_no_prefix_matching_on_tag_lists():
-    """Filters over VALID_TAGS/OFFICIAL_TAGS must parse, not prefix-match."""
+    """Filters over VALID_TAGS/OFFICIAL_TAGS must parse, not prefix-match.
+
+    Every .py under tests/, not only test modules: tests/support.py and
+    tests/utils.py are exactly where a shared helper would hide such a
+    filter from a test-file-only scan.
+    """
     offenders = []
-    for p in sorted((_REPO_ROOT / "tests").rglob("*.py")):
-        if p.name == Path(__file__).name:
+    for path, rel in py_files(_TESTS_DIR):
+        if path.name == Path(__file__).name:
             continue
-        for lineno, line in enumerate(p.read_text().splitlines(), 1):
+        for lineno, line in enumerate(path.read_text().splitlines(), 1):
             if "startswith(" in line and re.search(r"\b(VALID|OFFICIAL)_TAGS\b", line):
-                offenders.append(
-                    f"{p.relative_to(_REPO_ROOT)}:{lineno}: {line.strip()}"
-                )
+                offenders.append(f"{rel}:{lineno}: {line.strip()}")
     assert not offenders, (
         "prefix-matching a tag list goes silently blind when a new "
         "dimension prefixes the tag; filter via resolve_tag(t).<dim> instead:\n"

@@ -12,13 +12,12 @@ the current workflow depends on must stay present.
 """
 from __future__ import annotations
 
-from pathlib import Path
+from tests.support import REPO_ROOT
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_CONTRIBUTING = _REPO_ROOT / "CONTRIBUTING.md"
+_CONTRIBUTING = REPO_ROOT / "CONTRIBUTING.md"
 # Every reader-facing entry doc: the translations rot at the same rate
 # as the English one, so they are scanned as one set.
-_READMES = tuple(sorted(_REPO_ROOT.glob("README*.md")))
+_READMES = tuple(sorted(REPO_ROOT.glob("README*.md")))
 
 # Each entry names a concept the repo no longer has. If one reappears,
 # either the doc regressed or the concept returned - both deserve a red.

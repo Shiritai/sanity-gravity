@@ -6,13 +6,12 @@ package (-e ".[<extra>]") so a dependency added to pyproject.toml
 reaches CI without editing YAML.
 """
 import tomllib
-from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.support import REPO_ROOT
 
 
 def _extras() -> dict[str, list[str]]:
-    data = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text())
+    data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     return data["project"]["optional-dependencies"]
 
 
@@ -46,7 +45,7 @@ def test_workflows_install_via_declared_extras():
     extra needs no edit here, while a raw `pip install ruff` stays red."""
     allowed = {f'pip install -e ".[{name}]"' for name in _extras()}
     offenders = []
-    for wf in sorted((_REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+    for wf in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         for lineno, line in enumerate(wf.read_text().splitlines(), 1):
             if "pip install" not in line or "--upgrade pip" in line:
                 continue
@@ -63,7 +62,7 @@ def test_workflows_running_the_suite_require_images():
     SANITY_REQUIRE_IMAGES: a suite that may skip is a suite that may lie
     (a mistyped build/pull loop would otherwise read as all-green)."""
     offenders = []
-    for wf in sorted((_REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+    for wf in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         text = wf.read_text()
         if "sanity-cli test" in text and "SANITY_REQUIRE_IMAGES" not in text:
             offenders.append(wf.name)

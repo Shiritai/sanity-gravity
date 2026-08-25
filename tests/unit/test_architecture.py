@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+from tests.support import REPO_ROOT
 
 
 def test_import_contracts_hold():
@@ -27,7 +27,7 @@ def test_import_contracts_hold():
     # answer for this environment.
     exe = Path(sys.executable).with_name("lint-imports")
     proc = subprocess.run(
-        (str(exe),), cwd=_REPO_ROOT, capture_output=True, text=True,
+        (str(exe),), cwd=REPO_ROOT, capture_output=True, text=True,
     )
     assert proc.returncode == 0, (
         "import-linter contracts violated (config: pyproject.toml "
