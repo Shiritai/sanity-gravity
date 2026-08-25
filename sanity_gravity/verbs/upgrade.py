@@ -13,12 +13,9 @@ data is safely captured. Ported from upstream commit 40483e4.
 """
 from __future__ import annotations
 
-import os
-import subprocess
 import sys
 import time
 
-from sanity_gravity.cli.colors import Colors
 from sanity_gravity.cli.io import (
     get_uid_gid_user,
     print_error,
@@ -27,7 +24,6 @@ from sanity_gravity.cli.io import (
     print_plain,
     print_success,
     print_warning,
-    run_command,
     validate_project_name,
     validate_username,
 )
@@ -35,6 +31,9 @@ from sanity_gravity.compose.generators import (
     generate_compose_for_tag,
     generate_git_compose,
 )
+from sanity_gravity.core.colors import Colors
+from sanity_gravity.core.proc import try_run
+from sanity_gravity.domain.naming import Naming
 from sanity_gravity.verbs.lifecycle import (
     get_legacy_containers,
     get_legacy_projects,
@@ -47,25 +46,20 @@ from sanity_gravity.verbs.up import is_port_in_use
 def run_step(argv, *, capture=False, env=None):
     """Run one migration step; raise ``RuntimeError`` on failure.
 
-    Unlike :func:`sanity_gravity.cli.io.run_command`, this never calls
-    ``sys.exit`` — the caller must be able to catch a failure so a
-    half-done migration can report exactly which stage stopped and how
-    to recover. ``env`` is merged into ``os.environ`` for the child.
+    A deliberate wrapper over :func:`core.proc.try_run`: the caller
+    must be able to catch a failure so a half-done migration can report
+    exactly which stage stopped and how to recover, and the error text
+    is the child's own output. ``env`` is merged into ``os.environ``
+    for the child.
     """
-    run_env = None
-    if env is not None:
-        run_env = os.environ.copy()
-        run_env.update({k: str(v) for k, v in env.items()})
     if not capture:
         print_plain(f"{Colors.OKBLUE}$ {' '.join(str(a) for a in argv)}{Colors.ENDC}")
-    r = subprocess.run(
-        list(argv), capture_output=True, text=True, env=run_env,
-    )
-    if r.returncode != 0:
+    res = try_run(argv, env=env)
+    if not res.ok:
         raise RuntimeError(
-            (r.stderr or r.stdout or "").strip() or f"exit {r.returncode}"
+            res.stderr or res.stdout or f"exit {res.returncode}"
         )
-    return r.stdout.strip()
+    return res.stdout
 
 
 def get_published_ports(container_id):
@@ -96,12 +90,14 @@ def get_published_ports(container_id):
         "{{range $p, $c := .HostConfig.PortBindings}}{{if $c}}"
         "{{$p}}={{(index $c 0).HostPort}} {{end}}{{end}}"
     )
-    out = run_command(
-        ("docker", "inspect", container_id, "--format", fmt),
-        capture=True, check=False,
-    )
+    res = try_run(("docker", "inspect", container_id, "--format", fmt))
+    if not res.ok:
+        # The docstring's declared tolerance, now an explicit rc match:
+        # an uninspectable container keeps its ports unknown and the
+        # caller falls back to ephemeral allocation.
+        return {}
     result = {}
-    for token in (out or "").split():
+    for token in res.stdout.split():
         cport, _, host_port = token.partition("=")
         env_key = cport_to_env.get(cport)
         if env_key and host_port:
@@ -148,7 +144,20 @@ def _migrate_one(item, host_uid, host_gid, host_user, timestamp):
     """
     project, service = item["project"], item["service"]
     cid, name, tag = item["cid"], item["name"], item["tag"]
-    backup_img = f"sanity-migrate/{project}-{service}:{timestamp}"
+    # ``tag`` is the Tag value legacy_target_tag already produced.
+    naming = Naming(tag, project)
+    if service == str(tag):
+        # A managed container migrating in place: its service label
+        # already is the target tag, so the rollback ref is a Naming
+        # render like every other identity.
+        backup_img = naming.backup_image(timestamp)
+    else:
+        # A genuine legacy container has a flat service name
+        # (core/kasm/vnc) that is not a tag. The rollback ref must keep
+        # that OLD name - it identifies what was snapshotted, and the
+        # recovery hint prints it back - so only the repo prefix is
+        # shared with Naming here.
+        backup_img = f"{Naming.BACKUP_REPO}/{project}-{service}:{timestamp}"
 
     print_header(f"Migrating {name} ({service} -> {tag})")
     stage = "snapshot"
@@ -192,7 +201,7 @@ def _migrate_one(item, host_uid, host_gid, host_user, timestamp):
         )
 
         # 6. Find the named volume mounted at the home dir.
-        new_name = f"{project}-{tag}-1"
+        new_name = naming.container()
         mount_fmt = (
             '{{range .Mounts}}{{if eq .Destination "/home/'
             + username

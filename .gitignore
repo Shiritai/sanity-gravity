@@ -16,3 +16,10 @@ workspace/*
 # Gemini Agent
 .gemini/
 config
+
+# Packaging (editable install metadata)
+*.egg-info/
+
+# Mutation testing (mutmut working tree and legacy cache)
+mutants/
+.mutmut-cache

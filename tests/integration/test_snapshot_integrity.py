@@ -1,14 +1,16 @@
 import getpass
-import os
 import subprocess
 import time
+
 import pytest
-import shutil
+
+pytestmark = pytest.mark.requires_image("ag-xfce-kasm")
 
 # Configuration
 PROJECT_NAME = "sanity-test-integrity"
-VARIANT = "ag-xfce-kasm"
-IMAGE_TAG = "sanity-test:integrity"
+# The tag under test comes from the precondition marker: one declaration
+# feeds the skip/fail policy, the coverage ratchet, and these commands.
+VARIANT = pytestmark.args[0]
 CLI = "./sanity-cli"
 # sanity-cli creates the sandbox user from the host user name
 USER_NAME = getpass.getuser()

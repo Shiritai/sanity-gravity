@@ -1,9 +1,12 @@
-import pytest
 import time
-from tests.conftest import DEFAULT_KASM_IMAGE
+
+import pytest
+
+pytestmark = pytest.mark.requires_image("ag-xfce-kasm")
+
 
 class TestAntigravitySingleton:
-    def test_auth_redirect_preserves_singleton_socket(self, clean_container, docker_cli, host_env):
+    def test_auth_redirect_preserves_singleton_socket(self, clean_container, docker_cli, host_env, image):
         """
         Verify that calling the `antigravity` wrapper does not delete the SingletonSocket
         if it's simply trying to pass Auth Redirect URIs to an existing instance.
@@ -13,7 +16,7 @@ class TestAntigravitySingleton:
         env_flags = " ".join([f"-e {k}='{v}'" for k, v in host_env.items()])
         
         # Start the container in the background
-        docker_cli.run(f"docker run -d --name {container_name} {env_flags} {DEFAULT_KASM_IMAGE} sleep 3600")
+        docker_cli.run(f"docker run -d --name {container_name} {env_flags} {image} sleep 3600")
         
         # Wait a moment for container to initialize
         time.sleep(2)
@@ -35,7 +38,7 @@ class TestAntigravitySingleton:
         # Execute the wrapper command as if OS handles a URL
         # We pass --version just so it exits quickly without trying to start a real GUI
         # If the wrapper logic is flawed, this invocation will delete the socket.
-        docker_cli.exec(container_name, f"antigravity --version", user=user)
+        docker_cli.exec(container_name, "antigravity --version", user=user)
         
         # Verify if the files were preserved
         check_cmd = f"ls /home/{user}/.config/Antigravity/SingletonSocket"

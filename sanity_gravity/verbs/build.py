@@ -11,48 +11,39 @@ in :mod:`sanity_gravity.hooks.build`.
 from __future__ import annotations
 
 import json as _json
-import sys
 
 from sanity_gravity.cli.io import (
     get_reporter,
-    print_error,
     print_header,
     print_warning,
 )
-from sanity_gravity.cli.registry import (
-    DEFAULT_TAG,
-    OFFICIAL_TAGS,
-    deprecation_warning,
-    parse_tag,
-)
 from sanity_gravity.core.eventbus import EventBus
 from sanity_gravity.core.orchestrator import (
+    _BUILD_PHASES,
     BuildContext,
     Orchestrator,
-    _BUILD_PHASES,
 )
-from sanity_gravity.effects.actions import ActionFailedError
+from sanity_gravity.core.registry import (
+    DEFAULT_TAG,
+    OFFICIAL_TAG_VALUES,
+    OFFICIAL_TAGS,
+    deprecation_warning,
+    resolve_tag,
+)
+from sanity_gravity.domain.layers import LayerKind
+from sanity_gravity.domain.naming import Naming
+from sanity_gravity.domain.plan import official_layers
 from sanity_gravity.effects.executor import build_default_executor
-from sanity_gravity.hooks.build import (
-    _generate_intermediates,
-    _resolve_build_chain,
-    register_builtin_build_hooks,
-)
-
-
-# Re-exports for legacy callers ----------------------------------------------
-
-def resolve_build_chain(tag):  # pragma: no cover - thin shim
-    return _resolve_build_chain(tag)
-
-
-def resolve_parent(tag):
-    agent, desktop, _ = parse_tag(tag)
-    return f"_{agent}-{desktop}"
+from sanity_gravity.hooks.build import register_builtin_build_hooks
 
 
 def generate_intermediates():
-    return _generate_intermediates()
+    """Intermediate layer names of the official matrix (--list-intermediates)."""
+    return [
+        Naming.layer(ref.kind, ref.detail)
+        for ref in official_layers(OFFICIAL_TAG_VALUES)
+        if ref.kind is not LayerKind.CONNECTOR
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +56,7 @@ def build(args):
     # ``--list-intermediates`` is a read-only print: don't go through the
     # kernel for it.
     if getattr(args, "list_intermediates", False):
-        names = _generate_intermediates()
+        names = generate_intermediates()
         if getattr(args, "json_output", False):
             print(_json.dumps(names))
         else:
@@ -85,15 +76,14 @@ def build(args):
     elif "all" in targets:
         print_header(f"Building all {len(OFFICIAL_TAGS)} images")
     else:
-        # Validate eagerly so a bad tag aborts before we set up the kernel.
+        # Validate eagerly so a bad tag aborts before we set up the
+        # kernel. resolve_tag raises TagError (a SanityError); the CLI
+        # boundary renders it and exits 1, exactly as the old
+        # print+exit pair did.
         for target in targets:
-            try:
-                parse_tag(target)
-            except ValueError as e:
-                print_error(str(e))
-                sys.exit(1)
-            # Deprecated tags warn but never block (tier policy).
-            notice = deprecation_warning(target)
+            # resolve_tag IS the boundary: keep its value rather than
+            # throwing it away and re-parsing the string downstream.
+            notice = deprecation_warning(resolve_tag(target))
             if notice:
                 print_warning(notice)
         print_header(f"Building: {', '.join(targets)}")
@@ -117,14 +107,7 @@ def build(args):
 
     executor = build_default_executor(reporter, dry_run=dry_run)
 
-    try:
-        with Orchestrator(bus, reporter, executor=executor) as orch:
-            orch.run(_BUILD_PHASES, ctx)
-    except ActionFailedError as e:
-        sys.exit(e.result.exit_code or 1)
-
-
-def explain_build(args):
-    """``explain build`` alias: dry-run the plan without executing."""
-    args.dry_run = True
-    return build(args)
+    # ActionFailedError is a SanityError: it flies to the boundary,
+    # which exits with e.exit_code (== the action result's code).
+    with Orchestrator(bus, reporter, executor=executor) as orch:
+        orch.run(_BUILD_PHASES, ctx)

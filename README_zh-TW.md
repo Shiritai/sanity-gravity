@@ -42,7 +42,7 @@ Agentic coding 工具 — Antigravity、Claude Code、Codex — 在你放手讓�
 ## 系統需求
 
 * Docker & Docker Compose (v2.0+)
-* Python 3.7+
+* Python 3.11+
 * **已驗證環境**：Ubuntu (amd64/arm64)、macOS (Apple Silicon)、Windows (WSL2 + Docker Desktop)
 
 > **Windows / WSL2:** 首次使用請執行一次 `scripts/setup-wsl-crashdump-policy.ps1`,避免沙箱內的瀏覽器 / agent 崩潰時 WSL 寫出數 GB 的 crash dump。

@@ -19,17 +19,15 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.plugins.registry import PluginRegistry
 
-from sanity_gravity.domain.tags import Tag  # noqa: E402
-from sanity_gravity.plugins.registry import PluginRegistry  # noqa: E402
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _write_manifest(
@@ -120,28 +118,28 @@ class TestValidTagsTierFilter:
 
 class TestCliEnumeration:
     def test_official_tags_subset_of_valid_tags(self):
-        from sanity_gravity.cli.registry import OFFICIAL_TAGS, VALID_TAGS
+        from sanity_gravity.core.registry import OFFICIAL_TAGS, VALID_TAGS
 
         assert set(OFFICIAL_TAGS) <= set(VALID_TAGS)
 
     def test_gc_tags_left_the_matrix_but_stay_valid(self):
         """gc (Gemini CLI) is deprecated: all four gc-* tags leave the
         CI/publish matrix while remaining parseable for lifecycle."""
-        from sanity_gravity.cli.registry import (
+        from sanity_gravity.core.registry import (
             OFFICIAL_TAGS,
             VALID_TAGS,
-            parse_tag,
+            resolve_tag,
             tag_tier,
         )
 
-        gc_tags = [t for t in VALID_TAGS if t.startswith("gc-")]
+        gc_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "gc"]
         assert len(gc_tags) == 4
-        assert not any(t.startswith("gc-") for t in OFFICIAL_TAGS)
+        assert not any(resolve_tag(t).agent == "gc" for t in OFFICIAL_TAGS)
         # Everything else is untouched by gc's retirement.
         assert set(VALID_TAGS) - set(gc_tags) == set(OFFICIAL_TAGS)
         for t in gc_tags:
-            assert tag_tier(t) == "deprecated"
-            parse_tag(t)  # must not raise
+            assert tag_tier(resolve_tag(t)) == "deprecated"
+            resolve_tag(t)  # must not raise
 
     def test_list_json_emits_official_tags_only(self, capsys):
         """``list --json`` is the CI matrix source; it must enumerate the
@@ -150,7 +148,8 @@ class TestCliEnumeration:
 
         with patch.object(status_mod, "OFFICIAL_TAGS", ["aa-none-ssh"]), \
              patch.object(
-                 status_mod, "VALID_TAGS", ["aa-none-ssh", "dd-none-ssh"]
+                 status_mod, "VALID_TAG_VALUES",
+                 (Tag.parse("aa-none-ssh"), Tag.parse("dd-none-ssh")),
              ):
             status_mod.list_variants(argparse.Namespace(json_output=True))
         assert json.loads(capsys.readouterr().out) == ["aa-none-ssh"]
@@ -164,7 +163,7 @@ class TestCliEnumeration:
             )
 
         with patch.object(
-                 status_mod, "VALID_TAGS",
+                 status_mod, "VALID_TAG_VALUES",
                  ["aa-none-ssh", "dd-none-ssh", "co-none-ssh"],
              ), \
              patch.object(status_mod, "tag_tier", side_effect=fake_tier):
@@ -179,13 +178,20 @@ class TestCliEnumeration:
 # ---------------------------------------------------------------------------
 
 
+def _layer_name(node):
+    """Rendered layer name of a PlanNode, via the one grammar owner."""
+    from sanity_gravity.domain.naming import Naming
+
+    return Naming.layer(node.layer.kind, node.layer.detail)
+
+
 class TestBuildAllTierFilter:
     def _run_build(self, **ctx_kwargs):
         from sanity_gravity.core.eventbus import EventBus
         from sanity_gravity.core.orchestrator import (
+            _BUILD_PHASES,
             BuildContext,
             Orchestrator,
-            _BUILD_PHASES,
         )
         from sanity_gravity.core.reporter import Reporter
         from sanity_gravity.hooks.build import register_builtin_build_hooks
@@ -206,9 +212,10 @@ class TestBuildAllTierFilter:
     def test_build_all_plans_only_official_tags(self, monkeypatch):
         import sanity_gravity.hooks.build as build_hooks
 
-        monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
+        monkeypatch.setattr(build_hooks, "OFFICIAL_TAG_VALUES",
+                            (Tag.parse("cc-none-ssh"),))
         ctx = self._run_build_all()
-        planned = [step[1] for step in ctx.plan]
+        planned = [_layer_name(node) for node in ctx.plan]
         # Finals restricted to the official set; intermediates follow.
         assert [n for n in planned if not n.startswith("_")] == ["cc-none-ssh"]
         assert set(n for n in planned if n.startswith("_")) == {
@@ -216,18 +223,22 @@ class TestBuildAllTierFilter:
         }
 
     def test_build_all_finals_match_official_tags(self):
-        from sanity_gravity.cli.registry import OFFICIAL_TAGS
+        from sanity_gravity.core.registry import OFFICIAL_TAGS
 
         ctx = self._run_build_all()
-        finals = [n for _, n, _ in ctx.plan if not n.startswith("_")]
+        finals = [
+            _layer_name(node) for node in ctx.plan
+            if not _layer_name(node).startswith("_")
+        ]
         assert finals == list(OFFICIAL_TAGS)
 
     def test_layer_desktop_follows_official_tier(self, monkeypatch):
         import sanity_gravity.hooks.build as build_hooks
 
-        monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
+        monkeypatch.setattr(build_hooks, "OFFICIAL_TAG_VALUES",
+                            (Tag.parse("cc-none-ssh"),))
         ctx = self._run_build(targets=[], layer_target="desktop")
-        planned = [n for _, n, _ in ctx.plan]
+        planned = [_layer_name(node) for node in ctx.plan]
         assert "_base-none" in planned
         # xfce exists in the registry, but no official tag references it
         # in this scenario: the default enumeration must skip it, same
@@ -237,11 +248,12 @@ class TestBuildAllTierFilter:
     def test_layer_desktop_explicit_target_ignores_tier(self, monkeypatch):
         import sanity_gravity.hooks.build as build_hooks
 
-        monkeypatch.setattr(build_hooks, "OFFICIAL_TAGS", ["cc-none-ssh"])
+        monkeypatch.setattr(build_hooks, "OFFICIAL_TAG_VALUES",
+                            (Tag.parse("cc-none-ssh"),))
         ctx = self._run_build(
             targets=[], layer_target="desktop", layer_target_specific="xfce",
         )
-        planned = [n for _, n, _ in ctx.plan]
+        planned = [_layer_name(node) for node in ctx.plan]
         assert "_base-xfce" in planned
 
 
@@ -268,7 +280,7 @@ class TestDeprecationWarnings:
             json_output=False,
             reporter=Reporter(sinks=[], run_id="test"),
         )
-        with patch("sanity_gravity.cli.registry.tag_tier",
+        with patch("sanity_gravity.core.registry.tag_tier",
                    return_value="deprecated"), \
              patch.object(build_mod, "print_warning") as warn:
             build_mod.build(args)  # must not raise / exit
@@ -288,16 +300,21 @@ class TestDeprecationWarnings:
             dry_run=True,
         )
 
-    def test_up_deprecated_tag_warns_but_proceeds(self, tmp_path, monkeypatch):
+    def test_up_deprecated_tag_warns_but_proceeds(self, tmp_path, monkeypatch,
+                                                  fake_proc):
         monkeypatch.chdir(tmp_path)
         from sanity_gravity.core.reporter import build_default_reporter
         from sanity_gravity.verbs import up as up_mod
 
+        # The git-compose hook asks ProxyManager whether the proxy unit
+        # is enabled, which really shelled out to the HOST's systemd --
+        # so this test's outcome depended on the machine it ran on.
+        fake_proc.script("systemctl", stdout="disabled")
         reporter = build_default_reporter(
             log_format="text", base=tmp_path / "runs"
         )
         try:
-            with patch("sanity_gravity.cli.registry.tag_tier",
+            with patch("sanity_gravity.core.registry.tag_tier",
                        return_value="deprecated"), \
                  patch.object(up_mod, "print_warning") as warn, \
                  patch("sanity_gravity.verbs.up.get_uid_gid_user",
@@ -310,17 +327,18 @@ class TestDeprecationWarnings:
         ]
         assert deprecation_calls, "up must warn about a deprecated tag"
 
-    def test_up_community_tag_is_quiet(self, tmp_path, monkeypatch):
+    def test_up_community_tag_is_quiet(self, tmp_path, monkeypatch, fake_proc):
         """Community tags build/up without noise; only deprecated warns."""
         monkeypatch.chdir(tmp_path)
         from sanity_gravity.core.reporter import build_default_reporter
         from sanity_gravity.verbs import up as up_mod
 
+        fake_proc.script("systemctl", stdout="disabled")
         reporter = build_default_reporter(
             log_format="text", base=tmp_path / "runs"
         )
         try:
-            with patch("sanity_gravity.cli.registry.tag_tier",
+            with patch("sanity_gravity.core.registry.tag_tier",
                        return_value="community"), \
                  patch.object(up_mod, "print_warning") as warn, \
                  patch("sanity_gravity.verbs.up.get_uid_gid_user",
@@ -331,3 +349,57 @@ class TestDeprecationWarnings:
         assert not any(
             "deprecated" in c[0][0] for c in warn.call_args_list
         )
+
+
+# ---------------------------------------------------------------------------
+# Registry projection: values, not just keys.
+#
+# Mutation testing showed these unguarded: the list/status payload asserted
+# only that "requires_gui" was PRESENT, so rewriting the capability probe to
+# a constant survived; DEFAULT_TAG had no test at all, so changing what a
+# bare `sanity-cli build` builds turned nothing red.
+# ---------------------------------------------------------------------------
+
+
+def test_default_tag_is_pinned():
+    """DEFAULT_TAG decides what a bare `build` / `up` acts on and is
+    printed as 'Default:' by `list`; changing it is a user-visible
+    change, not an implementation detail."""
+    from sanity_gravity.core.registry import DEFAULT_TAG, VALID_TAGS
+
+    assert DEFAULT_TAG == "ag-xfce-kasm"
+    assert DEFAULT_TAG in VALID_TAGS
+
+
+def test_legacy_dim_dicts_projects_capabilities_not_just_keys():
+    """requires_gui/has_gui are derived from the capability lists; a
+    test that only checks the key exists cannot see the derivation
+    collapse to a constant."""
+    from sanity_gravity.core.registry import AGENTS, CONNECTORS, DESKTOPS
+
+    agents, connectors, desktops = AGENTS, CONNECTORS, DESKTOPS
+
+    # ag needs a display, cc does not - the flag must discriminate.
+    assert agents["ag"]["requires_gui"] is True
+    assert agents["cc"]["requires_gui"] is False
+    # xfce provides a display, none does not.
+    assert desktops["xfce"]["has_gui"] is True
+    assert desktops["none"]["has_gui"] is False
+    # kasm is a GUI connector, ssh is not.
+    assert connectors["kasm"]["requires_gui"] is True
+    assert connectors["ssh"]["requires_gui"] is False
+    # name and tier are carried through verbatim.
+    assert agents["ag"]["name"] and isinstance(agents["ag"]["name"], str)
+    assert agents["gc"]["tier"] == "deprecated"
+    assert agents["ag"]["tier"] == "official"
+
+
+def test_deprecation_warning_text_and_none_for_other_tiers():
+    from sanity_gravity.core.registry import deprecation_warning, resolve_tag
+
+    assert deprecation_warning(resolve_tag("ag-xfce-kasm")) is None
+    msg = deprecation_warning(resolve_tag("gc-xfce-kasm"))
+    assert msg is not None
+    assert "deprecated plugin" in msg
+    assert "excluded from CI" in msg
+    assert "no longer published to GHCR" in msg

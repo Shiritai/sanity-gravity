@@ -1,10 +1,13 @@
 
-import pytest
-import subprocess
-import socket
-import time
 import re
-import os
+import socket
+import subprocess
+import time
+
+import pytest
+
+pytestmark = pytest.mark.requires_image("ag-xfce-ssh", "ag-xfce-kasm")
+
 
 def is_port_open(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

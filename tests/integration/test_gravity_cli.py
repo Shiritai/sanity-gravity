@@ -1,8 +1,12 @@
-import subprocess
 import os
-import tempfile
 import stat
+import subprocess
+import tempfile
 import textwrap
+
+import pytest
+
+pytestmark = pytest.mark.no_image
 
 GRAVITY_CLI_PATH = os.path.abspath("plugins/agents/ag/rootfs/usr/local/bin/gravity-cli")
 
@@ -13,7 +17,7 @@ def create_mock_command(dir_path, name, script_content):
     os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
 
 def get_bypassed_script(tmpdir):
-    with open(GRAVITY_CLI_PATH, "r") as f:
+    with open(GRAVITY_CLI_PATH) as f:
         content = f.read()
     
     # Bypass EUID check
@@ -65,7 +69,7 @@ def test_gravity_cli_update_ide_success():
         # Verify Antigravity robust wrapper creation
         ag_wrapper_path = os.path.join(tmpdir, "antigravity", "antigravity")
         assert os.path.exists(ag_wrapper_path)
-        with open(ag_wrapper_path, "r") as f:
+        with open(ag_wrapper_path) as f:
             ag_wrapper_content = f.read()
             
         expected_wrapper = textwrap.dedent(f"""\
@@ -104,7 +108,7 @@ def test_gravity_cli_update_ide_success():
         # Verify Google Chrome robust wrapper creation
         chrome_wrapper_path = os.path.join(tmpdir, "opt", "google", "chrome", "google-chrome")
         assert os.path.exists(chrome_wrapper_path)
-        with open(chrome_wrapper_path, "r") as f:
+        with open(chrome_wrapper_path) as f:
             chrome_wrapper_content = f.read()
         assert chrome_wrapper_content == f'#!/bin/bash\nexec {tmpdir}/opt/google/chrome/google-chrome-original --no-sandbox --disable-dev-shm-usage "$@"\n'
 
@@ -154,7 +158,7 @@ def test_gravity_cli_reinstall_ide_success():
         # Verify Antigravity robust wrapper creation
         ag_wrapper_path = os.path.join(tmpdir, "antigravity", "antigravity")
         assert os.path.exists(ag_wrapper_path)
-        with open(ag_wrapper_path, "r") as f:
+        with open(ag_wrapper_path) as f:
             ag_wrapper_content = f.read()
         
         expected_wrapper = textwrap.dedent(f"""\
@@ -193,7 +197,7 @@ def test_gravity_cli_reinstall_ide_success():
         # Verify Google Chrome robust wrapper creation
         chrome_wrapper_path = os.path.join(tmpdir, "opt", "google", "chrome", "google-chrome")
         assert os.path.exists(chrome_wrapper_path)
-        with open(chrome_wrapper_path, "r") as f:
+        with open(chrome_wrapper_path) as f:
             chrome_wrapper_content = f.read()
         assert chrome_wrapper_content == f'#!/bin/bash\nexec {tmpdir}/opt/google/chrome/google-chrome-original --no-sandbox --disable-dev-shm-usage "$@"\n'
 

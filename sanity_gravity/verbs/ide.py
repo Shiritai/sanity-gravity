@@ -8,17 +8,15 @@ works for any agent providing the ``ide`` capability.
 from __future__ import annotations
 
 import subprocess
-import sys
 
 from sanity_gravity.cli.io import (
     print_error,
     print_header,
     print_info,
     print_plain,
-    run_command,
 )
-from sanity_gravity.cli.registry import VALID_TAGS
-from sanity_gravity.verbs.lifecycle import get_active_projects
+from sanity_gravity.domain.errors import SanityError
+from sanity_gravity.verbs.lifecycle import find_project_containers, get_active_projects
 
 
 def ide_cmd(args):
@@ -46,29 +44,17 @@ def ide_cmd(args):
         print_error(f"Project '{project_name}' is not active or managed.")
         return
 
-    target_variant = None
-    container_name = None
-    for v in VALID_TAGS:
-        cname = f"{project_name}-{v}-1"
-        try:
-            out = run_command(
-                ("docker", "inspect", "-f", "{{.State.Running}}", cname),
-                capture=True, check=False,
-            )
-            if out == "true":
-                target_variant = v
-                container_name = cname
-                break
-        except subprocess.CalledProcessError:
-            pass
-
-    if not container_name:
+    matches = find_project_containers(project_name)
+    if not matches:
         print_error(f"No running containers found for {project_name}.")
         return
+    target_tag = matches[0]["tag"]
+    container_name = matches[0]["name"]
 
-    from sanity_gravity.cli.registry import get_registry
+    from sanity_gravity.core.registry import get_registry
     registry = get_registry()
-    agent_slug = target_variant.split("-")[0]
+    # Discovery already parsed the service label; read the value.
+    agent_slug = target_tag.agent
     agent_plugin = registry.agents.get(agent_slug)
     
     if not agent_plugin or "ide" not in agent_plugin.provides:
@@ -106,12 +92,11 @@ def ide_cmd(args):
                  "chmod", "+x", *dests),
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
-    except subprocess.CalledProcessError:
-        print_error(
+    except subprocess.CalledProcessError as e:
+        raise SanityError(
             "Failed to hot-inject maintenance tooling. "
             "Container might be highly incompatible."
-        )
-        sys.exit(1)
+        ) from e
 
     cmd = (
         "docker", "exec", "-it", "-u", "root", container_name,
@@ -119,5 +104,9 @@ def ide_cmd(args):
     )
     try:
         subprocess.check_call(cmd)
-    except subprocess.CalledProcessError:
-        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        # Historical contract: any maintenance-command failure ends the
+        # process with exit 1 (its own output already reached the tty).
+        raise SanityError(
+            f"IDE maintenance command failed (exit {e.returncode})."
+        ) from e

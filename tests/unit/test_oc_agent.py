@@ -9,24 +9,22 @@ container-side install is covered by
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.domain.capability import (  # noqa: E402
+from sanity_gravity.domain.capability import (
     CapabilityConflictError,
     solve,
 )
-from sanity_gravity.domain.tags import Tag  # noqa: E402
-from sanity_gravity.plugins.registry import (  # noqa: E402
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.plugins.registry import (
     PluginRegistry,
     default_registry,
     reset_default_registry,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 PLUGINS_DIR = _REPO_ROOT / "plugins"
@@ -90,14 +88,14 @@ def test_oc_is_official(reg):
 def test_oc_tags_enter_the_official_matrix():
     """All four oc-* tags must reach OFFICIAL_TAGS (the `list --json`
     source CI enumerates its matrices from)."""
-    from sanity_gravity.cli.registry import OFFICIAL_TAGS, tag_tier
+    from sanity_gravity.core.registry import OFFICIAL_TAGS, resolve_tag, tag_tier
 
-    oc_tags = [t for t in OFFICIAL_TAGS if t.startswith("oc-")]
+    oc_tags = [t for t in OFFICIAL_TAGS if resolve_tag(t).agent == "oc"]
     assert sorted(oc_tags) == [
         "oc-none-ssh", "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
     ]
     for t in oc_tags:
-        assert tag_tier(t) == "official"
+        assert tag_tier(resolve_tag(t)) == "official"
 
 
 # -- capability solving -------------------------------------------------

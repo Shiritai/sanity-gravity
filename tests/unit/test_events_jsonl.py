@@ -9,14 +9,9 @@ import dataclasses
 import inspect
 import io
 import json
-import sys
-from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity import events as ev_mod  # noqa: E402
-from sanity_gravity.core.reporter import JsonlSink  # noqa: E402
+from sanity_gravity import events as ev_mod
+from sanity_gravity.core.reporter import JsonlSink
 
 
 def _all_concrete_events():
@@ -64,8 +59,6 @@ def _make_event(cls):
         extras["exit_code"] = 0
     if "stderr_tail" in fields:
         extras["stderr_tail"] = ""
-    if "hint" in fields:
-        extras["hint"] = None
     if "explain_str" in fields:
         extras["explain_str"] = ""
     if "kind" in fields:
@@ -100,7 +93,7 @@ def test_every_event_serialises_via_jsonl_sink():
 def test_dataclasses_asdict_succeeds_for_every_event():
     """``dataclasses.asdict`` must succeed for every Event without
     raising — the JsonlSink relies on this conversion."""
-    for name, cls in _all_concrete_events():
+    for _name, cls in _all_concrete_events():
         ev = _make_event(cls)
         d = dataclasses.asdict(ev)
         assert "ts" in d and "run_id" in d

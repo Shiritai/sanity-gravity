@@ -2,30 +2,25 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.effects.actions import (  # noqa: E402
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.effects.actions import (
     ActionFailedError,
     ActionResult,
     MakeDirs,
     RunSubprocess,
     WriteFile,
 )
-from sanity_gravity.events import (  # noqa: E402
+from sanity_gravity.effects.executor import Executor
+from sanity_gravity.events import (
     ActionFailed,
     ActionFinished,
     ActionStarted,
     WouldExecute,
 )
-from sanity_gravity.effects.executor import Executor  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Capturing fakes
@@ -59,7 +54,7 @@ class FakeRuntime:
         self.dirs = []
         self._sub_results = list(sub_results or [])
 
-    def run_subprocess(self, argv, *, env, cwd, capture, check, shell):
+    def run_subprocess(self, argv, *, env, cwd, capture):
         self.subprocess_calls.append(argv)
         if self._sub_results:
             return self._sub_results.pop(0)
@@ -215,12 +210,18 @@ def test_executor_handles_writefile_makedirs():
 
 def test_full_up_flow_dry_run_makes_no_subprocess_calls():
     """A dry-run up flow should not invoke any subprocess."""
-    from sanity_gravity.core.eventbus import EventBus  # noqa: PLC0415
+    from sanity_gravity.core.eventbus import EventBus
     from sanity_gravity.core.orchestrator import (  # noqa: PLC0415
-        Deps, Orchestrator, PortRequest, RequestedPort, UpContext, _UP_PHASES,
+        _UP_PHASES,
+        Deps,
+        Orchestrator,
+        PortRequest,
+        RequestedPort,
+        UpContext,
     )
-    from sanity_gravity.hooks.up import register_builtin_up_hooks  # noqa: PLC0415
+    from sanity_gravity.core.proc import Completed
     from sanity_gravity.domain.tags import Tag  # noqa: PLC0415
+    from sanity_gravity.hooks.up import register_builtin_up_hooks  # noqa: PLC0415
 
     bus = EventBus()
     register_builtin_up_hooks(bus)
@@ -233,7 +234,7 @@ def test_full_up_flow_dry_run_makes_no_subprocess_calls():
         generate_resource_compose=lambda c, m, s: None,
         sync_config=lambda *a, **kw: None,
         is_port_in_use=lambda p: False,
-        run_command=lambda *a, **kw: None,  # would-be Docker calls go via Action
+        try_run=lambda *a, **kw: Completed((), 0),  # docker goes via Action
     )
 
     rep = CaptureReporter()

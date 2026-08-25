@@ -1,9 +1,6 @@
 """``status`` / ``list`` / ``plugins list`` verbs: read-only inspection."""
 from __future__ import annotations
 
-import subprocess
-
-from sanity_gravity.cli.colors import Colors
 from sanity_gravity.cli.io import (
     print_error,
     print_header,
@@ -11,18 +8,20 @@ from sanity_gravity.cli.io import (
     print_plain,
     print_success,
     print_warning,
-    run_command,
 )
-from sanity_gravity.cli.registry import (
+from sanity_gravity.core.colors import Colors
+from sanity_gravity.core.proc import capture
+from sanity_gravity.core.registry import (
     AGENTS,
     CONNECTORS,
     DEFAULT_TAG,
     DESKTOPS,
     OFFICIAL_TAGS,
-    VALID_TAGS,
+    VALID_TAG_VALUES,
     get_registry,
     tag_tier,
 )
+from sanity_gravity.domain.errors import CommandError
 from sanity_gravity.verbs.lifecycle import (
     get_active_projects,
     get_legacy_projects,
@@ -54,18 +53,20 @@ def status(args):
             # active containers via the project label, no compose file needed.
             # (Passing -f to a non-existent file silently returns empty,
             # which is the bug PR #6's modular config layout exposed.)
-            output = run_command(
-                ("docker", "compose", "-p", project, "ps", "-a"),
-                capture=True, check=False,
-            )
-            if output:
-                print_plain(output)
-            else:
-                print_info("  No containers running.")
-
-            print_plain("")
-        except (subprocess.CalledProcessError, SystemExit) as e:
+            output = capture(("docker", "compose", "-p", project, "ps", "-a"))
+        except CommandError as e:
+            # Deliberate per-project match: one broken project must not
+            # hide the status of the others. Failure is now typed, so
+            # "No containers running." can no longer be printed for a
+            # daemon that never answered.
             print_error(f"Failed to get status for {project}: {e}")
+            continue
+        if output:
+            print_plain(output)
+        else:
+            print_info("  No containers running.")
+
+        print_plain("")
 
     if target_project == "sanity-gravity":
         legacy_projects = get_legacy_projects()
@@ -143,12 +144,13 @@ def list_variants(args):
     print_plain(f"  {Colors.BOLD}Default:{Colors.ENDC} {DEFAULT_TAG}")
 
     print_plain(f"\n  {Colors.BOLD}All valid tags:{Colors.ENDC}")
-    for tag in VALID_TAGS:
+    for value in VALID_TAG_VALUES:
+        tag = str(value)
         marker = (
             f" {Colors.OKGREEN}(default){Colors.ENDC}"
             if tag == DEFAULT_TAG else ""
         )
-        marker += _tier_marker(tag_tier(tag))
+        marker += _tier_marker(tag_tier(value))
         print_plain(f"    {Colors.OKCYAN}{tag}{Colors.ENDC}{marker}")
 
 

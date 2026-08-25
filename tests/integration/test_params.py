@@ -1,8 +1,12 @@
-from tests.utils import wait_for_port, wait_for_log
-from tests.conftest import DEFAULT_KASM_IMAGE, DEFAULT_VNC_IMAGE
+import pytest
+
+from tests.utils import wait_for_log, wait_for_port
+
+pytestmark = pytest.mark.requires_image("ag-xfce-kasm", "ag-xfce-vnc")
+
 
 class TestParams:
-    def test_custom_password_kasm(self, clean_container, docker_cli, host_env, free_port):
+    def test_custom_password_kasm(self, clean_container, docker_cli, host_env, free_port, images):
         container_name = clean_container("sanity-test-kasm-pwd")
         custom_pw = "secret123"
         port = free_port()
@@ -12,7 +16,7 @@ class TestParams:
         
         docker_cli.run_container(
             name=container_name,
-            image=DEFAULT_KASM_IMAGE,
+            image=images["ag-xfce-kasm"],
             ports={str(port): "8444"},
             env=env
         )
@@ -25,7 +29,7 @@ class TestParams:
         
         # Ideally we could verify vncpasswd file hash, but env verification + successful boot is strong enough for now
 
-    def test_custom_ports_vnc(self, clean_container, docker_cli, host_env, free_port):
+    def test_custom_ports_vnc(self, clean_container, docker_cli, host_env, free_port, images):
         container_name = clean_container("sanity-test-vnc-ports")
         
         custom_vnc = str(free_port())
@@ -48,7 +52,7 @@ class TestParams:
         
         docker_cli.run_container(
             name=container_name,
-            image=DEFAULT_VNC_IMAGE,
+            image=images["ag-xfce-vnc"],
             ports={custom_vnc: "5901", custom_novnc: "6901"},
             env=env
         )

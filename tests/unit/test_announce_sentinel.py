@@ -7,15 +7,10 @@ rather than a misleading bare ``ports:``.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from types import SimpleNamespace
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.domain.tags import Tag  # noqa: E402
-from sanity_gravity.hooks.up import announce  # noqa: E402
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.hooks.up import announce
 
 
 class _RecorderReporter:

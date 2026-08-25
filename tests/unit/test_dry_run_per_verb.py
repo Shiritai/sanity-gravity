@@ -1,40 +1,106 @@
 """Per-verb dry-run integration tests.
 
 Each kernelized verb (``build`` / ``down`` / ``snapshot`` / ``up``)
-must, when invoked with ``dry_run=True``, complete without calling
-``subprocess.run`` / ``subprocess.check_call``. The Executor's
-short-circuit (emit ``WouldExecute`` instead of executing) is what
-makes this safe; these tests pin the contract end-to-end.
+must, when invoked with ``dry_run=True``, queue its work and execute
+none of it. The Executor's short-circuit (emit ``WouldExecute`` instead
+of calling ``action.execute``) is what makes this safe; these tests pin
+the contract end-to-end.
 
-Approach: install the real reporter + executor + orchestrator wiring,
-but patch the *Runtime* layer (``effects.executor.SubprocessRuntime``)
-to fail loudly if invoked. In dry-run mode it must NOT be invoked.
+Approach: guard the two boundaries a verb can reach the OS through, and
+assert on RECORDS rather than on raised exceptions.
+
+- ``SystemRuntime`` is the chokepoint every Action funnels through.
+  Patching ``subprocess.run`` alone was not enough: ``SystemRuntime``'s
+  ``capture=False`` branch calls ``subprocess.call``, which was never
+  patched, so a dry-run regression really did start containers from
+  inside this test file.
+- ``core.proc`` (``fake_proc``) is the other boundary, used by the
+  verbs' own pre-flight probes.
+
+Assertions are on the recorded call lists because the Executor wraps
+``action.execute`` in ``except Exception`` -- a guard that merely raised
+would be converted into an ActionResult and then into a SystemExit the
+test swallows, which is exactly how the ``down`` and ``snapshot`` cases
+here used to stay green while the short-circuit was removed.
+
+Each case also asserts the verb actually PLANNED work: "executed
+nothing" is trivially true of a verb that did nothing at all.
 """
 from __future__ import annotations
 
 import argparse
 import subprocess
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
+from sanity_gravity.effects.actions import ActionResult, SystemRuntime
+from sanity_gravity.effects.executor import Executor
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
 
 
-def _no_subprocess():
-    """Patch every subprocess entry point to raise loudly. Returns the
-    list of patchers so the caller can unwind after."""
-    return (
-        patch("subprocess.run",
-              side_effect=AssertionError("subprocess.run called in dry-run")),
-        patch("subprocess.check_call",
-              side_effect=AssertionError("subprocess.check_call called in dry-run")),
-        patch("subprocess.check_output",
-              side_effect=AssertionError("subprocess.check_output called in dry-run")),
+class _DryRunGuard:
+    """Records what a verb planned and what (if anything) it executed."""
+
+    def __init__(self) -> None:
+        self.executed: list[tuple] = []
+        self.planned: list = []
+
+    def assert_dry(self) -> None:
+        assert self.planned, (
+            "the verb queued no actions at all; 'executed nothing' would be "
+            "vacuously true, so this case cannot detect a dry-run regression"
+        )
+        assert self.executed == [], (
+            "dry-run executed real side effects:\n  "
+            + "\n  ".join(" ".join(map(str, c)) for c in self.executed)
+        )
+
+
+@pytest.fixture
+def guard(monkeypatch):
+    g = _DryRunGuard()
+
+    # Record instead of raise: the Executor swallows exceptions from
+    # execute() into an ActionResult, so a raising double would be
+    # invisible here. A benign rc=0 keeps the verb on its normal path.
+    def record_subprocess(self, argv, *, env=None, cwd=None, capture=False):
+        g.executed.append(tuple(str(a) for a in argv))
+        return ActionResult(exit_code=0)
+
+    monkeypatch.setattr(SystemRuntime, "run_subprocess", record_subprocess)
+    monkeypatch.setattr(
+        SystemRuntime, "write_file",
+        lambda self, path, content, mode: g.executed.append(("write_file", path)),
     )
+    monkeypatch.setattr(
+        SystemRuntime, "make_dirs",
+        lambda self, path, mode: g.executed.append(("make_dirs", path)),
+    )
+    monkeypatch.setattr(SystemRuntime, "sleep", lambda self, seconds: None)
+
+    orig_run = Executor.run
+
+    def spy_run(self, action, *, phase=None):
+        g.planned.append(action)
+        return orig_run(self, action, phase=phase)
+
+    monkeypatch.setattr(Executor, "run", spy_run)
+
+    # Defence in depth: nothing in a dry run may reach the OS by any
+    # other route either. Every legitimate path goes through the two
+    # boundaries above or through fake_proc.
+    def _forbidden(name):
+        def _boom(*a, **kw):
+            raise AssertionError(f"subprocess.{name} called in dry-run: {a[:1]}")
+        return _boom
+
+    for name in ("run", "call", "check_call", "check_output", "Popen"):
+        monkeypatch.setattr(subprocess, name, _forbidden(name))
+
+    return g
 
 
 @pytest.fixture
@@ -47,14 +113,13 @@ def reporter(tmp_path):
     rep.close()
 
 
-def test_build_dry_run_no_subprocess(reporter, monkeypatch):
+def test_build_dry_run_no_subprocess(reporter, guard, fake_proc, monkeypatch):
     # Build needs to find sandbox/Dockerfile.base; run from the real
     # repo root rather than tmp_path. Dry-run is the operative
     # property, not isolation of the working tree.
     monkeypatch.chdir(_REPO_ROOT)
     from sanity_gravity.verbs import build as build_mod
 
-    p1, p2, p3 = _no_subprocess()
     args = argparse.Namespace(
         no_cache=False,
         list_intermediates=False,
@@ -65,60 +130,53 @@ def test_build_dry_run_no_subprocess(reporter, monkeypatch):
         json_output=False,
         reporter=reporter,
     )
-    with p1, p2, p3:
-        # Must not raise — dry-run short-circuits all subprocess calls.
-        try:
-            build_mod.build(args)
-        except SystemExit as ei:
-            # Only acceptable failure path: ActionFailedError caught.
-            # Even that should not happen in pure dry-run.
-            pytest.fail(f"build() exited with code {ei.code} in dry-run")
+    # Must not raise - dry-run short-circuits every action.
+    build_mod.build(args)
+    guard.assert_dry()
+    # The build plan really is docker work that was not done.
+    assert any("docker" in " ".join(map(str, a.argv))
+               for a in guard.planned if hasattr(a, "argv"))
 
 
-def test_down_dry_run_no_subprocess(reporter, tmp_path, monkeypatch):
+def test_down_dry_run_no_subprocess(reporter, guard, fake_proc, tmp_path,
+                                    monkeypatch):
     monkeypatch.chdir(tmp_path)
     from sanity_gravity.verbs import lifecycle as lc_mod
 
-    p1, p2, p3 = _no_subprocess()
     args = argparse.Namespace(
         name="proj-test", dry_run=True, reporter=reporter,
     )
-    # The lifecycle verb queries docker for project existence in
-    # check_existence mode. ``down(args)`` sets check_existence=True.
-    # The check goes through ``run_command``, which uses subprocess —
-    # but in dry-run mode the EXISTENCE_CHECK hook also short-circuits.
-    # If a regression skips that guard, the test will catch it.
-    with p1, p2, p3:
-        try:
-            lc_mod.down(args)
-        except SystemExit:
-            pass  # ActionFailedError-induced exit is fine; subprocess
-                  # being called would have raised AssertionError first.
+    # ``down(args)`` sets check_existence=True; in dry-run the
+    # EXISTENCE_CHECK hook short-circuits, so no docker ps is issued
+    # either -- an unscripted one would raise from fake_proc.
+    lc_mod.down(args)
+    guard.assert_dry()
+    assert guard.planned[0].argv[-1] == "down"
+    fake_proc.assert_never_ran("docker")
 
 
-def test_snapshot_dry_run_no_subprocess(reporter, tmp_path, monkeypatch):
+def test_snapshot_dry_run_no_subprocess(reporter, guard, fake_proc, tmp_path,
+                                        monkeypatch):
     monkeypatch.chdir(tmp_path)
     from sanity_gravity.verbs import snapshot as sn_mod
 
-    p1, p2, p3 = _no_subprocess()
     args = argparse.Namespace(
         name="proj-test", tag="newtag", variant="ag-xfce-kasm",
         dry_run=True, reporter=reporter,
     )
-    with p1, p2, p3:
-        try:
-            sn_mod.snapshot_cmd(args)
-        except SystemExit:
-            pass
+    sn_mod.snapshot_cmd(args)
+    guard.assert_dry()
+    # The commit is the whole point of the verb: it must have been
+    # planned (and, per assert_dry, not run).
+    assert any("commit" in tuple(a.argv)
+               for a in guard.planned if hasattr(a, "argv"))
 
 
-def test_up_dry_run_no_subprocess(reporter, tmp_path, monkeypatch):
+def test_up_dry_run_no_subprocess(reporter, guard, fake_proc, tmp_path,
+                                  monkeypatch):
     monkeypatch.chdir(tmp_path)
     from sanity_gravity.verbs import up as up_mod
 
-    p1, p2, p3 = _no_subprocess()
-    # In dry-run we still need basic dependencies to resolve. Stub
-    # check_prereqs so it doesn't shell out to docker.
     args = argparse.Namespace(
         variant="ag-xfce-kasm",
         skip_check=True,
@@ -130,10 +188,26 @@ def test_up_dry_run_no_subprocess(reporter, tmp_path, monkeypatch):
         reporter=reporter,
         dry_run=True,
     )
-    with p1, p2, p3, \
-         patch("sanity_gravity.verbs.up.get_uid_gid_user",
-               return_value=(1000, 1000, "u")):
-        try:
-            up_mod.up(args)
-        except SystemExit:
-            pass
+    # The git-compose hook probes ProxyManager.is_enabled, which really
+    # shells out to systemctl (previously the shadow run_command's bare
+    # except swallowed this very AssertionError and faked False). Stub
+    # the manager: the property under test is the verb's dry-run, not
+    # the host's systemd state.
+    fake_pm = MagicMock()
+    fake_pm.is_enabled.return_value = False
+    monkeypatch.setattr(
+        "sanity_gravity.compose.generators.ProxyManager",
+        lambda *a, **kw: fake_pm,
+    )
+    monkeypatch.setattr(
+        "sanity_gravity.verbs.up.get_uid_gid_user",
+        lambda: (1000, 1000, "u"),
+    )
+
+    up_mod.up(args)
+    guard.assert_dry()
+    # ``docker compose ... up -d`` is the action the verb exists to run.
+    assert any(
+        "up" in tuple(a.argv) and "-d" in tuple(a.argv)
+        for a in guard.planned if hasattr(a, "argv")
+    )

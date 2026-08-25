@@ -1,6 +1,7 @@
 import subprocess
+
 import pytest
-import os
+
 
 class TestCLI:
     """Tests for sanity-cli itself."""
@@ -14,28 +15,27 @@ class TestCLI:
             return result
         return _run
 
+    @pytest.mark.no_image
     def test_cli_help(self, cli):
         res = cli("--help")
         assert res.returncode == 0
         assert "Antigravity Sandbox" in res.stdout
         assert "CLI" in res.stdout
 
+    @pytest.mark.no_image
     def test_cli_list(self, cli):
         res = cli("list")
         assert res.returncode == 0
         assert "ag-xfce-kasm" in res.stdout
         assert "Dimension Matrix" in res.stdout
 
+    @pytest.mark.requires_docker
     def test_cli_check(self, cli):
         res = cli("check")
         assert res.returncode == 0
         assert "Docker is installed" in res.stdout
 
-    # Integration tests involving docker-compose/build via CLI might be slow.
-    # We can mark them as slow if we had pytest markers config.
-    # For now, let's include basic lifecycle verification but maybe skip full build to save time if images exist.
-    # But user wants "sanity check" so running 'build' is part of it.
-    
+    @pytest.mark.requires_image("ag-xfce-ssh")
     def test_cli_lifecycle(self, cli, clean_container):
         """Test run -> status -> stop flow."""
         # Clean up in case

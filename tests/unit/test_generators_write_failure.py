@@ -11,18 +11,12 @@ contract so a future "swallow and continue" patch fails loudly.
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-
-from sanity_gravity.compose import generators as gen_mod  # noqa: E402
-from sanity_gravity.compose.builder import ComposeBuilder, ComposeService  # noqa: E402
+from sanity_gravity.compose import generators as gen_mod
+from sanity_gravity.compose.builder import ComposeBuilder, ComposeService
 
 
 @pytest.fixture

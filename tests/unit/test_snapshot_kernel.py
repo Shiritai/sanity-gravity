@@ -1,25 +1,19 @@
 """Tests for the snapshot verb's microkernel migration (PR #7b)."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.core.eventbus import EventBus  # noqa: E402
-from sanity_gravity.core.orchestrator import (  # noqa: E402
+from sanity_gravity.core.eventbus import EventBus
+from sanity_gravity.core.orchestrator import (
+    _SNAPSHOT_PHASES,
     Orchestrator,
     SnapshotContext,
-    _SNAPSHOT_PHASES,
 )
-from sanity_gravity.core.reporter import Reporter  # noqa: E402
-from sanity_gravity.domain.phase import Phase  # noqa: E402
-from sanity_gravity.effects.actions import RunSubprocess  # noqa: E402
-from sanity_gravity.hooks.snapshot import (  # noqa: E402
+from sanity_gravity.core.proc import Completed
+from sanity_gravity.core.reporter import Reporter
+from sanity_gravity.domain.phase import Phase
+from sanity_gravity.effects.actions import RunSubprocess
+from sanity_gravity.hooks.snapshot import (
     register_builtin_snapshot_hooks,
 )
 
@@ -45,8 +39,8 @@ def test_snapshot_resolves_explicit_variant():
     bus = EventBus()
     register_builtin_snapshot_hooks(bus)
     with patch(
-        "sanity_gravity.hooks.snapshot.run_command",
-        return_value='[{"Id":"x"}]',
+        "sanity_gravity.hooks.snapshot.try_run",
+        return_value=Completed(("docker", "inspect", "x"), 0, stdout='[{"Id":"x"}]'),
     ):
         ctx = SnapshotContext(
             project="proj", target_tag="tag:v1", variant="ag-xfce-ssh",
@@ -71,10 +65,13 @@ def test_snapshot_resolves_explicit_variant():
 def test_snapshot_bails_when_explicit_variant_missing():
     bus = EventBus()
     register_builtin_snapshot_hooks(bus)
-    # Empty docker inspect output → container "not found".
+    # docker inspect fails (rc=1, "[]") -> container "not found".
     with patch(
-        "sanity_gravity.hooks.snapshot.run_command",
-        return_value="[]",
+        "sanity_gravity.hooks.snapshot.try_run",
+        return_value=Completed(
+            ("docker", "inspect", "x"), 1,
+            stdout="[]", stderr="Error: No such object",
+        ),
     ):
         ctx = SnapshotContext(
             project="proj", target_tag="tag:v1", variant="ag-xfce-ssh",
@@ -101,7 +98,7 @@ def test_snapshot_dry_run_uses_placeholder_container():
         project="proj", target_tag="tag:v1", variant="ag-xfce-ssh",
         reporter=_reporter(), dry_run=True,
     )
-    with patch("sanity_gravity.hooks.snapshot.run_command") as mk:
+    with patch("sanity_gravity.hooks.snapshot.try_run") as mk:
         Orchestrator(bus, ctx.reporter).run(_SNAPSHOT_PHASES, ctx)
     assert mk.call_count == 0
     assert ctx.container_id == "proj-ag-xfce-ssh-1"

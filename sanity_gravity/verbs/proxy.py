@@ -1,7 +1,6 @@
 """``proxy`` verb: setup / status / remove for the SSH agent socket proxy."""
 from __future__ import annotations
 
-from sanity_gravity.cli.colors import Colors
 from sanity_gravity.cli.io import (
     print_error,
     print_header,
@@ -9,6 +8,8 @@ from sanity_gravity.cli.io import (
     print_plain,
     print_success,
 )
+from sanity_gravity.core.colors import Colors
+from sanity_gravity.domain.errors import SanityError
 
 try:
     from sanity_gravity.infra.proxy_manager import ProxyManager
@@ -26,10 +27,13 @@ def proxy_setup_cmd(args):
     print_header("Setting up SSH Proxy...")
     try:
         pm.setup()
-        print_success(f"SSH Proxy enabled at {pm.get_socket_path()}")
-        print_info("You can now run 'sanity-cli up' to use the proxy.")
-    except Exception as e:
-        print_error(f"Setup failed: {e}")
+    except (RuntimeError, TimeoutError, OSError, SanityError) as e:
+        # Expected setup failures (socat missing, systemd broken,
+        # root-owned socket) become a nonzero exit -- the old
+        # report-and-return arm exited 0 on a failed setup.
+        raise SanityError(f"Setup failed: {e}") from e
+    print_success(f"SSH Proxy enabled at {pm.get_socket_path()}")
+    print_info("You can now run 'sanity-cli up' to use the proxy.")
 
 
 def proxy_status_cmd(args):
