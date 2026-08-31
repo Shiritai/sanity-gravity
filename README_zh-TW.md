@@ -238,7 +238,10 @@ sanity-gravity/
 │   │   ├── agents/             # ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）
 │   │   └── connectors/         # kasm（KasmVNC）、vnc（TigerVNC）、ssh
 │   └── rootfs/                 # 共用覆疊層（entrypoint、gravity-cli、supervisor 設定）
-├── lib/                        # Proxy Manager 模組
+├── plugins/                    # 清單檔驅動的外掛
+│   ├── desktops/               #   xfce、none
+│   ├── agents/                 #   ag、agy、gc、cc、cx、oc
+│   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh
 ├── config/                     # 動態產生的 docker-compose 檔（git-ignored）
 ├── tests/                      # Pytest 整合測試套件
 ├── workspace/                  # 預設掛載的工作目錄
