@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Claude Code
+Comment=Claude Code terminal agent
+Exec=claude
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;

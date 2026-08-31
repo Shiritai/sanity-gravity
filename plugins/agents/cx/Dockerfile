@@ -28,3 +28,5 @@ RUN arch="$(dpkg --print-architecture)" && \
     ln -s "/opt/codex/vendor/${target}/bin/codex" /usr/local/bin/codex && \
     chmod -R a+rX /opt/codex && \
     test -x /usr/local/bin/codex
+
+COPY rootfs/ /
