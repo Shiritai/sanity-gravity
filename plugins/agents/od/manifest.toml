@@ -1,0 +1,12 @@
+[plugin]
+slug = "od"
+name = "opencode-desktop"
+kind = "agent"
+api_version = "1"
+
+[capabilities]
+provides = []
+requires = ["display"]
+
+[build]
+dockerfile = "Dockerfile"
