@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     novnc \
     websockify \
     python3-numpy \
+    && apt-get autoremove -y && \
+    rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Fix noVNC index (redirect to vnc.html)
