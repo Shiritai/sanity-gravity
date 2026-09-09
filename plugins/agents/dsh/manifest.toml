@@ -1,0 +1,15 @@
+[plugin]
+slug = "dsh"
+name = "deepseek-harness"
+kind = "agent"
+api_version = "1"
+tier = "community"
+
+[capabilities]
+provides = []
+# No display: the headless profile needs none, and the web profile binds
+# loopback (reached via ssh -L or the in-container browser).
+requires = []
+
+[build]
+dockerfile = "Dockerfile"

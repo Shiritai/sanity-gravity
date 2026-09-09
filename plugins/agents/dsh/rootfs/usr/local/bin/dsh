@@ -1,0 +1,8 @@
+#!/bin/sh
+# The wheel-packaged dsh hard-requires a non-empty DSH_HOME and never
+# falls back to ~/.dsh on its own, and ssh logins get a fresh PAM
+# environment that Dockerfile ENV cannot reach -- so the defaults live
+# here, on the one path every entry point shares. Both stay overridable.
+export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
+export DSH_TELEMETRY_MODE="${DSH_TELEMETRY_MODE:-DISABLED}"
+exec /opt/dsh/venv/bin/dsh "$@"
