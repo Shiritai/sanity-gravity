@@ -12,25 +12,22 @@ the Dockerfile.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT))
-
-from sanity_gravity.domain.capability import (  # noqa: E402
+from sanity_gravity.domain.capability import (
     CapabilityConflictError,
     solve,
 )
-from sanity_gravity.domain.tags import Tag  # noqa: E402
-from sanity_gravity.plugins.registry import (  # noqa: E402
+from sanity_gravity.domain.tags import Tag
+from sanity_gravity.plugins.registry import (
     PluginRegistry,
     default_registry,
     reset_default_registry,
 )
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 PLUGINS_DIR = _REPO_ROOT / "plugins"
 
@@ -82,23 +79,29 @@ def test_od_injects_no_host_env(reg):
 # -- tier ---------------------------------------------------------------
 
 
-def test_od_is_official(reg):
-    """od declares no tier, so it defaults to official and enters the CI
-    build/verify and publish matrix."""
-    assert reg.agents["od"].tier == "official"
+def test_od_is_community(reg):
+    """od ships at community tier, so it is buildable and runnable
+    locally but stays out of the CI and publish matrix."""
+    assert reg.agents["od"].tier == "community"
 
 
-def test_od_tags_enter_the_official_matrix():
-    """All three od-* tags must reach OFFICIAL_TAGS (the `list --json`
-    source CI enumerates its matrices from)."""
-    from sanity_gravity.cli.registry import OFFICIAL_TAGS, tag_tier
+def test_od_tags_stay_out_of_the_official_matrix():
+    """The three od tags reach VALID_TAGS but not OFFICIAL_TAGS (the
+    `list --json` source CI enumerates its matrices from)."""
+    from sanity_gravity.core.registry import (
+        OFFICIAL_TAGS,
+        VALID_TAGS,
+        resolve_tag,
+        tag_tier,
+    )
 
-    od_tags = [t for t in OFFICIAL_TAGS if t.startswith("od-")]
+    assert [t for t in OFFICIAL_TAGS if resolve_tag(t).agent == "od"] == []
+    od_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "od"]
     assert sorted(od_tags) == [
         "od-xfce-kasm", "od-xfce-ssh", "od-xfce-vnc",
     ]
     for t in od_tags:
-        assert tag_tier(t) == "official"
+        assert tag_tier(resolve_tag(t)) == "community"
 
 
 # -- capability solving -------------------------------------------------

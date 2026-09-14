@@ -135,8 +135,13 @@ class TestCliEnumeration:
         gc_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "gc"]
         assert len(gc_tags) == 4
         assert not any(resolve_tag(t).agent == "gc" for t in OFFICIAL_TAGS)
-        # Everything else is untouched by gc's retirement.
-        assert set(VALID_TAGS) - set(gc_tags) == set(OFFICIAL_TAGS)
+        # Everything else is untouched by gc's retirement. Named by
+        # tier, not by slug: gc is no longer the only non-official agent.
+        non_official = {
+            t for t in VALID_TAGS if tag_tier(resolve_tag(t)) != "official"
+        }
+        assert set(gc_tags) <= non_official
+        assert set(VALID_TAGS) - non_official == set(OFFICIAL_TAGS)
         for t in gc_tags:
             assert tag_tier(resolve_tag(t)) == "deprecated"
             resolve_tag(t)  # must not raise
