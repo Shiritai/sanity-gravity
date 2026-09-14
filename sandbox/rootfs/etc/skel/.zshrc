@@ -6,5 +6,5 @@ setopt HIST_IGNORE_DUPS
 HISTSIZE=10000
 SAVEHIST=10000
 HISTFILE="$HOME/.zsh_history"
-export EDITOR=vim
+export EDITOR=vi
 alias ls='ls --color=auto'
