@@ -8,9 +8,7 @@ FROM ${BASE_IMAGE}
 # Install Node.js 22 LTS via NodeSource
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
-    apt-get autoremove -y && \
-    rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Gemini CLI globally, then patch npm's bundled picomatch (CVE-2026-33671)
 RUN npm install -g @google/gemini-cli && \

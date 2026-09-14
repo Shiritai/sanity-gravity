@@ -3,8 +3,6 @@ FROM ${BASE_IMAGE}
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
     curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- -d /usr/local/bin && \
-    apt-get autoremove -y && \
-    rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY rootfs/ /
