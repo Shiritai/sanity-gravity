@@ -115,10 +115,17 @@ fi
 # default shell, and a fresh home has no config). useradd -m only copies the
 # skeleton for brand-new homes, so enforce it here for renamed/imported
 # users and bind-mounted homes too.
-if [ ! -f "/home/$USER_NAME/.zshrc" ] && [ -f /etc/skel/.zshrc ]; then
+# -f is not enough: it follows symlinks, so a dangling .zshrc reads as
+# missing and the copy then writes through the link and fails. The copy is
+# a condition because this script runs under set -e.
+ZSHRC="/home/$USER_NAME/.zshrc"
+if [ ! -e "$ZSHRC" ] && [ ! -L "$ZSHRC" ] && [ -f /etc/skel/.zshrc ]; then
     echo "Creating default .zshrc for '$USER_NAME'..."
-    cp /etc/skel/.zshrc "/home/$USER_NAME/.zshrc"
-    chown "$HOST_UID":"$HOST_GID" "/home/$USER_NAME/.zshrc"
+    if cp /etc/skel/.zshrc "$ZSHRC"; then
+        chown "$HOST_UID":"$HOST_GID" "$ZSHRC"
+    else
+        echo "WARNING: could not seed $ZSHRC; continuing without it." >&2
+    fi
 fi
 
 # Fix Supervisor Configs (Dynamic User)

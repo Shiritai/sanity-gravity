@@ -1,9 +1,10 @@
-"""Guards for the skel .zshrc the sandbox seeds into every user home.
+"""Guards for the skel .zshrc and the entrypoint that backfills it.
 
-The file is image contract rather than user config: it is baked in by
-``COPY rootfs /`` and copied into homes ``useradd -m`` never touches.
-Nothing in it is reachable from Python, so what is pinned here is what
-the source must keep saying; the runtime proof lives in the container.
+Both halves are image contract rather than user config: the file is
+baked in by ``COPY rootfs /`` and the entrypoint copies it into homes
+``useradd -m`` never touches. Nothing here is reachable from Python, so
+what is pinned is what the source must keep saying; the runtime proof
+lives in the container.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from tests.support import REPO_ROOT
 
 _SKEL_ZSHRC = REPO_ROOT / "sandbox" / "rootfs" / "etc" / "skel" / ".zshrc"
 _DOCKERFILE_BASE = REPO_ROOT / "sandbox" / "Dockerfile.base"
+_ENTRYPOINT = REPO_ROOT / "sandbox" / "rootfs" / "usr" / "local" / "bin" / "entrypoint.sh"
 
 #: Editor packages against the commands each one actually registers on
 #: Debian/Ubuntu. ``vim-tiny`` is why the table exists: it installs
@@ -45,6 +47,16 @@ def _skel_editor() -> str:
     return match.group(1)
 
 
+def _seed_block() -> str:
+    """The ``if ... fi`` block in entrypoint.sh that seeds the .zshrc."""
+    lines = _ENTRYPOINT.read_text().splitlines()
+    hits = [n for n, line in enumerate(lines) if "cp /etc/skel/.zshrc" in line]
+    assert len(hits) == 1, f"expected one skel .zshrc copy in entrypoint.sh, found {len(hits)}"
+    start = max(n for n in range(hits[0]) if lines[n].startswith("if "))
+    end = min(n for n in range(hits[0], len(lines)) if lines[n] == "fi")
+    return "\n".join(lines[start:end + 1])
+
+
 def test_skel_editor_is_a_command_the_base_image_installs():
     """The base image installs ``vim-tiny``, which registers ``vi`` and no
     ``vim``, so the shipped ``export EDITOR=vim`` resolved to nothing: the
@@ -56,4 +68,25 @@ def test_skel_editor_is_a_command_the_base_image_installs():
     assert editor in provided, (
         f"skel .zshrc exports EDITOR={editor}, which none of the installed editor "
         f"packages {sorted(installed)} registers; pick one of {sorted(provided)}"
+    )
+
+
+def test_zshrc_seed_leaves_an_existing_symlink_alone():
+    """``[ ! -f ... ]`` follows symlinks, so a dangling .zshrc symlink
+    reads as missing and the copy then writes through it and fails.
+    Whatever already sits at that path is the user's, resolvable or
+    not."""
+    block = _seed_block()
+    assert "-L" in block, (
+        "the skel .zshrc backfill decides on a symlink-following test alone; a "
+        f"dangling symlink is both 'missing' and unwritable:\n{block}"
+    )
+
+
+def test_zshrc_seed_cannot_abort_the_entrypoint():
+    """entrypoint.sh runs under ``set -e``: an unwritable home must cost
+    the user their .zshrc, not their container."""
+    copy = next(line for line in _seed_block().splitlines() if "cp /etc/skel/.zshrc" in line)
+    assert re.search(r"(^|\s)(if|\|\|)\s", copy.strip()), (
+        f"the skel .zshrc copy is unguarded, so a failed copy kills the entrypoint:\n{copy}"
     )
