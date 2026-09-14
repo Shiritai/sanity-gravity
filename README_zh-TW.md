@@ -103,6 +103,9 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 | 搭配桌面使用 OpenAI Codex       | `cx-xfce-kasm`   | `https://localhost:8444`   |
 | 在終端機使用 OpenCode           | `oc-none-ssh`    | `ssh -p 2222 ...`         |
 | 搭配桌面使用 OpenCode           | `oc-xfce-kasm`   | `https://localhost:8444`   |
+| 用瀏覽器開啟 OpenCode Desktop   | `od-xfce-kasm` * | `https://localhost:8444`   |
+
+\* community tier：請用 `./sanity-cli build <tag>` 在本機建置；不會發佈到 GHCR，因此 `pull` 取不到。
 
 > **第一次使用？** 從 **`ag-xfce-kasm`** 開始 — 直接在瀏覽器中獲得完整的桌面體驗。
 

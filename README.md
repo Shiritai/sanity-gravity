@@ -103,7 +103,9 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 | Use OpenAI Codex with a desktop  | `cx-xfce-kasm`   | `https://localhost:8444`   |
 | Use OpenCode in a terminal       | `oc-none-ssh`    | `ssh -p 2222 ...`         |
 | Use OpenCode with a desktop      | `oc-xfce-kasm`   | `https://localhost:8444`   |
-| Use OpenCode Desktop in browser  | `od-xfce-kasm`   | `https://localhost:8444`   |
+| Use OpenCode Desktop in browser  | `od-xfce-kasm` * | `https://localhost:8444`   |
+
+\* Community tier: build locally with `./sanity-cli build <tag>`; not published to GHCR, so `pull` has nothing to fetch.
 
 > **First time?** Start with **`ag-xfce-kasm`** — it gives you the full desktop experience via your browser.
 
