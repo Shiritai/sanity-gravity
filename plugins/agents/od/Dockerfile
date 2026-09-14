@@ -52,9 +52,7 @@ RUN arch="$(dpkg --print-architecture)" && \
     if grep -q "ID=debian" /etc/os-release; then ALSA_PKG="libasound2"; else ALSA_PKG="libasound2t64"; fi && \
     apt-get install -y --no-install-recommends "${ALSA_PKG}" /tmp/opencode.deb && \
     rm /tmp/opencode.deb && \
-    apt-get autoremove -y && \
-    rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
     patched=0 && \
     for f in /usr/share/applications/opencode-desktop.desktop \
              /usr/share/applications/ai.opencode.desktop.desktop; do \
