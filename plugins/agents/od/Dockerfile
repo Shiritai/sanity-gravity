@@ -55,12 +55,18 @@ RUN arch="$(dpkg --print-architecture)" && \
     apt-get autoremove -y && \
     rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
     && apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    patched=0 && \
     for f in /usr/share/applications/opencode-desktop.desktop \
              /usr/share/applications/ai.opencode.desktop.desktop; do \
         if [ -f "$f" ]; then \
             sed -i 's|^Exec=.*|Exec=/opt/OpenCode/ai.opencode.desktop --no-sandbox --disable-dev-shm-usage %U|' "$f"; \
+            patched=$((patched + 1)); \
         fi; \
     done && \
+    if [ "$patched" -eq 0 ]; then \
+        echo "no known opencode .desktop entry to patch - upstream renamed it" >&2; \
+        exit 1; \
+    fi && \
     test -x /opt/OpenCode/ai.opencode.desktop
 
 COPY rootfs/ /
