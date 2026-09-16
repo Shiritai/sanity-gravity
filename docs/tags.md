@@ -16,14 +16,14 @@ The AI tool installed in the sandbox.
 | `cx` | OpenAI Codex CLI | official | No | Codex CLI (static musl `codex` binary, official installer) |
 | `gc` | Gemini CLI | deprecated | No | Node.js 22 + `@google/gemini-cli` |
 | `oc` | OpenCode | official | No | OpenCode CLI (single Bun-compiled `opencode` binary, official installer) |
-| `od` | OpenCode Desktop | community | Yes | OpenCode Desktop (Electron GUI app, official .deb for amd64/arm64) |
+| `ocd` | OpenCode Desktop | community | Yes | OpenCode Desktop (Electron GUI app, official .deb for amd64/arm64) |
 
 > **`gc` is deprecated.** Google shut down the Gemini CLI free tier on
 > 2026-06-18; it now requires a paid Gemini API key / Code Assist license.
 > The plugin and its images are kept for those users, but new users should
 > prefer **`agy`** (Antigravity CLI), Google's official replacement.
 
-> **Community tier (`od`).** Its three tags build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build od-xfce-kasm` first. The app is the Electron GUI, reachable only from the desktop menu of an `xfce` variant; there is no `opencode` command on PATH (that is the sibling `oc` plugin). See [Support tiers](../CONTRIBUTING.md#support-tiers).
+> **Community tier (`ocd`).** Its three tags build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build ocd-xfce-kasm` first. The app is the Electron GUI, reachable only from the desktop menu of an `xfce` variant; there is no `opencode` command on PATH (that is the sibling `oc` plugin). See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 ### Desktops
 
@@ -49,7 +49,7 @@ How you connect to the running container.
 Not all combinations are valid. Two rules are enforced:
 
 1. **GUI connectors require a GUI desktop**: `kasm` and `vnc` can only pair with `xfce` (not `none`).
-2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) and `od` (OpenCode Desktop) can only pair with `xfce` (not `none`).
+2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) and `ocd` (OpenCode Desktop) can only pair with `xfce` (not `none`).
 
 These rules are enforced by `sanity-cli` at build time and run time.
 
@@ -82,9 +82,9 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `oc-xfce-kasm` | OpenCode | XFCE | KasmVNC | OpenCode with browser desktop |
 | `oc-xfce-ssh` | OpenCode | XFCE | SSH | OpenCode with GUI, SSH-only access |
 | `oc-xfce-vnc` | OpenCode | XFCE | TigerVNC | OpenCode with legacy VNC |
-| `od-xfce-kasm` | OpenCode Desktop | XFCE | KasmVNC | OpenCode Desktop with browser desktop |
-| `od-xfce-ssh` | OpenCode Desktop | XFCE | SSH | OpenCode Desktop with GUI, SSH-only access |
-| `od-xfce-vnc` | OpenCode Desktop | XFCE | TigerVNC | OpenCode Desktop with legacy VNC |
+| `ocd-xfce-kasm` | OpenCode Desktop | XFCE | KasmVNC | OpenCode Desktop with browser desktop |
+| `ocd-xfce-ssh` | OpenCode Desktop | XFCE | SSH | OpenCode Desktop with GUI, SSH-only access |
+| `ocd-xfce-vnc` | OpenCode Desktop | XFCE | TigerVNC | OpenCode Desktop with legacy VNC |
 
 ## Discovery Commands
 

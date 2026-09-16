@@ -103,7 +103,7 @@ AI エージェントは任意のコードを実行します。たった一度�
 | デスクトップ付きで OpenAI Codex   | `cx-xfce-kasm`   | `https://localhost:8444`   |
 | ターミナルで OpenCode を使う      | `oc-none-ssh`    | `ssh -p 2222 ...`         |
 | デスクトップ付きで OpenCode       | `oc-xfce-kasm`   | `https://localhost:8444`   |
-| ブラウザで OpenCode Desktop       | `od-xfce-kasm` * | `https://localhost:8444`   |
+| ブラウザで OpenCode Desktop       | `ocd-xfce-kasm` * | `https://localhost:8444`   |
 
 \* community tier：`./sanity-cli build <tag>` でローカルにビルドしてください。GHCR には公開されないため `pull` では取得できません。
 
@@ -243,7 +243,7 @@ sanity-gravity/
 │   └── rootfs/                 # 共有オーバーレイ（entrypoint、gravity-cli、supervisor 設定）
 ├── plugins/                    # マニフェスト駆動プラグイン
 │   ├── desktops/               #   xfce、none
-│   ├── agents/                 #   ag、agy、gc、cc、cx、oc、od
+│   ├── agents/                 #   ag、agy、gc、cc、cx、oc、ocd
 │   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh
 ├── config/                     # 動的生成される docker-compose ファイル（git-ignored）
 ├── tests/                      # Pytest 統合テストスイート

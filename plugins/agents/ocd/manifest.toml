@@ -1,5 +1,5 @@
 [plugin]
-slug = "od"
+slug = "ocd"
 name = "opencode-desktop"
 kind = "agent"
 api_version = "1"

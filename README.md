@@ -103,7 +103,7 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 | Use OpenAI Codex with a desktop  | `cx-xfce-kasm`   | `https://localhost:8444`   |
 | Use OpenCode in a terminal       | `oc-none-ssh`    | `ssh -p 2222 ...`         |
 | Use OpenCode with a desktop      | `oc-xfce-kasm`   | `https://localhost:8444`   |
-| Use OpenCode Desktop in browser  | `od-xfce-kasm` * | `https://localhost:8444`   |
+| Use OpenCode Desktop in browser  | `ocd-xfce-kasm` * | `https://localhost:8444`   |
 
 \* Community tier: build locally with `./sanity-cli build <tag>`; not published to GHCR, so `pull` has nothing to fetch.
 
@@ -245,7 +245,7 @@ sanity-gravity/
 │   └── rootfs/                 # Shared overlay (entrypoint, gravity-cli, supervisor configs)
 ├── plugins/                    # Manifest-driven plugins
 │   ├── desktops/               #   xfce, none
-│   ├── agents/                 #   ag, agy, gc, cc, cx, oc, od
+│   ├── agents/                 #   ag, agy, gc, cc, cx, oc, ocd
 │   └── connectors/             #   kasm (KasmVNC), vnc (TigerVNC), ssh
 ├── config/                     # Runtime-generated docker-compose files (git-ignored)
 ├── tests/                      # Pytest integration suite

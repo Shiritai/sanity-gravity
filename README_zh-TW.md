@@ -103,7 +103,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 | 搭配桌面使用 OpenAI Codex       | `cx-xfce-kasm`   | `https://localhost:8444`   |
 | 在終端機使用 OpenCode           | `oc-none-ssh`    | `ssh -p 2222 ...`         |
 | 搭配桌面使用 OpenCode           | `oc-xfce-kasm`   | `https://localhost:8444`   |
-| 用瀏覽器開啟 OpenCode Desktop   | `od-xfce-kasm` * | `https://localhost:8444`   |
+| 用瀏覽器開啟 OpenCode Desktop   | `ocd-xfce-kasm` * | `https://localhost:8444`   |
 
 \* community tier：請用 `./sanity-cli build <tag>` 在本機建置；不會發佈到 GHCR，因此 `pull` 取不到。
 
@@ -243,7 +243,7 @@ sanity-gravity/
 │   └── rootfs/                 # 共用覆疊層（entrypoint、gravity-cli、supervisor 設定）
 ├── plugins/                    # 清單驅動外掛
 │   ├── desktops/               #   xfce、none
-│   ├── agents/                 #   ag、agy、gc、cc、cx、oc、od
+│   ├── agents/                 #   ag、agy、gc、cc、cx、oc、ocd
 │   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh
 ├── config/                     # 動態產生的 docker-compose 檔（git-ignored）
 ├── tests/                      # Pytest 整合測試套件
