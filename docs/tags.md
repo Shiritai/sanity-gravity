@@ -26,7 +26,7 @@ The AI tool installed in the sandbox.
 > The plugin and its images are kept for those users, but new users should
 > prefer **`agy`** (Antigravity CLI), Google's official replacement.
 
-> **Community tier (`ocd`).** Its three tags build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build ocd-xfce-kasm` first. The app is the Electron GUI, reachable only from the desktop menu of an `xfce` variant; there is no `opencode` command on PATH (that is the sibling `oc` plugin). See [Support tiers](../CONTRIBUTING.md#support-tiers).
+> **Community tier (`ocd`).** Its three tags build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build ocd-xfce-kasm` first. The app is the Electron GUI, reachable only from the desktop menu of an `xfce` variant; there is no `opencode` command on PATH (that is the sibling `oc` plugin). OpenCode's free-tier models are gated server-side to the official harness since 2026-09-17, so they fail inside the sandbox with `Error from provider (Console)` no matter which version is pinned ([anomalyco/opencode#49588](https://github.com/anomalyco/opencode/issues/49588)) - configure your own provider API key in `~/.config/opencode/opencode.json` instead (the entrypoint seed already creates that file). See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 ### Desktops
 
