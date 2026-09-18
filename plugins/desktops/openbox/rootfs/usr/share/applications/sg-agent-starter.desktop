@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=KI Coding Agent Starter
-Comment=Projekt wählen und Terminal-KI-Agent starten
+Name=Agent Starter
+Comment=Pick a project and start the terminal coding agent
 Exec=agent-starter
 Icon=utilities-terminal
 Terminal=true

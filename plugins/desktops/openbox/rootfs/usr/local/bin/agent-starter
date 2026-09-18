@@ -1,41 +1,31 @@
 #!/usr/bin/env bash
-# agent-starter: zentrale Einstiegsstelle für KI-Agenten auf dem Openbox-Desktop.
+# agent-starter: the entry point to the coding agents on the openbox desktop.
 #
-# Der Openbox-Desktop ist bewusst minimal (nur Window Manager, kein Panel).
-# Dieses Skript (und das Autostart) erkennt den installierten Agenten zur
-# Laufzeit:
-#   - ein grafischer Agent (Antigravity IDE = ag, OpenCode Desktop = od) wird
-#     direkt gestartet und ist über die KasmVNC/noVNC-Browser-Ansicht nutzbar;
-#   - für Terminal-Agenten (agy/cc/cx/gc/oc) werden die Projektordner im
-#     Workspace aufgelistet, einer wird gewählt und der Agent darin gestartet.
-#     Existiert noch kein Projekt, wird nach einem Namen gefragt, der Ordner
-#     angelegt und der Agent darin gestartet.
-#   - ist gar kein Agent installiert, wird eine Shell geöffnet.
-#
-# Die Erkennung erfolgt zur Laufzeit, weil die Openbox-Schicht vor der
-# Agenten-Schicht gebaut wird und das Skript den Bildinhalt nicht kennt.
+# Openbox is a window manager with no panel and no desktop icons, so this
+# script (and the session autostart) is how a user reaches the installed
+# agent. Which agent that is can only be decided at runtime: the openbox
+# layer is built before the agent layer, so this script cannot know the
+# image contents.
 set -u
 
-# Ist ein grafischer Agent (Antigravity IDE = ag, OpenCode Desktop = od)
-# installiert, wird dieser gestartet — der Terminal-Ablauf weiter unten ist
-# nur für reine CLI-Kombinationen gedacht. Der Aufruf läuft über die .desktop-
-# Launcher, damit --no-sandbox & Co. genau wie beim Klick auf das Menü gesetzt
-# werden.
+# A GUI agent is the main window when one is installed; the terminal flow
+# below is for CLI-only combinations. The call goes through the .desktop
+# launcher so the vendor's own flags (--no-sandbox and friends) are set
+# exactly as they would be on a menu click.
 GUI_CMD=$(/usr/local/bin/launch-gui-agent 2>/dev/null)
 if [ -n "$GUI_CMD" ]; then
-    echo "--> Starte grafischen KI Agenten..."
+    echo "--> Starting the GUI agent..."
     eval "exec $GUI_CMD"
 fi
 
-# Der Workspace ist als Bind-Mount unter $HOME/workspace eingehängt (siehe
-# compose/generators.py). Kann per WORKSPACE_DIR übersteuert werden.
+# The workspace is bind-mounted at $HOME/workspace (see
+# compose/generators.py). WORKSPACE_DIR overrides it.
 WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspace}"
 
-# Terminal-KI-Agenten in Prioritätsreihenfolge; der erste gefundene Befehl
-# wird gestartet (cc->claude, cx->codex, gc->gemini, oc->opencode,
-# agy->agy/antigravity). Zusätzlich zu command -v werden bekannte
-# Installationspfade direkt geprüft, damit die Erkennung auch bei einem
-# eingeschränkten PATH (z. B. ohne /usr/local/bin) zuverlässig bleibt.
+# Terminal agents in priority order; the first command found is started
+# (cc->claude, cx->codex, gc->gemini, oc->opencode, agy->agy/antigravity).
+# The known install paths are probed after command -v so detection still
+# works under a restricted PATH (one without /usr/local/bin, say).
 AGENT_BIN=""
 for cand in claude codex gemini opencode agy antigravity aider; do
     if p=$(command -v "$cand" 2>/dev/null) && [ -n "$p" ]; then
@@ -58,36 +48,36 @@ if [ -z "$AGENT_BIN" ]; then
     done
 fi
 
-# Agenten (oder Shell) im aktuellen Verzeichnis starten. exec ersetzt die
-# laufende Shell, danach kehrt dieses Skript nicht mehr zurück.
+# Start the agent (or a shell) in the current directory. exec replaces the
+# running shell, so this script does not return past here.
 start_agent() {
     if [ -n "$AGENT_BIN" ]; then
-        echo "--> Starte KI Agent ($AGENT_BIN)..."
+        echo "--> Starting the coding agent ($AGENT_BIN)..."
         exec "$AGENT_BIN"
     else
-        echo "--> Kein Terminal-KI-Agent installiert. Öffne Shell..."
-        echo "    (Diagnose: PATH=$PATH)" >&2
+        echo "--> No terminal agent installed. Opening a shell..."
+        echo "    (diagnostic: PATH=$PATH)" >&2
         exec "${SHELL:-/bin/bash}"
     fi
 }
 
-# Nach dem Namen für ein neues Projekt fragen, das Verzeichnis anlegen und
-# den Agenten darin starten. Abbrechen mit 'q' oder EOF (Ctrl-D).
+# Ask for a name, create the directory and start the agent inside it.
+# 'q' or EOF (Ctrl-D) cancels.
 create_and_start() {
     local name=""
     while true; do
-        printf "Name für das neue Projekt (oder 'q' zum Abbrechen): "
+        printf "Name for the new project (or 'q' to cancel): "
         read -r name || { echo; exit 0; }
         name="$(printf '%s' "$name" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
         if [ "$name" = "q" ]; then
             exit 0
         fi
         if [ -z "$name" ]; then
-            echo "Bitte einen Projektnamen eingeben."
+            echo "Please enter a project name."
             continue
         fi
         if [ -e "$WORKSPACE_DIR/$name" ]; then
-            echo "Der Eintrag '$name' existiert bereits."
+            echo "The entry '$name' already exists."
             continue
         fi
         break
@@ -95,40 +85,39 @@ create_and_start() {
 
     mkdir -p "$WORKSPACE_DIR/$name" || exit 1
     cd "$WORKSPACE_DIR/$name" || exit 1
-    echo "--> Neues Projekt angelegt: $(pwd)"
+    echo "--> New project created: $(pwd)"
     start_agent
 }
 
 cd "$WORKSPACE_DIR" 2>/dev/null || {
-    echo "Arbeitsverzeichnis $WORKSPACE_DIR nicht gefunden."
-    echo "Lege den Ordner an oder klone ein Repository, dann erneut starten."
+    echo "Workspace directory $WORKSPACE_DIR not found."
+    echo "Create it or clone a repository into it, then start again."
     exec "${SHELL:-/bin/bash}"
 }
 
-# Prüfen, ob Unterordner existieren
 projects=( $(find . -maxdepth 1 -mindepth 1 -type d -exec basename {} \;) )
 
 if [ ${#projects[@]} -eq 0 ]; then
-    echo "Keine Projektordner in $WORKSPACE_DIR gefunden."
+    echo "No project directory found in $WORKSPACE_DIR."
     create_and_start
 fi
 
-echo "=== KI Coding Agent Starter ==="
-echo "Bitte wähle das Projektverzeichnis aus:"
+echo "=== Coding Agent Starter ==="
+echo "Choose a project directory:"
 
-select proj in "${projects[@]}" "Neues Projekt anlegen"; do
-    if [ "$proj" == "Neues Projekt anlegen" ]; then
+select proj in "${projects[@]}" "Create a new project"; do
+    if [ "$proj" == "Create a new project" ]; then
         create_and_start
         break
     elif [ -n "$proj" ]; then
         cd "$WORKSPACE_DIR/$proj" || exit 1
-        echo "--> Gewechselt nach: $(pwd)"
+        echo "--> Changed to: $(pwd)"
         start_agent
     else
-        echo "Ungültige Auswahl."
+        echo "Invalid choice."
     fi
 done
 
-# Nur erreichbar, wenn select per EOF (Ctrl-D) beendet wurde.
-echo "Auswahl abgebrochen."
+# Only reachable when select ended on EOF (Ctrl-D).
+echo "Selection cancelled."
 exit 0
