@@ -84,6 +84,13 @@ The base image (`Dockerfile.base`) installs `supervisord` as the process manager
 5. Starts D-Bus (if installed), cleans stale locks, regenerates SSH host keys
 6. Launches `supervisord` and traps `SIGTERM` for graceful shutdown
 
+## Desktop Menu Entries
+
+Every **agent plugin** reaches the desktop menu of the GUI tags. The same image also serves the headless `none` variants, where the entry is inert:
+
+- CLI agents (`agy`, `cc`, `cx`, `gc`, `oc`) ship their own `.desktop` file under `rootfs/usr/share/applications/` (copied by `COPY rootfs/ /`) with `Terminal=true`, so clicking the entry runs the TUI inside the desktop's default terminal.
+- IDE agents (`ag`) keep the GUI launcher the package installs (`antigravity.desktop`), patched for `--no-sandbox` in their Dockerfile.
+
 ## Filesystem Layout
 
 ```

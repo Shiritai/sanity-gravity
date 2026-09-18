@@ -15,3 +15,5 @@ RUN npm install -g @google/gemini-cli && \
     cd /usr/lib/node_modules/npm/node_modules/picomatch && \
     npm pack picomatch@4.0.4 && tar xzf picomatch-4.0.4.tgz --strip-components=1 && rm picomatch-4.0.4.tgz && \
     npm cache clean --force
+
+COPY rootfs/ /

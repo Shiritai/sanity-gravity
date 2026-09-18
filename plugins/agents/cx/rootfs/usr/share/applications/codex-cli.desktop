@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Codex CLI
+Comment=OpenAI Codex terminal agent
+Exec=codex
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;
