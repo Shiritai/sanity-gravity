@@ -21,6 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # --- Shared X11, DBus & System Utilities ---
     dbus \
     dbus-x11 \
+    # gvfs: backs pcmanfm-qt's Places "Computer" entry (computer:///) over
+    # D-Bus; base package only, not gvfs-backends/-fuse (smb/nfs/mtp/... this
+    # container never uses).
+    gvfs \
     x11-utils \
     x11-xserver-utils \
     x11-apps \
