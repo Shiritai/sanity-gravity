@@ -96,13 +96,7 @@ Every **agent plugin** reaches the desktop menu of the GUI tags. The same image 
 
 ## Desktop Session Launcher Contract
 
-The VNC-family connectors (`kasm`, `vnc`) start a graphical session at
-container start. Desktop plugins own that launcher contract: each GUI
-desktop ships a `/usr/local/bin/desktop-session` entry point, so the
-connectors can invoke one stable command and the browser/VNC window always
-shows the desktop environment. `xfce` ships the contract as a one-liner
-(`exec startxfce4`). Headless `none` tags have no desktop and no session
-file.
+Every plugin that provides `display` ships `/usr/local/bin/desktop-session` (`xfce` writes a one-line `exec startxfce4`), and the VNC-family connectors exec that one path from the `~/.vnc/xstartup` they write at container start - falling back to `startxfce4` only for images predating the contract, and starting `vncconfig -nowin` there so the X11 CLIPBOARD selection is bridged to the VNC clipboard - so adding a desktop never touches a connector, headless `none` tags have no session at all, and `tests/unit/test_desktop_session_contract.py` fails the build when a display plugin forgets the launcher.
 
 ## Filesystem Layout
 
