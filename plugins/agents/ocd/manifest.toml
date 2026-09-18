@@ -1,0 +1,13 @@
+[plugin]
+slug = "ocd"
+name = "opencode-desktop"
+kind = "agent"
+api_version = "1"
+tier = "community"
+
+[capabilities]
+provides = []
+requires = ["display"]
+
+[build]
+dockerfile = "Dockerfile"

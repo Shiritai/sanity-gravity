@@ -103,12 +103,15 @@ AI エージェントは任意のコードを実行します。たった一度�
 | デスクトップ付きで OpenAI Codex   | `cx-xfce-kasm`   | `https://localhost:8444`   |
 | ターミナルで OpenCode を使う      | `oc-none-ssh`    | `ssh -p 2222 ...`         |
 | デスクトップ付きで OpenCode       | `oc-xfce-kasm`   | `https://localhost:8444`   |
+| ブラウザで OpenCode Desktop       | `ocd-xfce-kasm` * | `https://localhost:8444`   |
+
+\* community tier：`./sanity-cli build <tag>` でローカルにビルドしてください。GHCR には公開されないため `pull` では取得できません。
 
 > **初めての方は** **`ag-xfce-kasm`** から始めましょう — ブラウザで完全なデスクトップ体験が得られます。
 
 > **注意:** `gc`（Gemini CLI）は 2026-06-18 に無料枠が終了し、有料の Gemini API キー / Code Assist ライセンスが必要になりました。新規ユーザーは Google 公式の後継である **`agy`**（Antigravity CLI、本プロジェクトに同梱済み）を推奨します。
 
-合計 **23 の有効な組み合わせ** があります。完全なマトリックス、次元モデル、制約ルールについては [モジュラータグシステム](docs/tags.md) をご参照ください。
+合計 **26 の有効な組み合わせ** があります。完全なマトリックス、次元モデル、制約ルールについては [モジュラータグシステム](docs/tags.md) をご参照ください。
 
 使いたいエージェントが未搭載でも、manifest と Dockerfile の 2 ファイルで追加できます — [Bring Your Own Agent ガイド](docs/bring-your-own-agent.md) をご参照ください。
 
@@ -238,7 +241,10 @@ sanity-gravity/
 │   │   ├── agents/             # ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）
 │   │   └── connectors/         # kasm（KasmVNC）、vnc（TigerVNC）、ssh
 │   └── rootfs/                 # 共有オーバーレイ（entrypoint、gravity-cli、supervisor 設定）
-├── lib/                        # Proxy Manager モジュール
+├── plugins/                    # マニフェスト駆動プラグイン
+│   ├── desktops/               #   xfce、none
+│   ├── agents/                 #   ag、agy、gc、cc、cx、oc、ocd
+│   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh
 ├── config/                     # 動的生成される docker-compose ファイル（git-ignored）
 ├── tests/                      # Pytest 統合テストスイート
 ├── workspace/                  # デフォルトのマウント先ワークスペース
