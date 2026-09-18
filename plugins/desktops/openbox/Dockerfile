@@ -32,7 +32,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # as Openbox/x11. openbox-session is the standard session wrapper; without
 # the env vars the Openbox autostart/menu tooling would not recognize the
 # session.
-RUN echo '#!/bin/sh\nexec env XDG_CURRENT_DESKTOP=Openbox DESKTOP_SESSION=openbox XDG_SESSION_DESKTOP=openbox XDG_SESSION_TYPE=x11 openbox-session' > /usr/local/bin/desktop-session \
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'exec env XDG_CURRENT_DESKTOP=Openbox DESKTOP_SESSION=openbox XDG_SESSION_DESKTOP=openbox XDG_SESSION_TYPE=x11 openbox-session' \
+    > /usr/local/bin/desktop-session \
     && chmod +x /usr/local/bin/desktop-session
 
 # Ship the right-click root menu (menu.xml), the agent-starter entry point
