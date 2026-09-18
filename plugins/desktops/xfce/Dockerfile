@@ -19,8 +19,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdotool \
     mesa-utils \
     fonts-noto-cjk \
-    && apt-get autoremove -y && \
-    rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN printf '%s\n' '#!/bin/sh' 'exec startxfce4' > /usr/local/bin/desktop-session \
