@@ -24,8 +24,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     mesa-utils \
     # --- Fonts ---
     fonts-dejavu-core \
-    && apt-get autoremove -y && \
-    rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Register standard desktop session launcher contract. Identify the session
@@ -43,4 +41,3 @@ RUN printf '%s\n' \
 # installed terminal agents: when combined with a CLI agent it lists the
 # workspace projects and launches the agent in the chosen one.
 COPY rootfs/ /
-RUN chmod +x /usr/local/bin/agent-starter
