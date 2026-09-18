@@ -27,7 +27,7 @@ WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspace}"
 # The known install paths are probed after command -v so detection still
 # works under a restricted PATH (one without /usr/local/bin, say).
 AGENT_BIN=""
-for cand in claude codex gemini opencode agy antigravity aider; do
+for cand in claude codex gemini opencode agy antigravity; do
     if p=$(command -v "$cand" 2>/dev/null) && [ -n "$p" ]; then
         AGENT_BIN="$p"
         break
@@ -95,7 +95,12 @@ cd "$WORKSPACE_DIR" 2>/dev/null || {
     exec "${SHELL:-/bin/bash}"
 }
 
-projects=( $(find . -maxdepth 1 -mindepth 1 -type d -exec basename {} \;) )
+# NUL-delimited: a project directory may contain spaces or newlines, and
+# an unquoted $(find ...) would split one such name into several entries.
+projects=()
+while IFS= read -r -d '' dir; do
+    projects+=("${dir#./}")
+done < <(find . -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
 
 if [ ${#projects[@]} -eq 0 ]; then
     echo "No project directory found in $WORKSPACE_DIR."
