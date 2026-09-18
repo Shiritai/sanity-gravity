@@ -31,12 +31,22 @@ mkdir -p $HOME/.vnc
 echo "$VNC_PW" | vncpasswd -f > $HOME/.vnc/passwd
 chmod 600 $HOME/.vnc/passwd
 
-# Setup xstartup for XFCE4
+# The desktop plugin owns the launcher, so a new desktop needs no change
+# here; startxfce4 stays as the fallback for a desktop that predates the
+# contract. vncconfig bridges the X11 CLIPBOARD selection to the RFB
+# clipboard, and is guarded so the session still starts without it.
 cat > $HOME/.vnc/xstartup <<EOF
 #!/bin/sh
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
-exec startxfce4
+if command -v vncconfig >/dev/null 2>&1; then
+    vncconfig -nowin &
+fi
+if [ -x /usr/local/bin/desktop-session ]; then
+    exec /usr/local/bin/desktop-session
+else
+    exec startxfce4
+fi
 EOF
 chmod +x $HOME/.vnc/xstartup
 
