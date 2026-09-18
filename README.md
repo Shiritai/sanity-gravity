@@ -106,6 +106,7 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 | Use OpenCode Desktop in browser  | `ocd-xfce-kasm` * | `https://localhost:8444`   |
 | Use DeepSeek Harness in a terminal | `dsh-none-ssh` * | `ssh -p 2222 ...`         |
 | Use DeepSeek Harness with a desktop | `dsh-xfce-kasm` * | `https://localhost:8444` |
+| Swap XFCE for the LXQt desktop   | `cc-lxqt-kasm` * | `https://localhost:8444`   |
 
 \* Community tier: build locally with `./sanity-cli build <tag>`; not published to GHCR, so `pull` has nothing to fetch.
 
@@ -113,7 +114,7 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 
 > **Heads-up:** `gc` (Gemini CLI) lost its free tier on 2026-06-18 and now requires a paid Gemini API key / Code Assist license. New users should prefer **`agy`** (Antigravity CLI), Google's official successor — already shipped here.
 
-There are **41 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
+There are **54 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
 
 Missing your favorite agent? Adding one takes a manifest plus a Dockerfile - see [Bring Your Own Agent](docs/bring-your-own-agent.md).
 
