@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # finds exactly one known WM at start and selects it without prompting.
     lxqt-core \
     xfwm4 \
-    # --- Core Utilities (replaces XFCE-Tools) ---
+    # --- Core Utilities ---
     featherpad \
     lximage-qt \
     qps \
