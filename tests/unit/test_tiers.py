@@ -123,7 +123,7 @@ class TestCliEnumeration:
         assert set(OFFICIAL_TAGS) <= set(VALID_TAGS)
 
     def test_gc_tags_left_the_matrix_but_stay_valid(self):
-        """gc (Gemini CLI) is deprecated: all four gc-* tags leave the
+        """gc (Gemini CLI) is deprecated: every gc-* tag leaves the
         CI/publish matrix while remaining parseable for lifecycle."""
         from sanity_gravity.core.registry import (
             OFFICIAL_TAGS,
@@ -133,7 +133,13 @@ class TestCliEnumeration:
         )
 
         gc_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "gc"]
-        assert len(gc_tags) == 4
+        # Derived from the tier filter rather than counted: gc is the only
+        # deprecated plugin, so every desktop that lands widens both sides
+        # at once and no literal can quietly stop matching the tree.
+        deprecated = [
+            t for t in VALID_TAGS if tag_tier(resolve_tag(t)) == "deprecated"
+        ]
+        assert gc_tags and sorted(gc_tags) == sorted(deprecated)
         assert not any(resolve_tag(t).agent == "gc" for t in OFFICIAL_TAGS)
         # Everything else is untouched by gc's retirement. Named by
         # tier, not by slug: gc is no longer the only non-official agent.

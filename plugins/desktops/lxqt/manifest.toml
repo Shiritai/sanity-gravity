@@ -3,7 +3,7 @@ slug = "lxqt"
 name = "lxqt"
 kind = "desktop"
 api_version = "1"
-tier = "official"
+tier = "community"
 
 [capabilities]
 provides = ["display"]
