@@ -62,5 +62,5 @@ exec /usr/bin/vncserver :1 \
     -geometry 1920x1080 \
     -websocketPort 8444 \
     -httpd /usr/share/kasmvnc/www \
-    -Log *:stderr:10 \
+    -Log '*:stderr:10' \
     -fg
