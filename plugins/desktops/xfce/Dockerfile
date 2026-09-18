@@ -23,7 +23,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Register standard desktop session launcher contract
-RUN echo '#!/bin/sh\nexec startxfce4' > /usr/local/bin/desktop-session \
+RUN printf '%s\n' '#!/bin/sh' 'exec startxfce4' > /usr/local/bin/desktop-session \
     && chmod +x /usr/local/bin/desktop-session
-
