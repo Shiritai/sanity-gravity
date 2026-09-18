@@ -76,7 +76,7 @@ AI agents run arbitrary code. One rogue `rm -rf /` and your host is toast. Sanit
 | :----------------------------- | :---------------------------------------------------------------------------------------------------------------- |
 | **Host Isolation**             | Even if an agent runs `rm -rf /` or downloads malware, only the sandbox is destroyed. Your host stays untouched.  |
 | **Full GUI Desktop**           | Ubuntu 24.04 + XFCE4 + KasmVNC. Agents operate browsers and GUI apps just like a human would.                    |
-| **Headless CLI Agents**        | Minimal images for Gemini CLI, Claude Code, OpenAI Codex, and OpenCode - no desktop overhead, just SSH.           |
+| **Headless CLI Agents**        | Minimal images for Gemini CLI, Claude Code, OpenAI Codex, OpenCode, and DeepSeek Harness - no desktop overhead, just SSH.           |
 | **Out-of-the-Box**             | Pre-installed with Antigravity IDE, Google Chrome, and Git. Zero setup time.                                      |
 | **Seamless Disk I/O**          | Smart UID/GID mapping. No root-owned file disasters after host volume mounts.                                     |
 | **Multi-Instance**             | Parallel isolated sandboxes. Host ports are auto-allocated when unspecified (zero conflicts), or can be set manually. |
@@ -104,6 +104,8 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 | Use OpenCode in a terminal       | `oc-none-ssh`    | `ssh -p 2222 ...`         |
 | Use OpenCode with a desktop      | `oc-xfce-kasm`   | `https://localhost:8444`   |
 | Use OpenCode Desktop in browser  | `ocd-xfce-kasm` * | `https://localhost:8444`   |
+| Use DeepSeek Harness in a terminal | `dsh-none-ssh` * | `ssh -p 2222 ...`         |
+| Use DeepSeek Harness with a desktop | `dsh-xfce-kasm` * | `https://localhost:8444` |
 
 \* Community tier: build locally with `./sanity-cli build <tag>`; not published to GHCR, so `pull` has nothing to fetch.
 
@@ -111,7 +113,7 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 
 > **Heads-up:** `gc` (Gemini CLI) lost its free tier on 2026-06-18 and now requires a paid Gemini API key / Code Assist license. New users should prefer **`agy`** (Antigravity CLI), Google's official successor — already shipped here.
 
-There are **26 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
+There are **30 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
 
 Missing your favorite agent? Adding one takes a manifest plus a Dockerfile - see [Bring Your Own Agent](docs/bring-your-own-agent.md).
 
@@ -240,7 +242,7 @@ sanity-gravity/
 │   ├── Dockerfile.base         # Base layer: Ubuntu 24.04 + SSH + supervisord
 │   ├── layers/
 │   │   ├── desktops/           # xfce, none
-│   │   ├── agents/             # ag (Antigravity), agy (Antigravity CLI), gc (Gemini CLI), cc (Claude Code), cx (OpenAI Codex), oc (OpenCode)
+│   │   ├── agents/             # ag (Antigravity), agy (Antigravity CLI), gc (Gemini CLI), cc (Claude Code), cx (OpenAI Codex), oc (OpenCode), dsh (DeepSeek Harness)
 │   │   └── connectors/         # kasm (KasmVNC), vnc (TigerVNC), ssh
 │   └── rootfs/                 # Shared overlay (entrypoint, gravity-cli, supervisor configs)
 ├── plugins/                    # Manifest-driven plugins

@@ -1,0 +1,7 @@
+# rc-only upstream, no stable line yet: the exact pin is deliberate.
+deepseek-harness-sdk==0.1.5rc1 \
+    --hash=sha256:8d9897e97e8a95fd738cb2c3e2c563951d824e43847ec6f3b0fb172c0729b4d8
+# Two hashes: the manylinux_2_28 wheels for both sandbox architectures.
+deepseek-harness-runtime-bin==0.1.5rc1 \
+    --hash=sha256:ad877237382baff4628969a9ebdbfe38486d971b7987c032d0e29775759b5229 \
+    --hash=sha256:32b7bb7887ea89f12462274d1b21acfafb00d38d94e11a5d7122492f185e4f85

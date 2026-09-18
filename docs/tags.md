@@ -14,9 +14,12 @@ The AI tool installed in the sandbox.
 | `agy` | Antigravity CLI | official | No | Antigravity CLI (official installer) -- Gemini CLI's official successor |
 | `cc` | Claude Code | official | No | Claude Code CLI (official installer) |
 | `cx` | OpenAI Codex CLI | official | No | Codex CLI (static musl `codex` binary, official installer) |
+| `dsh` | DeepSeek Harness | community | No | DeepSeek Harness `dsh` launcher (hash-pinned PyPI runtime wheel, no Node.js) |
 | `gc` | Gemini CLI | deprecated | No | Node.js 22 + `@google/gemini-cli` |
 | `oc` | OpenCode | official | No | OpenCode CLI (single Bun-compiled `opencode` binary, official installer) |
 | `ocd` | OpenCode Desktop | community | Yes | OpenCode Desktop (Electron GUI app, official .deb for amd64/arm64) |
+
+> **Community tier (`dsh`).** DeepSeek Harness is an upstream developer preview (rc releases only, breaking changes promised), so its four tags build locally but never enter the CI/publish matrix - `pull` has nothing to fetch, run `./sanity-cli build dsh-none-ssh` first. The single `dsh` launcher serves both profiles: `dsh --profile headless "task"` for one-shot CLI runs, and `dsh web` for the browser UI, which listens on `127.0.0.1:3080` only (upstream refuses `0.0.0.0`) - reach it with `ssh -p 2222 -L 3080:127.0.0.1:3080 <user>@localhost` or the in-container browser on xfce variants. Auth is in-container only: `export DEEPSEEK_API_KEY=...`, put the key in `~/.dsh/.env`, or use the web UI's Settings -> Models; no host key is ever forwarded. See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 > **`gc` is deprecated.** Google shut down the Gemini CLI free tier on
 > 2026-06-18; it now requires a paid Gemini API key / Code Assist license.
@@ -53,7 +56,7 @@ Not all combinations are valid. Two rules are enforced:
 
 These rules are enforced by `sanity-cli` at build time and run time.
 
-## All Valid Tags (26)
+## All Valid Tags (30)
 
 Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 
@@ -74,6 +77,10 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `cx-xfce-kasm` | OpenAI Codex | XFCE | KasmVNC | Codex with browser desktop |
 | `cx-xfce-ssh` | OpenAI Codex | XFCE | SSH | Codex with GUI, SSH-only access |
 | `cx-xfce-vnc` | OpenAI Codex | XFCE | TigerVNC | Codex with legacy VNC |
+| `dsh-none-ssh` | DeepSeek Harness | Headless | SSH | Lightweight harness terminal (headless profile) |
+| `dsh-xfce-kasm` | DeepSeek Harness | XFCE | KasmVNC | Harness with browser desktop (web UI via in-container browser) |
+| `dsh-xfce-ssh` | DeepSeek Harness | XFCE | SSH | Harness with GUI, SSH-only access |
+| `dsh-xfce-vnc` | DeepSeek Harness | XFCE | TigerVNC | Harness with legacy VNC |
 | `gc-none-ssh` | Gemini CLI | Headless | SSH | Lightweight Gemini terminal |
 | `gc-xfce-kasm` | Gemini CLI | XFCE | KasmVNC | Gemini with browser desktop |
 | `gc-xfce-ssh` | Gemini CLI | XFCE | SSH | Gemini with GUI, SSH-only access |

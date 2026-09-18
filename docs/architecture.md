@@ -14,13 +14,15 @@ ubuntu:24.04 (pinned SHA)
      │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-xfce → cx-xfce-{kasm,vnc,ssh}
      │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-xfce → gc-xfce-{kasm,vnc,ssh}
      │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-xfce → oc-xfce-{kasm,vnc,ssh}
-     │   └─ plugins/agents/ocd/          → sanity-gravity:_ocd-xfce → ocd-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-xfce → ocd-xfce-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-xfce → dsh-xfce-{kasm,vnc,ssh}
      └─ plugins/desktops/none/           → sanity-gravity:_base-none
          ├─ plugins/agents/agy/          → sanity-gravity:_agy-none → agy-none-ssh
          ├─ plugins/agents/cc/           → sanity-gravity:_cc-none → cc-none-ssh
          ├─ plugins/agents/cx/           → sanity-gravity:_cx-none → cx-none-ssh
          ├─ plugins/agents/gc/           → sanity-gravity:_gc-none → gc-none-ssh
-         └─ plugins/agents/oc/           → sanity-gravity:_oc-none → oc-none-ssh
+         ├─ plugins/agents/oc/           → sanity-gravity:_oc-none → oc-none-ssh
+         └─ plugins/agents/dsh/          → sanity-gravity:_dsh-none → dsh-none-ssh
 ```
 
 (`ag` and `ocd` require a GUI desktop, so they have no headless `none` variant.)

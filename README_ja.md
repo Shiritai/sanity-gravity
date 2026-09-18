@@ -76,7 +76,7 @@ AI エージェントは任意のコードを実行します。たった一度�
 | :------------------------------- | :------------------------------------------------------------------------------------------------------------ |
 | **ホスト絶対安全**               | エージェントが `rm -rf /` を実行してもマルウェアをダウンロードしても、壊れるのはサンドボックスだけです。       |
 | **フル GUI デスクトップ**        | Ubuntu 24.04 + XFCE4 + KasmVNC。エージェントが人間のようにブラウザや GUI アプリを操作できます。               |
-| **ヘッドレス CLI エージェント**  | Gemini CLI、Claude Code、OpenAI Codex、OpenCode 向けの最小イメージ — デスクトップ不要、SSH のみで動作。         |
+| **ヘッドレス CLI エージェント**  | Gemini CLI、Claude Code、OpenAI Codex、OpenCode、DeepSeek Harness 向けの最小イメージ — デスクトップ不要、SSH のみで動作。         |
 | **すぐに使える**                 | Antigravity IDE、Google Chrome、Git が事前インストール済み。待ち時間ゼロで即座に開始。                         |
 | **シームレスなディスク I/O**     | スマートな UID/GID マッピング。ボリュームマウント後にファイルが root 所有になるトラブルを完全回避。            |
 | **マルチインスタンス**           | 隔離されたサンドボックスを並列実行。ポートは未指定時に自動割り当て（競合ゼロ）、手動指定も可能。              |
@@ -104,6 +104,8 @@ AI エージェントは任意のコードを実行します。たった一度�
 | ターミナルで OpenCode を使う      | `oc-none-ssh`    | `ssh -p 2222 ...`         |
 | デスクトップ付きで OpenCode       | `oc-xfce-kasm`   | `https://localhost:8444`   |
 | ブラウザで OpenCode Desktop       | `ocd-xfce-kasm` * | `https://localhost:8444`   |
+| ターミナルで DeepSeek Harness を使う | `dsh-none-ssh` * | `ssh -p 2222 ...`         |
+| デスクトップ付きで DeepSeek Harness | `dsh-xfce-kasm` * | `https://localhost:8444`   |
 
 \* community tier：`./sanity-cli build <tag>` でローカルにビルドしてください。GHCR には公開されないため `pull` では取得できません。
 
@@ -111,7 +113,7 @@ AI エージェントは任意のコードを実行します。たった一度�
 
 > **注意:** `gc`（Gemini CLI）は 2026-06-18 に無料枠が終了し、有料の Gemini API キー / Code Assist ライセンスが必要になりました。新規ユーザーは Google 公式の後継である **`agy`**（Antigravity CLI、本プロジェクトに同梱済み）を推奨します。
 
-合計 **26 の有効な組み合わせ** があります。完全なマトリックス、次元モデル、制約ルールについては [モジュラータグシステム](docs/tags.md) をご参照ください。
+合計 **30 の有効な組み合わせ** があります。完全なマトリックス、次元モデル、制約ルールについては [モジュラータグシステム](docs/tags.md) をご参照ください。
 
 使いたいエージェントが未搭載でも、manifest と Dockerfile の 2 ファイルで追加できます — [Bring Your Own Agent ガイド](docs/bring-your-own-agent.md) をご参照ください。
 
@@ -238,7 +240,7 @@ sanity-gravity/
 │   ├── Dockerfile.base         # ベースレイヤー: Ubuntu 24.04 + SSH + supervisord
 │   ├── layers/
 │   │   ├── desktops/           # xfce、none
-│   │   ├── agents/             # ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）
+│   │   ├── agents/             # ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）、dsh（DeepSeek Harness）
 │   │   └── connectors/         # kasm（KasmVNC）、vnc（TigerVNC）、ssh
 │   └── rootfs/                 # 共有オーバーレイ（entrypoint、gravity-cli、supervisor 設定）
 ├── plugins/                    # マニフェスト駆動プラグイン
