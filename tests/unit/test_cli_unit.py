@@ -41,20 +41,6 @@ from tests.conftest import container_record
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
-def _running_filter(container_name: str):
-    """run_command mock: report only ``container_name`` as running.
-
-    Realistic stand-in for the verbs' scan over VALID_TAGS — the mock
-    returns "true" only for the targeted container so the scan is not
-    sensitive to the (alphabetical) ordering of valid tags.
-    """
-
-    def _fake_run(cmd, **_kw):
-        return "true" if container_name in " ".join(cmd) else "false"
-
-    return _fake_run
-
-
 class TestDimensionConstraints:
     """Tests for dimension-based tag constraint filtering."""
 
@@ -85,15 +71,12 @@ class TestDimensionConstraints:
             assert parsed.desktop == "none"
             assert parsed.connector == "ssh"
 
-    def test_all_ag_tags_have_xfce(self):
-        """Every ag tag must use xfce desktop."""
+    def test_all_ag_tags_have_gui_desktop(self):
+        """ag (Antigravity IDE) requires a display, so every ag tag pairs
+        it with a GUI desktop - now two of them, never the headless one."""
         ag_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "ag"]
-        assert len(ag_tags) == 3
-        for tag in ag_tags:
-            assert (
-                "-xfce-" in tag
-                or "-lxqt-" in tag
-            )
+        assert len(ag_tags) == 6
+        assert {resolve_tag(t).desktop for t in ag_tags} == {"xfce", "lxqt"}
 
     def test_no_headless_gui_connector_in_valid_tags(self):
         """No *-none-kasm/vnc should appear in VALID_TAGS."""
