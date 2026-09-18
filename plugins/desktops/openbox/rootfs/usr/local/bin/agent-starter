@@ -23,11 +23,11 @@ fi
 WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspace}"
 
 # Terminal agents in priority order; the first command found is started
-# (cc->claude, cx->codex, gc->gemini, oc->opencode, agy->agy/antigravity).
-# The known install paths are probed after command -v so detection still
-# works under a restricted PATH (one without /usr/local/bin, say).
+# (cc->claude, cx->codex, gc->gemini, oc->opencode, agy->agy). The known
+# install paths are probed after command -v so detection still works under
+# a restricted PATH (one without /usr/local/bin, say).
 AGENT_BIN=""
-for cand in claude codex gemini opencode agy antigravity; do
+for cand in claude codex gemini opencode agy; do
     if p=$(command -v "$cand" 2>/dev/null) && [ -n "$p" ]; then
         AGENT_BIN="$p"
         break
@@ -39,8 +39,7 @@ if [ -z "$AGENT_BIN" ]; then
         /usr/local/bin/claude /usr/bin/claude \
         /usr/local/bin/codex /usr/bin/codex \
         /usr/local/bin/gemini /usr/bin/gemini \
-        /usr/local/bin/agy /usr/bin/agy \
-        /usr/local/bin/antigravity /usr/bin/antigravity; do
+        /usr/local/bin/agy /usr/bin/agy; do
         if [ -x "$p" ]; then
             AGENT_BIN="$p"
             break

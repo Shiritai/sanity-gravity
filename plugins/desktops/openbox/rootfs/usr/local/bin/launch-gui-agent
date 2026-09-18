@@ -7,16 +7,25 @@
 # OpenCode Desktop = od). Callers exec the output (agent-starter, autostart)
 # or fall back to the terminal agent flow when nothing is printed.
 #
-# Matching is done on the Exec command, not the filename, so detection survives
-# whichever .desktop name the vendor ships. The markers are the GUI binaries:
-#   - /opt/OpenCode/ai.opencode.desktop   (OpenCode Desktop)
-#   - /usr/bin/antigravity                (Antigravity IDE)
-# CLI launchers (Exec=agy, Exec=opencode, ...) are deliberately not matched.
+# Matching is on the base name of the program the entry execs - not the file
+# name, and not the directory the program sits in. The vendor keeps the
+# program name; the path is its own business. Antigravity 1.23.2 execs
+# /usr/share/antigravity/antigravity and leaves /usr/bin/antigravity a symlink
+# that no Exec line names. The programs the agent layers install are:
+#   - ai.opencode.desktop  (OpenCode Desktop)
+#   - antigravity          (Antigravity IDE)
+# CLI launchers (Exec=agy, Exec=agent-starter) carry neither name.
 for f in /usr/share/applications/*.desktop; do
     [ -f "$f" ] || continue
+    # NoDisplay entries are handlers, not the way in. Antigravity ships one
+    # that execs the same program with --open-url, and it sorts ahead of the
+    # real entry in this glob.
+    grep -q '^NoDisplay=true' "$f" && continue
     cmd=$(sed -n 's/^Exec=//p' "$f" | head -n 1)
-    case "$cmd" in
-        *ai.opencode.desktop*|*/opt/OpenCode/*|*/usr/bin/antigravity*) ;;
+    [ -n "$cmd" ] || continue
+    prog=${cmd%% *}
+    case "${prog##*/}" in
+        ai.opencode.desktop|antigravity) ;;
         *) continue ;;
     esac
     # Strip desktop-entry field codes (%U, %F, %i, %c, %k) so the command runs
