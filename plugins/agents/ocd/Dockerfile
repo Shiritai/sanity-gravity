@@ -36,13 +36,13 @@ FROM ${BASE_IMAGE}
 # would only add startup noise. The entrypoint hook in rootfs/ seeds the
 # documented config-file opt-out (~/.config/opencode/opencode.json) into the
 # home of the user created at boot, exactly like the oc plugin.
-ARG OPENCODE_DESKTOP_VERSION=1.18.14
+ARG OPENCODE_DESKTOP_VERSION=1.18.31
 RUN arch="$(dpkg --print-architecture)" && \
     case "$arch" in \
         amd64) asset="opencode-desktop-linux-amd64.deb"; \
-               sha="bcc645dfba9f9e115106dde9af512569023e9622e55630dbafc01708e948f562" ;; \
+               sha="6606cd71bef7ded32ff936029d3fda68ce2148cec69bb6f1b0a3c62ff642f240" ;; \
         arm64) asset="opencode-desktop-linux-arm64.deb"; \
-               sha="2c49dae13cfd77a4dbc530f14e713fb8bff0860ba00d2a815676c339bd13331d" ;; \
+               sha="4433503efeb792c4a807979cbebe9dd300f32df941c85d203644c706201745df" ;; \
         *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
     esac && \
     curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_DESKTOP_VERSION}/${asset}" \
