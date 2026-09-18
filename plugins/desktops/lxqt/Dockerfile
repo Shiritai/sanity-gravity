@@ -31,8 +31,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/* \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Register standard desktop session launcher contract. Identify the session
-# as LXQt/x11 so LXQt components behave correctly: pcmanfm-qt handles the
-# desktop and lxqt components recognize the DE.
-RUN echo '#!/bin/sh\nexec env XDG_CURRENT_DESKTOP=LXQt DESKTOP_SESSION=lxqt XDG_SESSION_DESKTOP=lxqt XDG_SESSION_TYPE=x11 startlxqt' > /usr/local/bin/desktop-session \
+# The session launcher the VNC-family connectors exec. No display manager
+# runs under Xvnc, so nothing else sets the XDG session identity: without
+# it pcmanfm-qt does not draw the desktop and the LXQt components do not
+# recognize the session.
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'exec env XDG_CURRENT_DESKTOP=LXQt DESKTOP_SESSION=lxqt XDG_SESSION_DESKTOP=lxqt XDG_SESSION_TYPE=x11 startlxqt' \
+    > /usr/local/bin/desktop-session \
     && chmod +x /usr/local/bin/desktop-session
