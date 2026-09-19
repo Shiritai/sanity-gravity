@@ -39,9 +39,18 @@ find /tmp -name ".org.chromium.Chromium*" -user "${USER:-$(id -un)}" -delete 2>/
 # 6. Antigravity Singleton Sockets (Prevent Stale Locks on Restart)
 # Only clean these up at container/desktop startup to avoid interfering
 # with running instances and Auth Redirect URIs.
-rm -f "$HOME/.config/Antigravity/1.10-main.sock"
-rm -f "$HOME/.config/Antigravity/SingletonSocket"
-rm -f "$HOME/.config/Antigravity/SingletonCookie"
-rm -f "$HOME/.config/Antigravity/singleton-cookie"
+#
+# "Antigravity IDE" is the 2.x directory (Electron takes it from
+# product.json's nameLong); "Antigravity" is 1.x's, still present in a
+# home volume that predates the 2.x layer. The main socket carries the
+# editor's version in its name, so it is matched by glob rather than
+# spelled - the hard-coded 1.10-main.sock had stopped matching anything.
+for ag_config in "$HOME/.config/Antigravity IDE" "$HOME/.config/Antigravity"; do
+    [ -d "$ag_config" ] || continue
+    rm -f "$ag_config"/*-main.sock
+    rm -f "$ag_config/SingletonSocket"
+    rm -f "$ag_config/SingletonCookie"
+    rm -f "$ag_config/singleton-cookie"
+done
 
 echo "$(date): [chrome-cleanup] Cleanup completed for user ${USER:-$(id -un)}" >> /tmp/chrome-cleanup.log

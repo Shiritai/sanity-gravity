@@ -10,7 +10,7 @@ The AI tool installed in the sandbox.
 
 | Slug | Name | Tier | Requires GUI | What's Installed |
 |:-----|:-----|:-----|:-------------|:-----------------|
-| `ag` | Antigravity IDE | official | Yes | Antigravity IDE (the browser comes with the desktop) |
+| `ag` | Antigravity IDE | official | Yes | Antigravity IDE 2.5.5 (official tarball, pinned by build id and sha256; the browser comes with the desktop) |
 | `agy` | Antigravity CLI | official | No | Antigravity CLI (official installer) -- Gemini CLI's official successor |
 | `cc` | Claude Code | official | No | Claude Code CLI (official installer) |
 | `cx` | OpenAI Codex CLI | official | No | Codex CLI (static musl `codex` binary, official installer) |
@@ -18,6 +18,8 @@ The AI tool installed in the sandbox.
 | `gc` | Gemini CLI | deprecated | No | Node.js 22 + `@google/gemini-cli` |
 | `oc` | OpenCode | official | No | OpenCode CLI (single Bun-compiled `opencode` binary, official installer) |
 | `ocd` | OpenCode Desktop | community | Yes | OpenCode Desktop (Electron GUI app, official .deb for amd64/arm64) |
+
+> **`ag` pins the IDE, and the pin has a deadline.** `ag` installs the standalone Antigravity IDE 2.5.5 from Google's official tarball, pinned by version and build id and verified against the sha256 Google publishes for that exact artifact; auto-update is off, so a sandbox stays on the build it was built with. The 1.x package this replaced is deprecated and its apt repo froze on 2026-04-16 - the language-server certificate 1.x bundles expired on 2026-09-04, and after that every Agent Manager message was stored and never answered, with no error shown ([#42](https://github.com/Shiritai/sanity-gravity/issues/42)). 2.5.5 keeps the same design with a later certificate, valid until **2026-11-03**, so the image build fails on purpose once that is 14 days away; re-check upstream for a newer IDE build before 2026-10-20. Sign-in is in-container: the IDE opens Google's page in the bundled browser and the callback comes back over an `antigravity-ide://` link, which the image registers as a URL handler, so nothing is forwarded from the host.
 
 > **Community tier (`dsh`).** DeepSeek Harness is an upstream developer preview (rc releases only, breaking changes promised), so its ten tags build locally but never enter the CI/publish matrix - `pull` has nothing to fetch, run `./sanity-cli build dsh-none-ssh` first. The single `dsh` launcher serves both profiles: `dsh --profile headless "task"` for one-shot CLI runs, and `dsh web` for the browser UI, which listens on `127.0.0.1:3080` only (upstream refuses `0.0.0.0`) - reach it with `ssh -p 2222 -L 3080:127.0.0.1:3080 <user>@localhost` or the in-container browser every desktop variant ships. Auth is in-container only: `export DEEPSEEK_API_KEY=...`, put the key in `~/.dsh/.env`, or use the web UI's Settings -> Models; no host key is ever forwarded. See [Support tiers](../CONTRIBUTING.md#support-tiers).
 

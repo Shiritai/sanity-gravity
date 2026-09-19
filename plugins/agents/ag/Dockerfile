@@ -7,23 +7,89 @@ FROM ${BASE_IMAGE}
 # than once per agent. The IDE's own browser integration finds it as
 # /usr/bin/google-chrome, and the arm64 path the IDE hard-codes
 # (/opt/google/chrome/google-chrome) is linked at container start by
-# rootfs/etc/entrypoint.d/10-ag-startup.sh.
+# rootfs/etc/entrypoint.d/10-ag-startup.sh. The browser has to be in the
+# container for another reason now: 2.x sign-in ends in an
+# antigravity-ide:// deep link back to the IDE, which only resolves for a
+# browser running beside it.
 
-# Install Antigravity IDE (Official) + apply sandbox wrapper in single layer
-RUN mkdir -p /etc/apt/keyrings && \
-    echo "xsBNBGCRt7MBCADkYJHHQQoL6tKrW/LbmfR9ljz7ib2aWno4JO3VKQvLwjyUMPpq/SXXMOnx8jXwgWizpPxQYDRJ0SQXS9ULJ1hXRL/OgMnZAYvYDeV2jBnKsAIEdiG/e1qm8P4W9qpWJc+hNq7FOT13RzGWRx57SdLWSXo0KeY38r9lvjjOmT/cuOcmjwlDT9XYf/RSO+yJ/AsyMdAr+ZbDeQUd9HYJiPdI04lGaGM02MjDMnx+monc+y54t+Z+ry1WtQdzoQt9dHlIPlV1tR+xV5DHHsejCZxu9TWzzSlL5wfBBeEz7R/OIzivGJpWQdJzd+2QDXSRg9q2XYWP5ZVtSgjVVJjNlb6ZABEBAAHNVEFydGlmYWN0IFJlZ2lzdHJ5IFJlcG9zaXRvcnkgU2lnbmVyIDxhcnRpZmFjdC1yZWdpc3RyeS1yZXBvc2l0b3J5LXNpZ25lckBnb29nbGUuY29tPsLAjgQTAQoAOBYhBDW6oLM+nrOW9ZyoOMC6XObcYxWjBQJgkbezAhsDBQsJCAcCBhUKCQgLAgQWAgMBAh4BAheAAAoJEMC6XObcYxWj+igIAMFh6DrAYMeq9sbZ1ZG6oAMrinUheGQbEqe76nIDQNsZnhDwZ2wWqgVC7DgOMqlhQmOmzm7M6Nzmq2dvPwq3xC2OeI9fQyzjT72deBTzLP7PJok9PJFOMdLfILSsUnmMsheQt4DUO0jYAX2KUuWOIXXJaZ319QyoRNBPYa5qz7qXS7wHLOY89IDqfHt6Aud8ER5zhyOyhytcYMeaGC1g1IKWmgewnhEq02FantMJGlmmFi2eA0EPD02GC3742QGqRxLwjWsm5/TpyuU24EYKRGCRm7QdVIo3ugFSetKrn0byOxWGBvtu4fH8XWvZkRT+u+yzH1s5yFYBqc2JTrrJvRU=" | base64 -d > /etc/apt/keyrings/antigravity-repo-key.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg] https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/ antigravity-debian main" | tee /etc/apt/sources.list.d/antigravity.list && \
-    apt-get update && apt-get install -y --no-install-recommends antigravity && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# The standalone Antigravity IDE, from the official tarball, pinned by
+# version + build id and verified against the sha256 Google publishes for
+# that exact artifact.
+#
+# It replaces an apt install that can no longer work. The repo it used
+# (us-central1-apt.pkg.dev, suite antigravity-debian) froze on
+# 2026-04-16 with antigravity_1.23.2 as its newest package, and 1.x is
+# deprecated: the language-server certificate that build bundles expired
+# on 2026-09-04, after which every extension-to-language-server call
+# fails in the TLS handshake and the Agent Manager stops answering with
+# no error a user can act on. Upstream's position is that 1.x gets no
+# fix. There is no 2.x package in any apt or yum repo - 2.x is a tarball
+# only. See issue #42.
+#
+# Bump the version, the build id and both sums together. Both values come
+# from Google, and the second is what makes this a cross-check against
+# upstream rather than against ourselves:
+#   build id  <updater API>/releases              -> .execution_id
+#   sha256    <updater API>/api/update/<linux-x64|linux-arm64>/stable/latest
+#                                                 -> .sha256hash
+# where <updater API> is
+#   https://antigravity-ide-auto-updater-974169037036.us-central1.run.app
+# The download path spells this architecture linux-arm where that API
+# spells it linux-arm64; the tarball behind the first name is genuine
+# aarch64.
+ARG ANTIGRAVITY_IDE_VERSION=2.5.5
+ARG ANTIGRAVITY_IDE_BUILD=4923483625488384
+ARG ANTIGRAVITY_DIR=/usr/share/antigravity-ide
 
 COPY rootfs/ /
 
-RUN dpkg-divert --add --rename --divert /usr/share/antigravity/antigravity-bin /usr/share/antigravity/antigravity && \
-    printf '#!/bin/bash\n\n# 1. Environment Fix for Electron Children\nexport ELECTRON_DISABLE_SANDBOX=1\n\n# 2. Process Type Detection\nIS_GUI_CHILD=0\nfor arg in "$@"; do\n    if [[ "$arg" == --type=* ]]; then\n        IS_GUI_CHILD=1\n        break\n    fi\ndone\n\n# 3. Execution Logic\nif [ "$ELECTRON_RUN_AS_NODE" = "1" ] && [ "$IS_GUI_CHILD" = "0" ] && [[ "$*" == *cli.js* ]]; then\n    exec /usr/share/antigravity/antigravity-bin "$@"\nfi\n\nunset ELECTRON_RUN_AS_NODE\nexec /usr/share/antigravity/antigravity-bin --no-sandbox --disable-dev-shm-usage --disable-zygote --disable-namespace-sandbox "$@"\n' > /usr/share/antigravity/antigravity && \
-    chmod +x /usr/share/antigravity/antigravity && \
-    cp /usr/share/antigravity/antigravity /usr/share/antigravity/antigravity-original && \
-    chmod +x /usr/share/antigravity/antigravity-original && \
-    if [ -f /usr/share/applications/antigravity.desktop ]; then \
-        sed -i 's|Exec=/usr/bin/antigravity|Exec=/usr/bin/antigravity --no-sandbox|g' /usr/share/applications/antigravity.desktop; \
-    fi && \
-    rm -rf /usr/share/doc/* /usr/share/info/* /usr/share/lintian/* /usr/share/man/*
+# The runtime libraries the 1.x deb declared as Depends. A tarball
+# declares nothing, so they are named here rather than left to whatever
+# the desktop layer below happens to have pulled in - this layer should
+# not depend on another layer's transitive dependencies. Ubuntu 24.04
+# renamed seven of them with a t64 suffix. Then the tools the install
+# itself needs: jq patches product.json, desktop-file-utils registers the
+# URL handler, openssl runs the certificate gate below.
+#
+# gravity-cli does the install so there is one copy of it: the same
+# script runs `ide update` inside a live sandbox, and the wrapper and
+# .desktop entries a built image carries are therefore the ones
+# tests/integration/test_gravity_cli.py reads. They used to be written
+# twice - here and there - and the two had already drifted apart.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates desktop-file-utils jq openssl xdg-utils \
+        libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libatspi2.0-0t64 \
+        libcairo2 libcups2t64 libcurl4 libdbus-1-3 libexpat1 libgbm1 \
+        libglib2.0-0t64 libgtk-3-0t64 libnspr4 libnss3 libpango-1.0-0 \
+        libstdc++6 libudev1 libvulkan1 libx11-6 libxcb1 libxcomposite1 \
+        libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxkbfile1 libxrandr2 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+        amd64) sha="0c5233b297d2b3aebb61af49f8944012c2953d361a5ebb16978490636917f831" ;; \
+        arm64) sha="88c167108980c33a223a8d7f0aa6aaf4dec61f0cc3950235a2698e9ffc38a49e" ;; \
+        *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
+       esac \
+    && /usr/local/bin/gravity-cli ide install \
+        "${ANTIGRAVITY_IDE_VERSION}" "${ANTIGRAVITY_IDE_BUILD}" "${sha}"
+
+# A dead Agent Manager must never ship in silence again (#42).
+#
+# The extension hands this file to connect-node as the only CA for its own
+# connection to the language server, so an expired certificate is not a
+# warning anywhere - it is every agent call failing in the handshake while
+# the UI keeps accepting messages. The one in IDE 2.5.5 runs to
+# 2026-11-03, so this gate is also the schedule: 1209600 seconds is 14
+# days, and the build goes red while re-pinning is still possible instead
+# of on the morning the Agent Manager dies.
+#
+# A run inside the sandbox warns instead of failing (gravity-cli):
+# refusing to finish an update would leave a running container with no
+# IDE at all.
+RUN cert="${ANTIGRAVITY_DIR}/resources/app/extensions/antigravity/dist/languageServer/cert.pem" \
+    && openssl x509 -in "$cert" -noout -subject -dates \
+    && if ! openssl x509 -in "$cert" -noout -checkend 1209600; then \
+        echo "FATAL: the language-server certificate bundled with Antigravity IDE ${ANTIGRAVITY_IDE_VERSION} is expired or expires within 14 days." >&2; \
+        echo "Shipping it would ship a silently dead Agent Manager. Re-pin to a newer IDE build - see issue #42." >&2; \
+        exit 1; \
+    fi
