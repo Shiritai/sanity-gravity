@@ -13,6 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     thunar-archive-plugin \
     dbus \
     dbus-x11 \
+    # gvfs: backs Thunar's Places "Computer" entry (computer:///) over
+    # D-Bus; without it GIO has no backend for the scheme. Base package
+    # only, not gvfs-backends/gvfs-fuse (smb/nfs/mtp/... this container
+    # never uses) -- udisks2 comes along as gvfs's own hard dependency.
+    gvfs \
     x11-utils \
     x11-xserver-utils \
     x11-apps \
