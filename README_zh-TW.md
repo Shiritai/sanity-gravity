@@ -82,7 +82,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 | **無縫磁碟 I/O**     | 智慧 UID/GID 對應。Volume 掛載後不會產生 root 擁有權的檔案災難。                                        |
 | **多重實例**          | 平行建立各種隔離沙箱，未指定時系統自動分配連接埠，保證零衝突；也支援手動指定連接埠。                                                   |
 | **容器凍結快照**      | 將目前環境狀態（已安裝軟體、登入狀態）凍結為全新的映像檔分支。                                           |
-| **IDE 安全升級**      | 內建 `dpkg-divert` 防護層，防止 `apt upgrade` 破壞 Antigravity 或 Chrome。                               |
+| **可驗證的 IDE 更新** | `ide update` 會向 Google 取得當前的 Antigravity IDE 組建，並比對 Google 公布的校驗碼後才替換既有安裝。   |
 | **SSH 代理穿透**      | 在容器內直接使用主機的 SSH 金鑰 — 完全不需要複製任何私鑰。                                              |
 | **多架構支援**        | 所有映像檔同時支援 `amd64` 與 `arm64`。                                                                  |
 
@@ -161,28 +161,28 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 
 ## 進階功能
 
-### IDE 維護與安全升級
+### IDE 維護
 
-Sanity-Gravity 內建嚴密的防護機制，能夠防止 `apt upgrade` 意外解除安裝 IDE 或瀏覽器。
+`ag` 以 Google 官方 tarball 安裝 Antigravity IDE，用版本號加 build id 釘死，並比對 Google 為該檔案公布的 sha256 後才安裝。自動更新已關閉，沙箱會停在建置當時的組建，直到你主動要求更新。IDE 隨附一張它自己的 agent 後端會釘住的憑證，2.5.5 這張在 2026-11-03 到期，因此距離到期 14 天內映像建置會刻意失敗，而不是出貨一個無聲失效的 Agent Manager（[#42](https://github.com/Shiritai/sanity-gravity/issues/42)）。
 
-- **宿主機端**：`sanity-cli` 管理容器的整體生命週期。維護指令會 **自動將最新版的防護腳本熱注入** 至目標容器，確保與舊版快照的向下相容性。
-- **容器內部**：`gravity-cli`（內建工具）透過 `dpkg-divert` 安全地管理 Antigravity IDE 與 Google Chrome，確保它們的 `--no-sandbox` 啟動特權不會被後續系統更新所抹除。
+- **宿主機端**：`sanity-cli` 管理容器的整體生命週期。維護指令會先 **自動將最新版的 `gravity-cli` 熱注入** 至目標容器，讓舊 checkout 建出的容器也能跑到當前的安裝流程。
+- **容器內部**：`gravity-cli` 向 Google 的更新服務查詢當前組建、下載、比對 Google 為該組建公布的 sha256，然後換裝。這與映像建置時跑的是同一支腳本，所以沙箱 wrapper 與桌面項目只有一個來源。
 
 #### 從宿主機操作
 
 ```bash
-# 安全地將 IDE 更新至最新版本
+# 下載、驗證並安裝當前的 IDE 組建
 ./sanity-cli ide update --name sanity-gravity
 
-# 核彈級修復：完整清除並重新安裝以修復持續性崩潰
+# 同上，另外清掉跨版本殘留的 Electron 快取
 ./sanity-cli ide reinstall --name sanity-gravity
 ```
 
 #### 在容器內部操作
 
 ```bash
-sudo gravity-cli update-ide     # 等同 'ide update'
-sudo gravity-cli reinstall-ide  # 等同 'ide reinstall'
+sudo gravity-cli ide update
+sudo gravity-cli ide reinstall
 ```
 
 ### SSH 代理穿透

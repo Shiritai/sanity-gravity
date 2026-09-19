@@ -82,7 +82,7 @@ AI agents run arbitrary code. One rogue `rm -rf /` and your host is toast. Sanit
 | **Seamless Disk I/O**          | Smart UID/GID mapping. No root-owned file disasters after host volume mounts.                                     |
 | **Multi-Instance**             | Parallel isolated sandboxes. Host ports are auto-allocated when unspecified (zero conflicts), or can be set manually. |
 | **Container Snapshots**        | Freeze your configured environment (installed software, active logins) into a new image branch.                   |
-| **IDE Safe Upgrade**           | Built-in `dpkg-divert` protection prevents `apt upgrade` from breaking Antigravity or Chrome.                     |
+| **Verified IDE Updates**       | `ide update` fetches the current Antigravity IDE build from Google and checks it against the checksum Google publishes before replacing the installed one. |
 | **SSH Agent Proxy**            | Use host SSH keys inside containers — no private key copying required.                                            |
 | **Multi-Arch**                 | All images support both `amd64` and `arm64`.                                                                      |
 
@@ -163,28 +163,28 @@ Full reference with all flags and environment variables: [CLI Reference](docs/cl
 
 ## Advanced Features
 
-### IDE Management & Safe Upgrade
+### IDE Management
 
-Sanity-Gravity provides a robust defense mechanism against accidental IDE or browser uninstallation caused by `apt upgrade`.
+`ag` installs the Antigravity IDE from Google's official tarball, pinned by version and build id and verified against the sha256 Google publishes for it. Auto-update is off, so a sandbox stays on the build it was built with until you ask for another one. The IDE bundles a certificate its own agent backend pins, and the one in 2.5.5 expires on 2026-11-03, so the image build fails on purpose once that is 14 days away rather than shipping a silently dead Agent Manager ([#42](https://github.com/Shiritai/sanity-gravity/issues/42)).
 
-- **Host side**: `sanity-cli` manages container lifecycles. Maintenance commands **auto-inject the latest protection script** into the target container, ensuring backward compatibility with legacy snapshots.
-- **Container side**: `gravity-cli` (built-in) safely manages Antigravity IDE and Google Chrome via `dpkg-divert`, guaranteeing their `--no-sandbox` privilege protections survive system updates.
+- **Host side**: `sanity-cli` manages container lifecycles. Maintenance commands **auto-inject the latest `gravity-cli`** into the target container first, so a container built from an older checkout still runs the current installer.
+- **Container side**: `gravity-cli` asks Google's updater which build is current, downloads it, checks it against the sha256 Google publishes for that build, and swaps it in. It is the same script the image build runs, so the sandbox wrapper and the desktop entries have one source.
 
 #### From the Host
 
 ```bash
-# Safely update IDE to the latest package version
+# Download, verify and install the current IDE build
 ./sanity-cli ide update --name sanity-gravity
 
-# Nuclear option: full wipe + clean reinstall to fix persistent crashes
+# Same, plus a clear-out of the Electron caches that outlive a version change
 ./sanity-cli ide reinstall --name sanity-gravity
 ```
 
 #### Inside the Container
 
 ```bash
-sudo gravity-cli update-ide     # Equivalent to 'ide update'
-sudo gravity-cli reinstall-ide  # Equivalent to 'ide reinstall'
+sudo gravity-cli ide update
+sudo gravity-cli ide reinstall
 ```
 
 ### SSH Agent Proxy
