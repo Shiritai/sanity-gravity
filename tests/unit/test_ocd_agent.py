@@ -86,7 +86,7 @@ def test_ocd_is_community(reg):
 
 
 def test_ocd_tags_stay_out_of_the_official_matrix():
-    """The three ocd tags reach VALID_TAGS but not OFFICIAL_TAGS (the
+    """The six ocd tags reach VALID_TAGS but not OFFICIAL_TAGS (the
     `list --json` source CI enumerates its matrices from)."""
     from sanity_gravity.core.registry import (
         OFFICIAL_TAGS,
@@ -98,6 +98,7 @@ def test_ocd_tags_stay_out_of_the_official_matrix():
     assert [t for t in OFFICIAL_TAGS if resolve_tag(t).agent == "ocd"] == []
     ocd_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "ocd"]
     assert sorted(ocd_tags) == [
+        "ocd-lxqt-kasm", "ocd-lxqt-ssh", "ocd-lxqt-vnc",
         "ocd-xfce-kasm", "ocd-xfce-ssh", "ocd-xfce-vnc",
     ]
     for t in ocd_tags:

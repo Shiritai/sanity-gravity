@@ -96,7 +96,7 @@ Every **agent plugin** reaches the desktop menu of the GUI tags. The same image 
 
 ## Desktop Session Launcher Contract
 
-Every plugin that provides `display` ships `/usr/local/bin/desktop-session` (`xfce` writes a one-line `exec startxfce4`), and the VNC-family connectors exec that one path from the `~/.vnc/xstartup` they write at container start - falling back to `startxfce4` only for images predating the contract, and starting `vncconfig -nowin` there so the X11 CLIPBOARD selection is bridged to the VNC clipboard - so adding a desktop never touches a connector, headless `none` tags have no session at all, and `tests/unit/test_desktop_session_contract.py` fails the build when a display plugin forgets the launcher.
+Every plugin that provides `display` ships `/usr/local/bin/desktop-session` (`xfce` writes a one-line `exec startxfce4`; `lxqt` writes `exec env <XDG session identity> startlxqt`), and the VNC-family connectors exec that one path from the `~/.vnc/xstartup` they write at container start - falling back to `startxfce4` only for images predating the contract, and starting `vncconfig -nowin` there so the X11 CLIPBOARD selection is bridged to the VNC clipboard - so adding a desktop never touches a connector, headless `none` tags have no session at all, and `tests/unit/test_desktop_session_contract.py` fails the build when a display plugin forgets the launcher.
 
 ## Filesystem Layout
 
@@ -114,6 +114,9 @@ sandbox/
 plugins/                        # Manifest-driven extension point (PR #6)
 ├── desktops/
 │   ├── xfce/                   # Layer 2: XFCE4 desktop
+│   │   ├── manifest.toml       #   provides=[display]
+│   │   └── Dockerfile
+│   ├── lxqt/                   # Layer 2: LXQt desktop
 │   │   ├── manifest.toml       #   provides=[display]
 │   │   └── Dockerfile
 │   └── none/                   # Layer 2: headless (no-op)

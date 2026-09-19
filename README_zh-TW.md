@@ -107,6 +107,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 | 用瀏覽器開啟 OpenCode Desktop   | `ocd-xfce-kasm` * | `https://localhost:8444`   |
 | 在終端機使用 DeepSeek Harness   | `dsh-none-ssh` *  | `ssh -p 2222 ...`         |
 | 搭配桌面使用 DeepSeek Harness   | `dsh-xfce-kasm` * | `https://localhost:8444`   |
+| 用 LXQt 桌面取代 XFCE           | `cc-lxqt-kasm` * | `https://localhost:8444`   |
 
 \* community tier：請用 `./sanity-cli build <tag>` 在本機建置；不會發佈到 GHCR，因此 `pull` 取不到。
 
@@ -114,7 +115,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 
 > **注意：** `gc`（Gemini CLI）免費方案已於 2026-06-18 終止，現需付費 Gemini API key / Code Assist 授權。新使用者建議改用 **`agy`**（Antigravity CLI）—— Google 官方接替者，本專案已內建。
 
-共有 **30 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
+共有 **54 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
 
 想用的代理還沒內建？新增一個只需要 manifest 加 Dockerfile —— 請參考 [自帶 Agent 指南](docs/bring-your-own-agent.md)。
 
@@ -245,7 +246,7 @@ sanity-gravity/
 │   │   └── connectors/         # kasm（KasmVNC）、vnc（TigerVNC）、ssh
 │   └── rootfs/                 # 共用覆疊層（entrypoint、gravity-cli、supervisor 設定）
 ├── plugins/                    # 清單驅動外掛
-│   ├── desktops/               #   xfce、none
+│   ├── desktops/               #   xfce、lxqt、none
 │   ├── agents/                 #   ag、agy、gc、cc、cx、oc、ocd
 │   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh
 ├── config/                     # 動態產生的 docker-compose 檔（git-ignored）

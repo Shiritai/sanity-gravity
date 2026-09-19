@@ -19,23 +19,26 @@ The AI tool installed in the sandbox.
 | `oc` | OpenCode | official | No | OpenCode CLI (single Bun-compiled `opencode` binary, official installer) |
 | `ocd` | OpenCode Desktop | community | Yes | OpenCode Desktop (Electron GUI app, official .deb for amd64/arm64) |
 
-> **Community tier (`dsh`).** DeepSeek Harness is an upstream developer preview (rc releases only, breaking changes promised), so its four tags build locally but never enter the CI/publish matrix - `pull` has nothing to fetch, run `./sanity-cli build dsh-none-ssh` first. The single `dsh` launcher serves both profiles: `dsh --profile headless "task"` for one-shot CLI runs, and `dsh web` for the browser UI, which listens on `127.0.0.1:3080` only (upstream refuses `0.0.0.0`) - reach it with `ssh -p 2222 -L 3080:127.0.0.1:3080 <user>@localhost` or the in-container browser on xfce variants. Auth is in-container only: `export DEEPSEEK_API_KEY=...`, put the key in `~/.dsh/.env`, or use the web UI's Settings -> Models; no host key is ever forwarded. See [Support tiers](../CONTRIBUTING.md#support-tiers).
+> **Community tier (`dsh`).** DeepSeek Harness is an upstream developer preview (rc releases only, breaking changes promised), so its seven tags build locally but never enter the CI/publish matrix - `pull` has nothing to fetch, run `./sanity-cli build dsh-none-ssh` first. The single `dsh` launcher serves both profiles: `dsh --profile headless "task"` for one-shot CLI runs, and `dsh web` for the browser UI, which listens on `127.0.0.1:3080` only (upstream refuses `0.0.0.0`) - reach it with `ssh -p 2222 -L 3080:127.0.0.1:3080 <user>@localhost` or the in-container browser on xfce variants. Auth is in-container only: `export DEEPSEEK_API_KEY=...`, put the key in `~/.dsh/.env`, or use the web UI's Settings -> Models; no host key is ever forwarded. See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 > **`gc` is deprecated.** Google shut down the Gemini CLI free tier on
 > 2026-06-18; it now requires a paid Gemini API key / Code Assist license.
 > The plugin and its images are kept for those users, but new users should
 > prefer **`agy`** (Antigravity CLI), Google's official replacement.
 
-> **Community tier (`ocd`).** Its three tags build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build ocd-xfce-kasm` first. The app is the Electron GUI, reachable only from the desktop menu of an `xfce` variant; there is no `opencode` command on PATH (that is the sibling `oc` plugin). OpenCode's free-tier models are gated server-side to the official harness since 2026-09-17, so they fail inside the sandbox with `Error from provider (Console)` no matter which version is pinned ([anomalyco/opencode#49588](https://github.com/anomalyco/opencode/issues/49588)) - configure your own provider API key in `~/.config/opencode/opencode.json` instead (the entrypoint seed already creates that file). See [Support tiers](../CONTRIBUTING.md#support-tiers).
+> **Community tier (`ocd`).** Its six tags build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build ocd-xfce-kasm` first. The app is the Electron GUI, reachable only from the desktop menu of a GUI variant (`xfce` or `lxqt`); there is no `opencode` command on PATH (that is the sibling `oc` plugin). OpenCode's free-tier models are gated server-side to the official harness since 2026-09-17, so they fail inside the sandbox with `Error from provider (Console)` no matter which version is pinned ([anomalyco/opencode#49588](https://github.com/anomalyco/opencode/issues/49588)) - configure your own provider API key in `~/.config/opencode/opencode.json` instead (the entrypoint seed already creates that file). See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 ### Desktops
 
 Whether a graphical desktop environment is included.
 
-| Slug | Name | Has GUI |
-|:-----|:-----|:--------|
-| `xfce` | XFCE | Yes — full XFCE4 desktop with window manager |
-| `none` | Headless | No — `DISPLAY` is unset, minimal footprint |
+| Slug | Name | Tier | Has GUI |
+|:-----|:-----|:-----|:--------|
+| `xfce` | XFCE | official | Yes — full XFCE4 desktop with window manager |
+| `lxqt` | LXQt | community | Yes — LXQt session (`lxqt-core`) with `xfwm4` as the window manager |
+| `none` | Headless | official | No — `DISPLAY` is unset, minimal footprint |
+
+> **Community tier (`lxqt`).** The 24 tags this desktop adds build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build cc-lxqt-kasm` first. Twenty-one are community through the desktop; the other three are `gc-lxqt-*`, deprecated through the agent. See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 ### Connectors
 
@@ -51,44 +54,68 @@ How you connect to the running container.
 
 Not all combinations are valid. Two rules are enforced:
 
-1. **GUI connectors require a GUI desktop**: `kasm` and `vnc` can only pair with `xfce` (not `none`).
-2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) and `ocd` (OpenCode Desktop) can only pair with `xfce` (not `none`).
+1. **GUI connectors require a GUI desktop**: `kasm` and `vnc` can only pair with `xfce` or `lxqt` (not `none`).
+2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) and `ocd` (OpenCode Desktop) can only pair with `xfce` or `lxqt` (not `none`).
 
 These rules are enforced by `sanity-cli` at build time and run time.
 
-## All Valid Tags (30)
+## All Valid Tags (54)
 
 Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 
 | Tag | Agent | Desktop | Connector | Use Case |
 |:----|:------|:--------|:----------|:---------|
+| `ag-lxqt-kasm` | Antigravity | LXQt | KasmVNC | Full IDE sandbox via browser |
+| `ag-lxqt-ssh` | Antigravity | LXQt | SSH | Full IDE sandbox, SSH-only access |
+| `ag-lxqt-vnc` | Antigravity | LXQt | TigerVNC | Full IDE sandbox via legacy VNC client |
 | **`ag-xfce-kasm`** | Antigravity | XFCE | KasmVNC | Full IDE sandbox via browser **(default)** |
 | `ag-xfce-ssh` | Antigravity | XFCE | SSH | Full IDE sandbox, SSH-only access |
 | `ag-xfce-vnc` | Antigravity | XFCE | TigerVNC | Full IDE sandbox via legacy VNC client |
+| `agy-lxqt-kasm` | Antigravity CLI | LXQt | KasmVNC | Antigravity CLI with LXQt desktop |
+| `agy-lxqt-ssh` | Antigravity CLI | LXQt | SSH | Antigravity CLI with GUI, SSH-only access |
+| `agy-lxqt-vnc` | Antigravity CLI | LXQt | TigerVNC | Antigravity CLI with legacy VNC |
 | `agy-none-ssh` | Antigravity CLI | Headless | SSH | Lightweight Antigravity CLI terminal |
 | `agy-xfce-kasm` | Antigravity CLI | XFCE | KasmVNC | Antigravity CLI with browser desktop |
 | `agy-xfce-ssh` | Antigravity CLI | XFCE | SSH | Antigravity CLI with GUI, SSH-only access |
 | `agy-xfce-vnc` | Antigravity CLI | XFCE | TigerVNC | Antigravity CLI with legacy VNC |
+| `cc-lxqt-kasm` | Claude Code | LXQt | KasmVNC | Claude Code with LXQt desktop |
+| `cc-lxqt-ssh` | Claude Code | LXQt | SSH | Claude Code with GUI, SSH-only access |
+| `cc-lxqt-vnc` | Claude Code | LXQt | TigerVNC | Claude Code with legacy VNC |
 | `cc-none-ssh` | Claude Code | Headless | SSH | Lightweight Claude Code terminal |
 | `cc-xfce-kasm` | Claude Code | XFCE | KasmVNC | Claude Code with browser desktop |
 | `cc-xfce-ssh` | Claude Code | XFCE | SSH | Claude Code with GUI, SSH-only access |
 | `cc-xfce-vnc` | Claude Code | XFCE | TigerVNC | Claude Code with legacy VNC |
+| `cx-lxqt-kasm` | OpenAI Codex | LXQt | KasmVNC | Codex with LXQt desktop |
+| `cx-lxqt-ssh` | OpenAI Codex | LXQt | SSH | Codex with GUI, SSH-only access |
+| `cx-lxqt-vnc` | OpenAI Codex | LXQt | TigerVNC | Codex with legacy VNC |
 | `cx-none-ssh` | OpenAI Codex | Headless | SSH | Lightweight Codex terminal |
 | `cx-xfce-kasm` | OpenAI Codex | XFCE | KasmVNC | Codex with browser desktop |
 | `cx-xfce-ssh` | OpenAI Codex | XFCE | SSH | Codex with GUI, SSH-only access |
 | `cx-xfce-vnc` | OpenAI Codex | XFCE | TigerVNC | Codex with legacy VNC |
+| `dsh-lxqt-kasm` | DeepSeek Harness | LXQt | KasmVNC | Harness with LXQt desktop |
+| `dsh-lxqt-ssh` | DeepSeek Harness | LXQt | SSH | Harness with GUI, SSH-only access |
+| `dsh-lxqt-vnc` | DeepSeek Harness | LXQt | TigerVNC | Harness with legacy VNC |
 | `dsh-none-ssh` | DeepSeek Harness | Headless | SSH | Lightweight harness terminal (headless profile) |
 | `dsh-xfce-kasm` | DeepSeek Harness | XFCE | KasmVNC | Harness with browser desktop (web UI via in-container browser) |
 | `dsh-xfce-ssh` | DeepSeek Harness | XFCE | SSH | Harness with GUI, SSH-only access |
 | `dsh-xfce-vnc` | DeepSeek Harness | XFCE | TigerVNC | Harness with legacy VNC |
+| `gc-lxqt-kasm` | Gemini CLI | LXQt | KasmVNC | Gemini with LXQt desktop |
+| `gc-lxqt-ssh` | Gemini CLI | LXQt | SSH | Gemini with GUI, SSH-only access |
+| `gc-lxqt-vnc` | Gemini CLI | LXQt | TigerVNC | Gemini with legacy VNC |
 | `gc-none-ssh` | Gemini CLI | Headless | SSH | Lightweight Gemini terminal |
 | `gc-xfce-kasm` | Gemini CLI | XFCE | KasmVNC | Gemini with browser desktop |
 | `gc-xfce-ssh` | Gemini CLI | XFCE | SSH | Gemini with GUI, SSH-only access |
 | `gc-xfce-vnc` | Gemini CLI | XFCE | TigerVNC | Gemini with legacy VNC |
+| `oc-lxqt-kasm` | OpenCode | LXQt | KasmVNC | OpenCode with LXQt desktop |
+| `oc-lxqt-ssh` | OpenCode | LXQt | SSH | OpenCode with GUI, SSH-only access |
+| `oc-lxqt-vnc` | OpenCode | LXQt | TigerVNC | OpenCode with legacy VNC |
 | `oc-none-ssh` | OpenCode | Headless | SSH | Lightweight OpenCode terminal |
 | `oc-xfce-kasm` | OpenCode | XFCE | KasmVNC | OpenCode with browser desktop |
 | `oc-xfce-ssh` | OpenCode | XFCE | SSH | OpenCode with GUI, SSH-only access |
 | `oc-xfce-vnc` | OpenCode | XFCE | TigerVNC | OpenCode with legacy VNC |
+| `ocd-lxqt-kasm` | OpenCode Desktop | LXQt | KasmVNC | OpenCode Desktop with LXQt desktop |
+| `ocd-lxqt-ssh` | OpenCode Desktop | LXQt | SSH | OpenCode Desktop with GUI, SSH-only access |
+| `ocd-lxqt-vnc` | OpenCode Desktop | LXQt | TigerVNC | OpenCode Desktop with legacy VNC |
 | `ocd-xfce-kasm` | OpenCode Desktop | XFCE | KasmVNC | OpenCode Desktop with browser desktop |
 | `ocd-xfce-ssh` | OpenCode Desktop | XFCE | SSH | OpenCode Desktop with GUI, SSH-only access |
 | `ocd-xfce-vnc` | OpenCode Desktop | XFCE | TigerVNC | OpenCode Desktop with legacy VNC |
