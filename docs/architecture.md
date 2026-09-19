@@ -116,6 +116,10 @@ Every **agent plugin** reaches the desktop menu of the GUI tags. The same image 
 
 Every plugin that provides `display` ships `/usr/local/bin/desktop-session` (`xfce` writes a one-line `exec startxfce4`; `lxqt` writes `exec env <XDG session identity> startlxqt`; `openbox` writes `exec env <XDG session identity> openbox-session`), and the VNC-family connectors exec that one path from the `~/.vnc/xstartup` they write at container start - falling back to `startxfce4` only for images predating the contract, and starting `vncconfig -nowin` there so the X11 CLIPBOARD selection is bridged to the VNC clipboard - so adding a desktop never touches a connector, headless `none` tags have no session at all, and `tests/unit/test_desktop_session_contract.py` fails the build when a display plugin forgets the launcher.
 
+## Bundled Browser
+
+Every plugin that provides `display` runs one shared recipe, `/usr/local/lib/sanity-gravity/install-browser.sh`, staged into the base image by its `COPY rootfs /`: Google Chrome on amd64, Chromium on arm64 (Chrome has no Linux build there), a wrapper adding `--no-sandbox` — the browser's own sandbox needs privileges this container does not grant — and the `google-chrome` / `x-www-browser` links that every "open this link" path ends at. A plugin builds with its own directory as the build context, so the base rootfs is the one place three desktop Dockerfiles can share a file; the alternative is the same recipe copied into each of them. The headless `none` layer runs nothing, which is what keeps the `*-none-*` tags browser-free, and `tests/unit/test_desktop_browser.py` goes red the moment the set of plugins running the installer stops being the set that provides `display`.
+
 ## Openbox Entry Point
 
 `openbox`'s `/usr/local/bin/desktop-session` execs `openbox-session` with `XDG_CURRENT_DESKTOP`, `DESKTOP_SESSION`, `XDG_SESSION_DESKTOP` and `XDG_SESSION_TYPE` set, which is what the openbox autostart and menu tooling read.
@@ -135,6 +139,8 @@ sandbox/
     ├── usr/local/bin/
     │   ├── entrypoint.sh       # PID 1 init script
     │   └── gravity-cli         # In-container IDE management tool
+    ├── usr/local/lib/sanity-gravity/
+    │   └── install-browser.sh  # Browser recipe the desktop layers run
     └── etc/supervisor/
         ├── supervisord.conf    # Master config
         └── conf.d/ssh.conf     # sshd program definition
@@ -155,7 +161,7 @@ plugins/                        # Manifest-driven extension point (PR #6)
 │       ├── manifest.toml
 │       └── Dockerfile
 ├── agents/
-│   ├── ag/                     # Layer 3: Antigravity IDE + Chrome
+│   ├── ag/                     # Layer 3: Antigravity IDE
 │   │   ├── manifest.toml       #   requires=[display]
 │   │   └── Dockerfile
 │   ├── agy/                    # Layer 3: Antigravity CLI

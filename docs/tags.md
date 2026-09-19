@@ -10,7 +10,7 @@ The AI tool installed in the sandbox.
 
 | Slug | Name | Tier | Requires GUI | What's Installed |
 |:-----|:-----|:-----|:-------------|:-----------------|
-| `ag` | Antigravity IDE | official | Yes | Antigravity IDE + Google Chrome |
+| `ag` | Antigravity IDE | official | Yes | Antigravity IDE (the browser comes with the desktop) |
 | `agy` | Antigravity CLI | official | No | Antigravity CLI (official installer) -- Gemini CLI's official successor |
 | `cc` | Claude Code | official | No | Claude Code CLI (official installer) |
 | `cx` | OpenAI Codex CLI | official | No | Codex CLI (static musl `codex` binary, official installer) |
@@ -19,7 +19,7 @@ The AI tool installed in the sandbox.
 | `oc` | OpenCode | official | No | OpenCode CLI (single Bun-compiled `opencode` binary, official installer) |
 | `ocd` | OpenCode Desktop | community | Yes | OpenCode Desktop (Electron GUI app, official .deb for amd64/arm64) |
 
-> **Community tier (`dsh`).** DeepSeek Harness is an upstream developer preview (rc releases only, breaking changes promised), so its ten tags build locally but never enter the CI/publish matrix - `pull` has nothing to fetch, run `./sanity-cli build dsh-none-ssh` first. The single `dsh` launcher serves both profiles: `dsh --profile headless "task"` for one-shot CLI runs, and `dsh web` for the browser UI, which listens on `127.0.0.1:3080` only (upstream refuses `0.0.0.0`) - reach it with `ssh -p 2222 -L 3080:127.0.0.1:3080 <user>@localhost` or the in-container browser on xfce variants. Auth is in-container only: `export DEEPSEEK_API_KEY=...`, put the key in `~/.dsh/.env`, or use the web UI's Settings -> Models; no host key is ever forwarded. See [Support tiers](../CONTRIBUTING.md#support-tiers).
+> **Community tier (`dsh`).** DeepSeek Harness is an upstream developer preview (rc releases only, breaking changes promised), so its ten tags build locally but never enter the CI/publish matrix - `pull` has nothing to fetch, run `./sanity-cli build dsh-none-ssh` first. The single `dsh` launcher serves both profiles: `dsh --profile headless "task"` for one-shot CLI runs, and `dsh web` for the browser UI, which listens on `127.0.0.1:3080` only (upstream refuses `0.0.0.0`) - reach it with `ssh -p 2222 -L 3080:127.0.0.1:3080 <user>@localhost` or the in-container browser every desktop variant ships. Auth is in-container only: `export DEEPSEEK_API_KEY=...`, put the key in `~/.dsh/.env`, or use the web UI's Settings -> Models; no host key is ever forwarded. See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 > **`gc` is deprecated.** Google shut down the Gemini CLI free tier on
 > 2026-06-18; it now requires a paid Gemini API key / Code Assist license.
@@ -34,10 +34,12 @@ Whether a graphical desktop environment is included.
 
 | Slug | Name | Tier | Has GUI |
 |:-----|:-----|:-----|:--------|
-| `xfce` | XFCE | official | Yes — full XFCE4 desktop with window manager |
-| `lxqt` | LXQt | community | Yes — LXQt session (`lxqt-core`) with `xfwm4` as the window manager |
-| `openbox` | Openbox | community | Yes — window manager only, no panel: the smallest GUI install |
-| `none` | Headless | official | No — `DISPLAY` is unset, minimal footprint |
+| `xfce` | XFCE | official | Yes — full XFCE4 desktop with window manager; ships a browser |
+| `lxqt` | LXQt | community | Yes — LXQt session (`lxqt-core`) with `xfwm4` as the window manager; ships a browser |
+| `openbox` | Openbox | community | Yes — window manager only, no panel: the smallest GUI install; ships a browser |
+| `none` | Headless | official | No — `DISPLAY` is unset, minimal footprint; no browser |
+
+> **The browser belongs to the desktop.** Each display desktop installs Google Chrome (amd64) or Chromium (arm64) as `x-www-browser` and as what `xdg-open` resolves to, so every tag with a desktop can open a link - whichever agent it carries.
 
 > **Community tier (`lxqt`, `openbox`).** Each of these desktops adds 24 tags that build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build cc-openbox-kasm` first. Twenty-one of each 24 are community through the desktop; the other three are `gc-lxqt-*` and `gc-openbox-*`, deprecated through the agent. See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
