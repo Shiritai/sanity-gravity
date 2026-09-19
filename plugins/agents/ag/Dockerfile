@@ -1,45 +1,13 @@
 ARG BASE_IMAGE=sanity-gravity:_base-xfce
 FROM ${BASE_IMAGE}
 
-# Architecture-Agnostic Browser Installation
-RUN arch=$(dpkg --print-architecture); \
-    if [ "$arch" = "amd64" ]; then \
-        apt-get update && apt-get install -y --no-install-recommends gnupg && \
-        mkdir -p /etc/apt/keyrings && \
-        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
-        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-        apt-get update && apt-get install -y --no-install-recommends google-chrome-stable; \
-    else \
-        # Support for Apple Silicon / ARM64 via Chromium
-        apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
-        add-apt-repository -y ppa:xtradeb/apps && \
-        apt-get update && apt-get install -y --no-install-recommends chromium && \
-        apt-get remove --purge -y software-properties-common && apt-get autoremove -y; \
-        ln -sf /usr/bin/chromium /usr/bin/google-chrome && \
-        ln -sf /usr/bin/chromium /usr/bin/google-chrome-stable; \
-    fi && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Universal Browser Wrapper
-RUN echo '#!/bin/bash\n\
-CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run --no-default-browser-check"\n\
-if [ -f "/usr/bin/chromium" ]; then\n\
-    exec /usr/bin/chromium $CHROME_FLAGS "$@"\n\
-elif [ -f "/opt/google/chrome/google-chrome" ]; then\n\
-    exec /opt/google/chrome/google-chrome $CHROME_FLAGS "$@"\n\
-else\n\
-    echo "No browser executable found!"\n\
-    exit 1\n\
-fi' > /usr/bin/google-chrome-safe && \
-    chmod +x /usr/bin/google-chrome-safe && \
-    ln -sf /usr/bin/google-chrome-safe /usr/bin/google-chrome && \
-    ln -sf /usr/bin/google-chrome-safe /usr/bin/google-chrome-stable && \
-    ln -sf /usr/bin/google-chrome-safe /usr/bin/x-www-browser && \
-    for f in /usr/share/applications/google-chrome.desktop /usr/share/applications/chromium-browser.desktop /usr/share/applications/chromium.desktop; do \
-        if [ -f "$f" ]; then \
-            sed -i 's|Exec=[^ ]*|Exec=/usr/bin/google-chrome|g' "$f"; \
-        fi; \
-    done
+# The browser comes from the desktop layer below (ag requires a display,
+# so there is always one): Chrome/chromium, the --no-sandbox wrapper and
+# the x-www-browser registration are installed once per desktop rather
+# than once per agent. The IDE's own browser integration finds it as
+# /usr/bin/google-chrome, and the arm64 path the IDE hard-codes
+# (/opt/google/chrome/google-chrome) is linked at container start by
+# rootfs/etc/entrypoint.d/10-ag-startup.sh.
 
 # Install Antigravity IDE (Official) + apply sandbox wrapper in single layer
 RUN mkdir -p /etc/apt/keyrings && \

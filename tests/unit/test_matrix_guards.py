@@ -43,7 +43,7 @@ MAX_OFFICIAL_TAGS = 19
 # it, then delete its entry. New official tags must not join it.
 KNOWN_UNTESTED_OFFICIAL_TAGS = frozenset({
     "agy-none-ssh", "agy-xfce-kasm", "agy-xfce-ssh", "agy-xfce-vnc",
-    "cc-xfce-kasm", "cc-xfce-ssh", "cc-xfce-vnc",
+    "cc-xfce-kasm", "cc-xfce-vnc",
     "cx-xfce-kasm", "cx-xfce-ssh", "cx-xfce-vnc",
     "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
 })

@@ -78,7 +78,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 | **主機絕對安全**      | 即使 AI 代理執行了 `rm -rf /` 或下載了惡意程式碼，只有沙箱會被摧毀。你的主機始終安然無恙。              |
 | **完整圖形桌面**      | Ubuntu 24.04 + XFCE4 + KasmVNC。代理能如同真人一般操作瀏覽器及 GUI 應用程式。                            |
 | **無頭 CLI 代理**     | 專為 Gemini CLI、Claude Code、OpenAI Codex、OpenCode 與 DeepSeek Harness 設計的最小化映像 — 無桌面負擔，僅需 SSH 即可運行。 |
-| **開箱即用**          | 預先安裝 Antigravity IDE、Google Chrome 與 Git 等關鍵套件。零等待立即開始。                               |
+| **開箱即用**          | 預先安裝 Antigravity IDE 與 Git；每個桌面版本另外內建瀏覽器（amd64 為 Google Chrome，arm64 為 Chromium）。零等待立即開始。 |
 | **無縫磁碟 I/O**     | 智慧 UID/GID 對應。Volume 掛載後不會產生 root 擁有權的檔案災難。                                        |
 | **多重實例**          | 平行建立各種隔離沙箱，未指定時系統自動分配連接埠，保證零衝突；也支援手動指定連接埠。                                                   |
 | **容器凍結快照**      | 將目前環境狀態（已安裝軟體、登入狀態）凍結為全新的映像檔分支。                                           |

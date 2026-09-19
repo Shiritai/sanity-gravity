@@ -26,5 +26,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-noto-cjk \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# The in-container browser: Chrome on amd64, chromium on arm64, wrapped
+# so it starts without its own sandbox and registered as x-www-browser.
+# Every desktop runs the same recipe out of the base image -- a plugin
+# builds with its own directory as the build context, so the base layer's
+# rootfs is the only place three Dockerfiles can share a file.
+RUN /usr/local/lib/sanity-gravity/install-browser.sh
+
 RUN printf '%s\n' '#!/bin/sh' 'exec startxfce4' > /usr/local/bin/desktop-session \
     && chmod +x /usr/local/bin/desktop-session
