@@ -20,7 +20,7 @@ import re
 from pathlib import Path
 
 from sanity_gravity.plugins.manifest import PluginManifest, load_manifest
-from tests.support import REPO_ROOT
+from tests.support import REPO_ROOT, dockerfile_lines
 
 #: The single path both connectors exec. Spelled once, here.
 LAUNCHER = "/usr/local/bin/desktop-session"
@@ -41,37 +41,6 @@ def _manifests() -> list[PluginManifest]:
     return [load_manifest(p) for p in sorted(_PLUGINS_DIR.glob("*/*/manifest.toml"))]
 
 
-def _code(line: str) -> str:
-    """The line with any comment removed.
-
-    ``#`` opens a comment at the start of a word and outside quotes;
-    anywhere else it is data - the launcher is written by a line reading
-    ``printf '%s\\n' '#!/bin/sh' ... > /usr/local/bin/desktop-session``.
-    """
-    quote = ""
-    for i, ch in enumerate(line):
-        if quote:
-            if ch == quote:
-                quote = ""
-        elif ch in "'\"":
-            quote = ch
-        elif ch == "#" and (i == 0 or line[i - 1].isspace()):
-            return line[:i]
-    return line
-
-
-def _build_instructions(dockerfile: Path) -> list[str]:
-    """The Dockerfile's lines, comments stripped.
-
-    A plugin that only mentions the launcher in a comment does not ship
-    it, and that is exactly the shape a half-done port leaves behind -
-    whether the comment is the whole line or the tail of one.
-    """
-    return [
-        _code(line) for line in dockerfile.read_text(encoding="utf-8").splitlines()
-    ]
-
-
 #: A command handing the launcher to ``rm``/``unlink`` instead of writing
 #: it. Bounded by the shell separators so a purge elsewhere in the same
 #: ``RUN`` does not match.
@@ -85,7 +54,7 @@ def _writes_launcher(dockerfile: Path) -> bool:
     removal cancels the writes before it.
     """
     written = False
-    for line in _build_instructions(dockerfile):
+    for line in dockerfile_lines(dockerfile):
         if LAUNCHER not in line:
             continue
         if _REMOVAL.search(line):

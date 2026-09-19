@@ -26,6 +26,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# The in-container browser: Chrome on amd64, chromium on arm64, wrapped
+# so it starts without its own sandbox and registered as x-www-browser.
+# Every desktop runs the same recipe out of the base image -- a plugin
+# builds with its own directory as the build context, so the base layer's
+# rootfs is the only place three Dockerfiles can share a file.
+RUN /usr/local/lib/sanity-gravity/install-browser.sh
+
 # Register standard desktop session launcher contract. Identify the session
 # as Openbox/x11. openbox-session is the standard session wrapper; without
 # the env vars the Openbox autostart/menu tooling would not recognize the

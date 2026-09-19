@@ -55,6 +55,38 @@ def py_files(*roots: Path, pattern: str = "*.py") -> Iterator[tuple[Path, str]]:
             yield path, path.relative_to(REPO_ROOT).as_posix()
 
 
+def dockerfile_code(line: str) -> str:
+    """One Dockerfile line with any comment removed.
+
+    ``#`` opens a comment at the start of a word and outside quotes;
+    anywhere else it is data - a launcher is written by a line reading
+    ``printf '%s\\n' '#!/bin/sh' ... > /usr/local/bin/desktop-session``.
+    """
+    quote = ""
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "#" and (i == 0 or line[i - 1].isspace()):
+            return line[:i]
+    return line
+
+
+def dockerfile_lines(path: Path) -> list[str]:
+    """One Dockerfile's lines, comments stripped.
+
+    A build step that only appears in a comment does not run, and that
+    is exactly the shape a half-done port leaves behind - whether the
+    comment is the whole line or the tail of one.
+    """
+    return [
+        dockerfile_code(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+    ]
+
+
 def parse(path: Path) -> ast.Module:
     """One file's AST, tagged with its path for parse errors."""
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
