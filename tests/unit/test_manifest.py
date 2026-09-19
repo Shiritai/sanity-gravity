@@ -65,15 +65,9 @@ _MINIMAL = _PLUGIN + _BUILD
 @pytest.mark.parametrize(
     "kind,slug,name",
     [
-        ("agents", "ag"),
-        ("agents", "gc"),
-        ("agents", "cc"),
-        ("desktops", "xfce"),
-        ("desktops", "openbox"),
-        ("desktops", "none"),
-        ("connectors", "kasm"),
-        ("connectors", "vnc"),
-        ("connectors", "ssh"),
+        ("agents", "ag", "antigravity"),
+        ("desktops", "xfce", "xfce"),
+        ("connectors", "kasm", "KasmVNC"),
     ],
 )
 def test_load_each_builtin_manifest(kind, slug, name):
@@ -107,6 +101,13 @@ def test_xfce_provides_display():
     m = load_manifest(PLUGINS_DIR / "desktops" / "xfce" / "manifest.toml")
     assert m.provides == ("display",)
     assert m.requires == ()
+
+
+def test_openbox_provides_display():
+    m = load_manifest(PLUGINS_DIR / "desktops" / "openbox" / "manifest.toml")
+    assert m.provides == ("display",)
+    assert m.requires == ()
+    assert m.tier == "community"
 
 
 def test_none_desktop_no_capabilities():

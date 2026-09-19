@@ -29,8 +29,10 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 PLUGINS_DIR = _REPO_ROOT / "plugins"
 
-# The combinations a pure-CLI agent (no GUI requirement) yields with the
-# GUI desktops/connectors plus the headless ssh-only pair.
+# The combinations a pure-CLI agent (no GUI requirement) yields: every
+# desktop/connector pair that itself satisfies the display rule. The
+# openbox ones are valid but community-tier, so they stay out of the
+# official-matrix assertion below.
 OC_VALID_TAGS = [
     Tag("oc", "xfce", "kasm"),
     Tag("oc", "xfce", "ssh"),
@@ -89,15 +91,14 @@ def test_oc_is_official(reg):
 
 
 def test_oc_tags_enter_the_official_matrix():
-    """All four oc-* tags must reach OFFICIAL_TAGS (the `list --json`
-    source CI enumerates its matrices from)."""
+    """All four official oc-* tags must reach OFFICIAL_TAGS (the `list
+    --json` source CI enumerates its matrices from). The three
+    oc-openbox-* tags are valid but community, so they stay out."""
     from sanity_gravity.core.registry import OFFICIAL_TAGS, resolve_tag, tag_tier
 
     oc_tags = [t for t in OFFICIAL_TAGS if resolve_tag(t).agent == "oc"]
     assert sorted(oc_tags) == [
-        "oc-none-ssh",
-        "oc-openbox-kasm", "oc-openbox-ssh", "oc-openbox-vnc",
-        "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
+        "oc-none-ssh", "oc-xfce-kasm", "oc-xfce-ssh", "oc-xfce-vnc",
     ]
     for t in oc_tags:
         assert tag_tier(resolve_tag(t)) == "official"
