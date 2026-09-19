@@ -1,0 +1,30 @@
+! X resources for the openbox desktop, merged into the X server at session
+! start by the connector xstartup and /etc/xdg/openbox/autostart (xrdb from
+! x11-xserver-utils). /etc/X11/Xresources is a directory in Debian; every
+! file inside it is merged in turn.
+!
+! Keyed on the instance name (xterm) rather than the XTerm class: the session
+! opens its terminal through x-terminal-emulator, which is the lxterm
+! alternative, and lxterm execs uxterm whenever the locale charmap is UTF-8 -
+! which it always is here, because the image sets LC_ALL=C.UTF-8. uxterm runs
+! xterm -class UXTerm, so anything keyed on the XTerm class is skipped; the
+! instance name is xterm either way, since neither wrapper passes -name.
+!
+! A legible face over VNC instead of the 8pt bitmap default.
+xterm*faceName: DejaVu Sans Mono
+xterm*faceSize: 10
+xterm*utf8: always
+xterm*scrollBar: false
+
+! Once faceName is set the core font is only a fallback, but xterm still opens
+! it at startup, and the UXTerm defaults point it at an iso10646 bitmap font
+! that no package in this image ships - which logged a font failure at every
+! session start. fixed is built into the X server.
+xterm*VT100.font: fixed
+
+! Route selections to CLIPBOARD instead of PRIMARY so the VNC server (KasmVNC
+! or TigerVNC, through vncconfig) can forward them to the web client, and so
+! Shift-Insert pastes the client clipboard back into the terminal. Without
+! this, mouse-selected text stays in PRIMARY, which the VNC servers do not
+! sync.
+xterm*selectToClipboard: true

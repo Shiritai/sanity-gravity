@@ -73,10 +73,11 @@ class TestDimensionConstraints:
 
     def test_all_ag_tags_have_gui_desktop(self):
         """ag (Antigravity IDE) requires a display, so every ag tag pairs
-        it with a GUI desktop - now two of them, never the headless one."""
+        it with a GUI desktop - three of them now, never the headless one."""
         ag_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "ag"]
-        assert len(ag_tags) == 6
-        assert {resolve_tag(t).desktop for t in ag_tags} == {"xfce", "lxqt"}
+        assert len(ag_tags) == 9
+        for tag in ag_tags:
+            assert DESKTOPS[resolve_tag(tag).desktop]["has_gui"]
 
     def test_no_headless_gui_connector_in_valid_tags(self):
         """No *-none-kasm/vnc should appear in VALID_TAGS."""

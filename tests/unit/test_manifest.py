@@ -103,6 +103,13 @@ def test_xfce_provides_display():
     assert m.requires == ()
 
 
+def test_openbox_provides_display():
+    m = load_manifest(PLUGINS_DIR / "desktops" / "openbox" / "manifest.toml")
+    assert m.provides == ("display",)
+    assert m.requires == ()
+    assert m.tier == "community"
+
+
 def test_none_desktop_no_capabilities():
     m = load_manifest(PLUGINS_DIR / "desktops" / "none" / "manifest.toml")
     assert m.provides == ()

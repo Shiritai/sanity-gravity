@@ -16,6 +16,24 @@ ubuntu:24.04 (pinned SHA)
      │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-xfce → oc-xfce-{kasm,vnc,ssh}
      │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-xfce → ocd-xfce-{kasm,vnc,ssh}
      │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-xfce → dsh-xfce-{kasm,vnc,ssh}
+     ├─ plugins/desktops/lxqt/           → sanity-gravity:_base-lxqt
+     │   ├─ plugins/agents/ag/           → sanity-gravity:_ag-lxqt → ag-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-lxqt → agy-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-lxqt → cc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-lxqt → cx-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-lxqt → gc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-lxqt → oc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-lxqt → ocd-lxqt-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-lxqt → dsh-lxqt-{kasm,vnc,ssh}
+     ├─ plugins/desktops/openbox/        → sanity-gravity:_base-openbox
+     │   ├─ plugins/agents/ag/           → sanity-gravity:_ag-openbox → ag-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-openbox → agy-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-openbox → cc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-openbox → cx-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-openbox → gc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-openbox → oc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-openbox → ocd-openbox-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-openbox → dsh-openbox-{kasm,vnc,ssh}
      └─ plugins/desktops/none/           → sanity-gravity:_base-none
          ├─ plugins/agents/agy/          → sanity-gravity:_agy-none → agy-none-ssh
          ├─ plugins/agents/cc/           → sanity-gravity:_cc-none → cc-none-ssh
@@ -71,7 +89,7 @@ visibility to its own files.
 
 ## Build Phases
 
-`./sanity-cli build` (with no arguments) builds all 19 **official** images in two phases; non-official tags (e.g. the deprecated `gc-*`) build only when named explicitly:
+`./sanity-cli build` (with no arguments) builds all 19 **official** images in two phases; non-official tags (the deprecated `gc-*`, the community `ocd-*`, `dsh-*`, `*-lxqt-*` and `*-openbox-*`) build only when named explicitly:
 
 1. **Phase 1: Intermediates** - builds the 12 shared intermediate images (`_base`, `_base-xfce`, `_base-none`, `_ag-xfce`, `_agy-xfce`, `_agy-none`, `_cc-xfce`, `_cc-none`, `_cx-xfce`, `_cx-none`, `_oc-xfce`, `_oc-none`).
 2. **Phase 2: Finals** - builds all 19 official final images on top of the intermediates.
@@ -96,7 +114,17 @@ Every **agent plugin** reaches the desktop menu of the GUI tags. The same image 
 
 ## Desktop Session Launcher Contract
 
-Every plugin that provides `display` ships `/usr/local/bin/desktop-session` (`xfce` writes a one-line `exec startxfce4`; `lxqt` writes `exec env <XDG session identity> startlxqt`), and the VNC-family connectors exec that one path from the `~/.vnc/xstartup` they write at container start - falling back to `startxfce4` only for images predating the contract, and starting `vncconfig -nowin` there so the X11 CLIPBOARD selection is bridged to the VNC clipboard - so adding a desktop never touches a connector, headless `none` tags have no session at all, and `tests/unit/test_desktop_session_contract.py` fails the build when a display plugin forgets the launcher.
+Every plugin that provides `display` ships `/usr/local/bin/desktop-session` (`xfce` writes a one-line `exec startxfce4`; `lxqt` writes `exec env <XDG session identity> startlxqt`; `openbox` writes `exec env <XDG session identity> openbox-session`), and the VNC-family connectors exec that one path from the `~/.vnc/xstartup` they write at container start - falling back to `startxfce4` only for images predating the contract, and starting `vncconfig -nowin` there so the X11 CLIPBOARD selection is bridged to the VNC clipboard - so adding a desktop never touches a connector, headless `none` tags have no session at all, and `tests/unit/test_desktop_session_contract.py` fails the build when a display plugin forgets the launcher.
+
+## Openbox Entry Point
+
+`openbox`'s `/usr/local/bin/desktop-session` execs `openbox-session` with `XDG_CURRENT_DESKTOP`, `DESKTOP_SESSION`, `XDG_SESSION_DESKTOP` and `XDG_SESSION_TYPE` set, which is what the openbox autostart and menu tooling read.
+
+Openbox is a window manager with no panel and no desktop icons, so the plugin ships its own way into the installed agent: `/usr/local/bin/agent-starter`, reachable from the root menu, from a `Terminal=true` desktop entry, and from the session autostart.
+
+The openbox layer is built before the agent layer, so the choice is made at runtime. `/usr/local/bin/launch-gui-agent` scans `/usr/share/applications/*.desktop` and prints the `Exec` command of a GUI IDE, matched on the command rather than the file name so a vendor rename does not break detection. When it prints nothing, `agent-starter` lists the project directories under `$HOME/workspace`, asks for one (offering to create the first), and execs the terminal agent it finds — claude, codex, gemini, opencode or agy — inside it; with no agent installed it opens a shell and prints `PATH` as a diagnostic.
+
+The shipped `/etc/xdg/openbox/autostart` paints a solid background (a bare WM is otherwise black), merges `/etc/X11/Xresources/*` with `xrdb`, and opens the GUI agent or the `agent-starter` terminal. `rc.xml` points the root menu at the plugin's own `menu.xml` — the Debian default points at a file the uninstalled `menu` package would generate — and opens every normal window fullscreen so the main window fills the browser view (`A-F11` toggles, `A-F4` closes). The shipped Xresources route xterm selections to CLIPBOARD, the selection the VNC servers sync - without that, copying from the terminal to the browser silently does nothing - and they are keyed on the `xterm` instance name rather than the `XTerm` class, because `x-terminal-emulator` reaches xterm through `uxterm` under this image's UTF-8 locale, which runs it as class `UXTerm`.
 
 ## Filesystem Layout
 
@@ -117,8 +145,12 @@ plugins/                        # Manifest-driven extension point (PR #6)
 │   │   ├── manifest.toml       #   provides=[display]
 │   │   └── Dockerfile
 │   ├── lxqt/                   # Layer 2: LXQt desktop
-│   │   ├── manifest.toml       #   provides=[display]
+│   │   ├── manifest.toml       #   provides=[display], tier=community
 │   │   └── Dockerfile
+│   ├── openbox/                # Layer 2: Openbox window manager
+│   │   ├── manifest.toml       #   provides=[display], tier=community
+│   │   ├── Dockerfile
+│   │   └── rootfs/             #   agent-starter, openbox config, Xresources
 │   └── none/                   # Layer 2: headless (no-op)
 │       ├── manifest.toml
 │       └── Dockerfile

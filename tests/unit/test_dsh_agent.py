@@ -112,7 +112,9 @@ def test_dsh_tags_stay_out_of_the_official_matrix():
     dsh_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "dsh"]
     assert sorted(dsh_tags) == [
         "dsh-lxqt-kasm", "dsh-lxqt-ssh", "dsh-lxqt-vnc",
-        "dsh-none-ssh", "dsh-xfce-kasm", "dsh-xfce-ssh", "dsh-xfce-vnc",
+        "dsh-none-ssh",
+        "dsh-openbox-kasm", "dsh-openbox-ssh", "dsh-openbox-vnc",
+        "dsh-xfce-kasm", "dsh-xfce-ssh", "dsh-xfce-vnc",
     ]
     for t in dsh_tags:
         assert tag_tier(resolve_tag(t)) == "community"

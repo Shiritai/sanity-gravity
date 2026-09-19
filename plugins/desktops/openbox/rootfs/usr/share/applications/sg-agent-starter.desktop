@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Agent Starter
+Comment=Pick a project and start the terminal coding agent
+Exec=agent-starter
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;
