@@ -46,6 +46,7 @@ Agentic なコーディングツール — Antigravity、Claude Code、Codex —
 * **検証済み環境**: Ubuntu (amd64/arm64)、macOS (Apple Silicon)、Windows (WSL2 + Docker Desktop)
 
 > **Windows / WSL2:** サンドボックス内のブラウザ / エージェントがクラッシュした際に WSL が数 GB のクラッシュダンプを書き出すのを防ぐため、初回に一度 `scripts/setup-wsl-crashdump-policy.ps1` を実行してください。
+> **サンドボックスを複数同時起動する場合:** ホストの `fs.inotify.max_user_instances`(多くのディストリビューションではデフォルト 128)が枯渇し、コンテナ内の Chrome や `dsh`、IDE の言語サーバーで `inotify_init() failed` / EMFILE エラーが出ることがある。ホスト側(コンテナ内ではない)で `sudo sysctl fs.inotify.max_user_instances=1024` を実行し、`/etc/sysctl.d/` 以下に設定ファイルを置いて永続化すること。
 
 ## TL;DR
 

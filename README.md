@@ -46,6 +46,7 @@ Let the agent go full YOLO. The blast radius stops at the container wall.
 * **Tested on**: Ubuntu (amd64/arm64), macOS (Apple Silicon), Windows (WSL2 + Docker Desktop)
 
 > **Windows / WSL2:** run `scripts/setup-wsl-crashdump-policy.ps1` once to stop WSL from writing gigabyte crash dumps when a sandboxed browser/agent segfaults.
+> **Running multiple sandboxes:** the host's `fs.inotify.max_user_instances` (often 128 by default) can run out when several sandboxes are up at once, surfacing as `inotify_init() failed` / EMFILE errors in Chrome, `dsh`, or IDE language servers inside the containers; fix it on the host with `sudo sysctl fs.inotify.max_user_instances=1024` and persist it via a file under `/etc/sysctl.d/`.
 
 ## TL;DR
 

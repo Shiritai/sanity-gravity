@@ -46,6 +46,7 @@ Agentic coding 工具 — Antigravity、Claude Code、Codex — 在你放手讓�
 * **已驗證環境**：Ubuntu (amd64/arm64)、macOS (Apple Silicon)、Windows (WSL2 + Docker Desktop)
 
 > **Windows / WSL2:** 首次使用請執行一次 `scripts/setup-wsl-crashdump-policy.ps1`,避免沙箱內的瀏覽器 / agent 崩潰時 WSL 寫出數 GB 的 crash dump。
+> **同時開多個沙箱:** 主機的 `fs.inotify.max_user_instances`(許多發行版預設只有 128)可能被耗盡,症狀是容器內的 Chrome、`dsh`、或 IDE 語言伺服器出現 `inotify_init() failed` / EMFILE 錯誤;要在主機(非容器內)執行 `sudo sysctl fs.inotify.max_user_instances=1024` 並在 `/etc/sysctl.d/` 下新增設定檔讓它永久生效。
 
 ## TL;DR
 
