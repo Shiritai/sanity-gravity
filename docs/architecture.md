@@ -5,28 +5,42 @@
 Every Sanity-Gravity image is assembled through a **4-layer FROM chain**. Each layer is a standalone Dockerfile that accepts a `BASE_IMAGE` build argument, enabling composable stacking.
 
 ```
-ubuntu:24.04 (pinned SHA) / debian:12 (pinned SHA)   ← base dimension (ubuntu default)
- └─ base plugin Dockerfile                            → sanity-gravity:_base         (ubuntu)
-                                                      → sanity-gravity:_debian_base  (debian)
-     ├─ plugins/desktops/xfce/                        → _base-xfce / _debian_base-xfce
-     │   ├─ plugins/agents/ag/                        → _ag-xfce / _debian_ag-xfce → ag-xfce-{kasm,vnc,ssh} / debian-ag-xfce-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/agy/                       → _agy-xfce / _debian_agy-xfce
-     │   ├─ plugins/agents/cc/                        → _cc-xfce / _debian_cc-xfce
-     │   ├─ plugins/agents/cx/                        → _cx-xfce / _debian_cx-xfce
-     │   ├─ plugins/agents/gc/                        → _gc-xfce / _debian_gc-xfce
-     │   └─ plugins/agents/oc/                        → _oc-xfce / _debian_oc-xfce
-     ├─ plugins/desktops/cinnamon/                    → _base-cinnamon / _debian_base-cinnamon
-     │   └─ plugins/agents/*/                         → _*-cinnamon / _debian_*-cinnamon
-     ├─ plugins/desktops/lxqt/                        → _base-lxqt / _debian_base-lxqt
-     │   └─ plugins/agents/*/                         → _*-lxqt / _debian_*-lxqt
-     ├─ plugins/desktops/openbox/                     → _base-openbox / _debian_base-openbox
-     │   └─ plugins/agents/*/                         → _*-openbox / _debian_*-openbox
-     └─ plugins/desktops/none/                        → _base-none / _debian_base-none
-         ├─ plugins/agents/agy/                       → _agy-none / _debian_agy-none → agy-none-ssh / debian-agy-none-ssh
-         ├─ plugins/agents/cc/                        → _cc-none / _debian_cc-none
-         ├─ plugins/agents/cx/                        → _cx-none / _debian_cx-none
-         ├─ plugins/agents/gc/                        → _gc-none / _debian_gc-none
-         └─ plugins/agents/oc/                        → _oc-none / _debian_oc-none
+ubuntu:24.04 (pinned SHA)
+ └─ Dockerfile.base                      → sanity-gravity:_base
+     ├─ plugins/desktops/xfce/           → sanity-gravity:_base-xfce
+     │   ├─ plugins/agents/ag/           → sanity-gravity:_ag-xfce → ag-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-xfce → agy-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-xfce → cc-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-xfce → cx-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-xfce → gc-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-xfce → oc-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-xfce → ocd-xfce-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-xfce → dsh-xfce-{kasm,vnc,ssh}
+     ├─ plugins/desktops/lxqt/           → sanity-gravity:_base-lxqt
+     │   ├─ plugins/agents/ag/           → sanity-gravity:_ag-lxqt → ag-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-lxqt → agy-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-lxqt → cc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-lxqt → cx-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-lxqt → gc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-lxqt → oc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-lxqt → ocd-lxqt-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-lxqt → dsh-lxqt-{kasm,vnc,ssh}
+     ├─ plugins/desktops/openbox/        → sanity-gravity:_base-openbox
+     │   ├─ plugins/agents/ag/           → sanity-gravity:_ag-openbox → ag-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-openbox → agy-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-openbox → cc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-openbox → cx-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-openbox → gc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-openbox → oc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-openbox → ocd-openbox-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-openbox → dsh-openbox-{kasm,vnc,ssh}
+     └─ plugins/desktops/none/           → sanity-gravity:_base-none
+         ├─ plugins/agents/agy/          → sanity-gravity:_agy-none → agy-none-ssh
+         ├─ plugins/agents/cc/           → sanity-gravity:_cc-none → cc-none-ssh
+         ├─ plugins/agents/cx/           → sanity-gravity:_cx-none → cx-none-ssh
+         ├─ plugins/agents/gc/           → sanity-gravity:_gc-none → gc-none-ssh
+         ├─ plugins/agents/oc/           → sanity-gravity:_oc-none → oc-none-ssh
+         └─ plugins/agents/dsh/          → sanity-gravity:_dsh-none → dsh-none-ssh
 ```
 
 (`ag` and `ocd` require a GUI desktop, so they have no headless `none` variant.)
@@ -75,7 +89,7 @@ visibility to its own files.
 
 ## Build Phases
 
-`./sanity-cli build` (with no arguments) builds all 19 **official** images in two phases; non-official tags (e.g. the deprecated `gc-*`) build only when named explicitly:
+`./sanity-cli build` (with no arguments) builds all 19 **official** images in two phases; non-official tags (the deprecated `gc-*`, the community `ocd-*`, `dsh-*`, `*-lxqt-*` and `*-openbox-*`) build only when named explicitly:
 
 1. **Phase 1: Intermediates** - builds the 12 shared intermediate images (`_base`, `_base-xfce`, `_base-none`, `_ag-xfce`, `_agy-xfce`, `_agy-none`, `_cc-xfce`, `_cc-none`, `_cx-xfce`, `_cx-none`, `_oc-xfce`, `_oc-none`).
 2. **Phase 2: Finals** - builds all 19 official final images on top of the intermediates.
@@ -102,49 +116,15 @@ Every **agent plugin** reaches the desktop menu of the GUI tags. The same image 
 
 Every plugin that provides `display` ships `/usr/local/bin/desktop-session` (`xfce` writes a one-line `exec startxfce4`; `lxqt` writes `exec env <XDG session identity> startlxqt`; `openbox` writes `exec env <XDG session identity> openbox-session`), and the VNC-family connectors exec that one path from the `~/.vnc/xstartup` they write at container start - falling back to `startxfce4` only for images predating the contract, and starting `vncconfig -nowin` there so the X11 CLIPBOARD selection is bridged to the VNC clipboard - so adding a desktop never touches a connector, headless `none` tags have no session at all, and `tests/unit/test_desktop_session_contract.py` fails the build when a display plugin forgets the launcher.
 
-The **openbox** desktop ships its own entry point: `agent-starter` at
-`/usr/local/bin/agent-starter` (plus a `Terminal=true` `.desktop` entry and
-a right-click root-menu item). Openbox is just a window manager with no
-panel or desktop icons, so this script is how a user reaches the installed
-agent. It decides at runtime (the openbox layer is built before the agent
-layers):
+## Openbox Entry Point
 
-- **GUI agents** (`ag` Antigravity IDE, `od` OpenCode Desktop): detected via
-  their `.desktop` launchers by `/usr/local/bin/launch-gui-agent`, which
-  scans all `/usr/share/applications/*.desktop` entries and matches by the
-  `Exec=` marker of the GUI binaries (`/opt/OpenCode/ai.opencode.desktop`,
-  `/usr/bin/antigravity`), so it works regardless of the shipped desktop-file
-  name. The session autostart launches the GUI IDE as the main window
-  instead of a terminal, so it is immediately usable in the KasmVNC / noVNC
-  browser view. `agent-starter` does the same when opened from the menu.
-- **CLI agents** (`agy`, `cc`, `cx`, `gc`, `oc`): the script lists the
-  subprojects under `$HOME/workspace`, lets the user pick one, and execs the
-  agent present at runtime (claude / codex / gemini / opencode / agy). The
-  detection combines `command -v` with absolute-path fallbacks for the known
-  install locations, so it also works if the session's `PATH` omits
-  `/usr/local/bin` (where `opencode` and the Antigravity CLI `agy` land). If
-  no project exists yet it prompts for a name, creates the directory and
-  starts the agent inside it. With no agent at all it falls back to a plain
-  shell and prints the current `PATH` as a diagnostic.
+`openbox`'s `/usr/local/bin/desktop-session` execs `openbox-session` with `XDG_CURRENT_DESKTOP`, `DESKTOP_SESSION`, `XDG_SESSION_DESKTOP` and `XDG_SESSION_TYPE` set, which is what the openbox autostart and menu tooling read.
 
-The shipped `/etc/xdg/openbox/autostart` paints a solid background (a bare
-WM is otherwise pitch-black), launches the GUI agent or the `agent-starter`
-terminal at session start, and runs XDG autostart entries (its
-`openbox-xdg-autostart` needs `python3-xdg`, installed by the plugin). A
-custom `rc.xml` wires the right-click root menu to the plugin's `menu.xml`
-instead of the missing Debian `debian-menu.xml`, and its `<applications>`
-rules open every normal window (the Agent Starter terminal as well as GUI
-IDEs) fullscreen, so the main app fills the VNC browser view immediately
-(`A-F11` toggles fullscreen, `A-F4` closes the window). Readability over
-VNC is handled by `fonts-dejavu-core`: the theme uses DejaVu Sans at 10pt
-for the titlebar/menus/OSDs, and the shipped `/etc/X11/Xresources/xterm` (a
-file in the Debian-standard directory) is merged via `xrdb` by the
-connector xstartup (and again by the openbox autostart) so xterm
-(agent-starter terminal and CLI-agent TUIs) renders in DejaVu Sans Mono at
-10pt instead of its tiny 8pt default. The same resource file sets
-`XTerm*selectToClipboard: true`, which routes xterm selections to the
-CLIPBOARD selection instead of PRIMARY — without it, the VNC servers do not
-see selected terminal text and copy/paste to the browser fails.
+Openbox is a window manager with no panel and no desktop icons, so the plugin ships its own way into the installed agent: `/usr/local/bin/agent-starter`, reachable from the root menu, from a `Terminal=true` desktop entry, and from the session autostart.
+
+The openbox layer is built before the agent layer, so the choice is made at runtime. `/usr/local/bin/launch-gui-agent` scans `/usr/share/applications/*.desktop` and prints the `Exec` command of a GUI IDE, matched on the command rather than the file name so a vendor rename does not break detection. When it prints nothing, `agent-starter` lists the project directories under `$HOME/workspace`, asks for one (offering to create the first), and execs the terminal agent it finds — claude, codex, gemini, opencode or agy — inside it; with no agent installed it opens a shell and prints `PATH` as a diagnostic.
+
+The shipped `/etc/xdg/openbox/autostart` paints a solid background (a bare WM is otherwise black), merges `/etc/X11/Xresources/*` with `xrdb`, and opens the GUI agent or the `agent-starter` terminal. `rc.xml` points the root menu at the plugin's own `menu.xml` — the Debian default points at a file the uninstalled `menu` package would generate — and opens every normal window fullscreen so the main window fills the browser view (`A-F11` toggles, `A-F4` closes). `XTerm*selectToClipboard` in the shipped Xresources routes xterm selections to CLIPBOARD, the selection the VNC servers sync; without it, copying from the terminal to the browser silently does nothing.
 
 ## Filesystem Layout
 
@@ -165,12 +145,12 @@ plugins/                        # Manifest-driven extension point (PR #6)
 │   │   ├── manifest.toml       #   provides=[display]
 │   │   └── Dockerfile
 │   ├── lxqt/                   # Layer 2: LXQt desktop
-│   │   ├── manifest.toml       #   provides=[display]
+│   │   ├── manifest.toml       #   provides=[display], tier=community
 │   │   └── Dockerfile
 │   ├── openbox/                # Layer 2: Openbox window manager
-│   │   ├── manifest.toml       #   provides=[display]
+│   │   ├── manifest.toml       #   provides=[display], tier=community
 │   │   ├── Dockerfile
-│   │   └── rootfs/             #   agent-starter entry + openbox menu
+│   │   └── rootfs/             #   agent-starter, openbox config, Xresources
 │   └── none/                   # Layer 2: headless (no-op)
 │       ├── manifest.toml
 │       └── Dockerfile
