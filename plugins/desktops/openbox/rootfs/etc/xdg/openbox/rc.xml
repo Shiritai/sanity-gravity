@@ -121,7 +121,7 @@
       </action>
     </keybind>
     <keybind key="A-S-Tab">
-      <action name="PrevWindow">
+      <action name="PreviousWindow">
         <bar>yes</bar>
         <raise>yes</raise>
       </action>
