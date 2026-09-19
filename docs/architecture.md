@@ -94,6 +94,10 @@ Every **agent plugin** reaches the desktop menu of the GUI tags. The same image 
 - CLI agents (`agy`, `cc`, `cx`, `gc`, `oc`) ship their own `.desktop` file under `rootfs/usr/share/applications/` (copied by `COPY rootfs/ /`) with `Terminal=true`, so clicking the entry runs the TUI inside the desktop's default terminal.
 - IDE agents (`ag`) keep the GUI launcher the package installs (`antigravity.desktop`), patched for `--no-sandbox` in their Dockerfile.
 
+## Desktop Session Launcher Contract
+
+Every plugin that provides `display` ships `/usr/local/bin/desktop-session` (`xfce` writes a one-line `exec startxfce4`), and the VNC-family connectors exec that one path from the `~/.vnc/xstartup` they write at container start - falling back to `startxfce4` only for images predating the contract, and starting `vncconfig -nowin` there so the X11 CLIPBOARD selection is bridged to the VNC clipboard - so adding a desktop never touches a connector, headless `none` tags have no session at all, and `tests/unit/test_desktop_session_contract.py` fails the build when a display plugin forgets the launcher.
+
 ## Filesystem Layout
 
 ```

@@ -20,3 +20,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     mesa-utils \
     fonts-noto-cjk \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN printf '%s\n' '#!/bin/sh' 'exec startxfce4' > /usr/local/bin/desktop-session \
+    && chmod +x /usr/local/bin/desktop-session

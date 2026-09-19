@@ -31,22 +31,36 @@ mkdir -p $HOME/.vnc
 echo -e "${HOST_PASSWORD}\n${HOST_PASSWORD}\n" | vncpasswd -u $USER -w
 # chmod 600 $HOME/.vnc/passwd
 
-# Setup xstartup for XFCE4
+# The desktop plugin owns the launcher, so a new desktop needs no change
+# here; startxfce4 stays as the fallback for a desktop that predates the
+# contract. vncconfig bridges the X11 CLIPBOARD selection to the RFB
+# clipboard, and is guarded so the session still starts without it.
 cat > $HOME/.vnc/xstartup <<EOF
 #!/bin/sh
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
-exec startxfce4
+if command -v vncconfig >/dev/null 2>&1; then
+    vncconfig -nowin &
+fi
+if [ -x /usr/local/bin/desktop-session ]; then
+    exec /usr/local/bin/desktop-session
+else
+    exec startxfce4
+fi
 EOF
 chmod +x $HOME/.vnc/xstartup
 
+# Claim the desktop choice so vncserver keeps the xstartup above. Left
+# unclaimed it runs select-de.sh, which overwrites xstartup with its own
+# and prompts on stdin - under supervisord that never returns.
+touch $HOME/.vnc/.de-was-selected
+
 echo "Starting KasmVNC on port 8444..."
 # Start KasmVNC
-# -select-de xfce might be needed if xstartup isn't used, but xstartup is standard.
 exec /usr/bin/vncserver :1 \
     -depth 24 \
     -geometry 1920x1080 \
     -websocketPort 8444 \
     -httpd /usr/share/kasmvnc/www \
-    -select-de xfce \
+    -Log '*:stderr:10' \
     -fg
