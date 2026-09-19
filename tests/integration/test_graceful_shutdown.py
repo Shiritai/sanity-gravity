@@ -129,9 +129,35 @@ class TestGracefulShutdownConfig:
         assert "xdotool" in layer_content
 
     def test_ag_shutdown_hook_filters_helper_windows(self):
-        """Must filter by window name to skip antigravity-bin helper windows."""
+        """Must filter by window name to skip helper windows.
+
+        2.x titles its windows ``<file> - <project> - Antigravity IDE``, so
+        the substring below still selects the editor and still skips the
+        Electron helpers, which carry no title of that shape.
+        """
         content = _read_file(AG_SHUTDOWN_FILE)
         assert '" - Antigravity"' in content
+
+    def test_ag_shutdown_hook_searches_the_window_class_by_prefix(self):
+        """The hook finds windows by X11 class before it filters by title,
+        and 2.x presents two classes: the editor window is
+        ``Antigravity IDE`` and a hidden helper window is
+        ``antigravity-ide-bin``. Searching the shared prefix
+        case-insensitively (what xdotool ``--class`` does) finds both, and
+        1.x's plain ``Antigravity`` as well. A search for the full
+        ``antigravity-ide`` finds only the helper, which reads as "no
+        editor window open" and drops the shutdown through to SIGKILL."""
+        content = _read_file(AG_SHUTDOWN_FILE)
+        assert "--class antigravity " in content
+        assert "--class antigravity-ide" not in content
+
+    def test_ag_shutdown_hook_matches_processes_by_install_directory(self):
+        """The process match has to name the install directory. The 1.x
+        pattern leaned on the diverted binary being called
+        ``antigravity-bin``, which is a coincidence of the divert rather
+        than a fact about the app."""
+        content = _read_file(AG_SHUTDOWN_FILE)
+        assert "/usr/share/antigravity-ide" in content
 
 # ---------------------------------------------------------------------------
 # Integration tests (self-contained: spin up own container)
