@@ -49,8 +49,15 @@ jobs:
           FAILED=0
           for tag in $(echo '${{ inputs.tags }}' | jq -r '.[]'); do
             echo "::group::Scanning ${tag}"
+            # The Antigravity IDE ships as a vendor-bundled Electron/VS Code
+            # fork: resources/app carries npm packages we neither choose nor
+            # can patch, so the only fix is a newer IDE build - which is what
+            # the version pin in plugins/agents/ag/Dockerfile is for. OS
+            # packages and the rest of every image stay in scope, and images
+            # without that directory are unaffected by the skip.
             trivy image --exit-code 1 --ignore-unfixed \
-              --vuln-type os,library --severity CRITICAL,HIGH \
+              --skip-dirs usr/share/antigravity-ide/resources/app \
+              --pkg-types os,library --severity CRITICAL,HIGH \
               "sanity-gravity:${tag}" || FAILED=1
             echo "::endgroup::"
           done
