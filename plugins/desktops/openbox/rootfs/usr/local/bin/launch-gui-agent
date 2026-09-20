@@ -9,12 +9,17 @@
 #
 # Matching is on the base name of the program the entry execs - not the file
 # name, and not the directory the program sits in. The vendor keeps the
-# program name; the path is its own business. Antigravity 1.23.2 execs
-# /usr/share/antigravity/antigravity and leaves /usr/bin/antigravity a symlink
-# that no Exec line names. The programs the agent layers install are:
+# program name; the path is its own business. The programs the agent layers
+# install are:
 #   - ai.opencode.desktop  (OpenCode Desktop)
-#   - antigravity          (Antigravity IDE)
+#   - antigravity-ide      (Antigravity IDE 2.x)
 # CLI launchers (Exec=agy, Exec=agent-starter) carry neither name.
+#
+# The bare name "antigravity" is deliberately not in that list. It was the
+# 1.x IDE's program; in 2.x upstream gave it to the separate "Antigravity
+# 2.0" app, which has no editor in it, so matching it could start something
+# that is not an IDE. The ag layer keeps /usr/bin/antigravity as a
+# compatibility command for shells, and no .desktop entry names it.
 for f in /usr/share/applications/*.desktop; do
     [ -f "$f" ] || continue
     # NoDisplay entries are handlers, not the way in. Antigravity ships one
@@ -25,7 +30,7 @@ for f in /usr/share/applications/*.desktop; do
     [ -n "$cmd" ] || continue
     prog=${cmd%% *}
     case "${prog##*/}" in
-        ai.opencode.desktop|antigravity) ;;
+        ai.opencode.desktop|antigravity-ide) ;;
         *) continue ;;
     esac
     # Strip desktop-entry field codes (%U, %F, %i, %c, %k) so the command runs

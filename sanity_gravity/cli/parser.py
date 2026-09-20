@@ -275,14 +275,14 @@ def build_parser():
     ide_subparsers = p_ide.add_subparsers(dest="ide_command", required=True)
 
     ide_update = ide_subparsers.add_parser(
-        "update", help="Update the IDE to the latest package version via apt",
+        "update", help="Download and verify the current IDE build, then install it",
     )
     ide_update.add_argument("--name", "-n", default="sanity-gravity",
                             help="Project name")
     ide_update.set_defaults(func=ide_cmd, ide_command="update")
 
     ide_reinstall = ide_subparsers.add_parser(
-        "reinstall", help="Cleanly purge and reinstall the IDE to fix crashes",
+        "reinstall", help="Reinstall the IDE and clear its caches to fix crashes",
     )
     ide_reinstall.add_argument("--name", "-n", default="sanity-gravity",
                                help="Project name")

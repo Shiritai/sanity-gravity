@@ -1,7 +1,18 @@
 #!/bin/bash
-# gravity-cli: The Container-side Management Tool for Sanity-Gravity
-# This tool handles IDE updates, system repairs, and deep maintenance
-# from *inside* the sandbox environment, securely.
+# gravity-cli: the container-side management tool for sanity-gravity.
+#
+# It installs and replaces the Antigravity IDE from inside the sandbox.
+# The ag Dockerfile calls `ide install` with the pin it carries, and the
+# host `ide` verb hot-injects this file into a running container before
+# calling `ide update` - so this is the only place the install layout,
+# the sandbox wrapper and the .desktop entries are written. Every path
+# below therefore runs in two worlds: a fresh image and a sandbox that
+# has been running for weeks. Keep it idempotent.
+#
+# 2.x ships as a tarball only. The apt repo the 1.x install used froze in
+# April 2026 and 1.x is deprecated upstream; its bundled language-server
+# certificate expired on 2026-09-04 and took the Agent Manager with it.
+# See issue #42.
 
 set -e
 
@@ -18,6 +29,35 @@ print_success() { echo -e "${GREEN}${BOLD}[SUCCESS]${NC} $1"; }
 print_info() { echo -e "${BLUE}${BOLD}[INFO]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}${BOLD}[WARNING]${NC} $1"; }
 
+# Upstream's own default install prefix, so the vendor CLI's fallback
+# (bin/antigravity-ide uses it when it cannot resolve its own path)
+# lands where the app actually is.
+AG_DIR=/usr/share/antigravity-ide
+AG_WRAPPER="$AG_DIR/antigravity-ide"
+AG_VENDOR_BIN="$AG_DIR/antigravity-ide-bin"
+AG_CERT="$AG_DIR/resources/app/extensions/antigravity/dist/languageServer/cert.pem"
+# The build this sandbox is running. Neither product.json nor the updater
+# API carries the 2.x version (both report 1.107.0, the VS Code base the
+# IDE forks), so the installer is the only thing that can record it.
+AG_BUILD_STAMP="$AG_DIR/.antigravity-build"
+
+APPLICATIONS=/usr/share/applications
+PIXMAPS=/usr/share/pixmaps
+# The image-wide default-application list. XDG reads /etc/xdg before
+# /usr/share, and after the per-user file the entrypoint hook seeds.
+MIMEAPPS=/etc/xdg/mimeapps.list
+URL_SCHEME=x-scheme-handler/antigravity-ide
+URL_HANDLER=antigravity-ide-url-handler.desktop
+
+# Versioned and immutable: <version>-<build id> names one build for good
+# (the objects are write-once, every build mints a fresh id, and no
+# floating "latest" path exists). dl.google.com serves the same bytes
+# under the same path.
+DOWNLOAD_BASE=https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable
+# Google publishes a sha256 per platform here, so the pin can be checked
+# against upstream and not only against ourselves.
+UPDATER_API=https://antigravity-ide-auto-updater-974169037036.us-central1.run.app
+
 # Must be run as root
 if [ "$EUID" -ne 0 ]; then
   print_error "gravity-cli must be run as root."
@@ -25,155 +65,330 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+AG_TMP=""
+cleanup_tmp() {
+    if [ -n "$AG_TMP" ] && [ -d "$AG_TMP" ]; then
+        rm -rf "$AG_TMP"
+    fi
+}
+trap cleanup_tmp EXIT
+
 show_help() {
     echo "Usage: gravity-cli <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  ide update     Safely update the Antigravity IDE to the latest version."
-    echo "  ide reinstall  Completely wipe and cleanly reinstall the Antigravity IDE."
+    echo "  ide update     Replace the Antigravity IDE with the current"
+    echo "                 upstream build (downloaded and sha256-verified)."
+    echo "  ide reinstall  Same, plus a clear-out of the Electron caches"
+    echo "                 that survive a version change."
+    echo "  ide install <version> <build-id> <sha256>"
+    echo "                 Install one pinned build. This is what the image"
+    echo "                 build runs; it verifies against the sha256 given."
     echo "  help           Show this help message."
     echo ""
     echo "Note: This tool is meant to be run INSIDE the Sanity-Gravity container."
 }
 
-# Ensure divergence is still active
-ensure_wrapper_protection() {
-    print_info "Verifying wrapper protection mechanisms..."
-    
-    local CURRENT_DIVERT
-    CURRENT_DIVERT=$(dpkg-divert --list /usr/share/antigravity/antigravity | awk '{print $NF}')
+# Google spells this architecture two different ways: the download path
+# says "linux-arm" where the updater API says "linux-arm64". The tarball
+# behind the first name is genuine aarch64.
+resolve_platform() {
+    local arch
+    arch="$(dpkg --print-architecture)"
+    case "$arch" in
+        amd64) PLATFORM_PATH=linux-x64; PLATFORM_API=linux-x64 ;;
+        arm64) PLATFORM_PATH=linux-arm; PLATFORM_API=linux-arm64 ;;
+        *) print_error "unsupported architecture: $arch"; exit 1 ;;
+    esac
+}
 
-    if [ "$CURRENT_DIVERT" != "/usr/share/antigravity/antigravity-bin" ]; then
-        print_warning "Diverting Antigravity to robust binary path..."
-        
-        # Remove old diversion if it exists
-        if [ -n "$CURRENT_DIVERT" ]; then
-            # Remove the manual wrapper first to avoid collision with --rename
-            rm -f /usr/share/antigravity/antigravity
-            dpkg-divert --remove --rename /usr/share/antigravity/antigravity
-        fi
-
-        # Ensure the binary is at the new path
-        if [ -f "/usr/share/antigravity/antigravity-original" ] && [ ! -f "/usr/share/antigravity/antigravity-bin" ]; then
-             mv "/usr/share/antigravity/antigravity-original" "/usr/share/antigravity/antigravity-bin"
-        fi
-
-        # Apply new diversion
-        dpkg-divert --add --rename --divert /usr/share/antigravity/antigravity-bin /usr/share/antigravity/antigravity
-    fi
-
-    # Create the Master Wrapper content
-    # Handles Node-mode CLI vs Chromium-mode GUI/Zygote correctly.
-    cat << 'EOF' > /usr/share/antigravity/antigravity
+# The three branches a wrapper in the binary's own path has to serve.
+# It has to be in that path: Electron spawns its children by re-execing
+# process.execPath, so a wrapper anywhere else is bypassed by every one
+# of them - which is why the vendor binary is moved aside rather than
+# left where it was.
+install_wrapper() {
+    print_info "Installing the sandbox wrapper..."
+    cat << EOF > "$AG_WRAPPER"
 #!/bin/bash
-# Master Wrapper for Antigravity in Kasm Sandbox
+# Master wrapper for the Antigravity IDE in the sanity-gravity sandbox.
+# Written by gravity-cli; change it there, not here.
 
 # 1. Environment Fix for Electron Children
 export ELECTRON_DISABLE_SANDBOX=1
 
 # 2. Process Type Detection
 IS_GUI_CHILD=0
-for arg in "$@"; do
-    if [[ "$arg" == --type=* ]]; then
+for arg in "\$@"; do
+    if [[ "\$arg" == --type=* ]]; then
         IS_GUI_CHILD=1
         break
     fi
 done
 
 # 3. Execution Logic
-if [ "$ELECTRON_RUN_AS_NODE" = "1" ] && [ "$IS_GUI_CHILD" = "0" ]; then
+if [ "\$ELECTRON_RUN_AS_NODE" = "1" ] && [ "\$IS_GUI_CHILD" = "0" ]; then
     # Pure CLI Node mode - NO sandbox flags allowed here
-    exec /usr/share/antigravity/antigravity-bin "$@"
+    exec $AG_VENDOR_BIN "\$@"
 fi
 
-# Everything else is a GUI process or a child process requiring Chromium flags
+# Everything else is a GUI process or a child process requiring Chromium
+# flags. --no-zygote is the switch Chromium actually defines
+# (content_switches.cc, kNoZygote); the spelling this line used to carry
+# was not a switch at all and was dropped in silence.
 unset ELECTRON_RUN_AS_NODE
-exec /usr/share/antigravity/antigravity-bin \
-    --no-sandbox \
-    --disable-dev-shm-usage \
-    --disable-zygote \
-    --disable-namespace-sandbox \
-    "$@"
+exec $AG_VENDOR_BIN \\
+    --no-sandbox \\
+    --disable-dev-shm-usage \\
+    --no-zygote \\
+    --disable-namespace-sandbox \\
+    "\$@"
 EOF
-    chmod +x /usr/share/antigravity/antigravity
+    chmod +x "$AG_WRAPPER"
 
-    # Apply to legacy path for compatibility with any scripts hardcoding it
-    cp /usr/share/antigravity/antigravity /usr/share/antigravity/antigravity-original
-    chmod +x /usr/share/antigravity/antigravity-original
+    # antigravity-ide is the 2.x program name: it is what the .desktop
+    # entries exec and what the openbox launcher detection matches on.
+    # antigravity is kept as a compatibility alias for the 1.x name that
+    # docs, scripts and habits still spell; nothing in the image depends
+    # on it. Drop it before ever installing the separate "Antigravity
+    # 2.0" app - antigravity is the program upstream gave that name to.
+    ln -sf "$AG_DIR/bin/antigravity-ide" /usr/bin/antigravity-ide
+    ln -sf antigravity-ide /usr/bin/antigravity
 }
 
-ensure_chrome_protection() {
-    print_info "Verifying Chrome protection mechanisms..."
-    if ! dpkg-divert --list | grep -q "/opt/google/chrome/google-chrome"; then
-        print_warning "Chrome dpkg-divert missing. Applying robust protection..."
-        if [ -f /opt/google/chrome/google-chrome-original ]; then
-            dpkg-divert --add --divert /opt/google/chrome/google-chrome-original /opt/google/chrome/google-chrome
-        else
-            dpkg-divert --add --rename --divert /opt/google/chrome/google-chrome-original /opt/google/chrome/google-chrome
+# Idempotent [Default Applications] entry. The file may already carry the
+# desktop layer's browser registration, so it is edited, not rewritten.
+register_url_scheme() {
+    mkdir -p "$(dirname "$MIMEAPPS")"
+    if [ ! -f "$MIMEAPPS" ]; then
+        printf '[Default Applications]\n' > "$MIMEAPPS"
+    fi
+    if grep -q "^${URL_SCHEME}=" "$MIMEAPPS"; then
+        sed -i "s|^${URL_SCHEME}=.*|${URL_SCHEME}=${URL_HANDLER}|" "$MIMEAPPS"
+    elif grep -q '^\[Default Applications\]' "$MIMEAPPS"; then
+        sed -i "0,/^\[Default Applications\]/s||[Default Applications]\n${URL_SCHEME}=${URL_HANDLER}|" "$MIMEAPPS"
+    else
+        printf '[Default Applications]\n%s=%s\n' "$URL_SCHEME" "$URL_HANDLER" >> "$MIMEAPPS"
+    fi
+}
+
+# The tarball ships no .desktop entry, no icon and no /usr/bin symlink -
+# all three came from the 1.x deb - so they are ours to write.
+install_desktop_entries() {
+    print_info "Installing the desktop entries and the URL handler..."
+    mkdir -p "$APPLICATIONS"
+    install -Dm644 "$AG_DIR/resources/app/resources/linux/code.png" \
+        "$PIXMAPS/antigravity-ide.png"
+
+    # Exec names the wrapper, not the PATH command. /usr/bin/antigravity-ide
+    # is upstream's CLI shim, which re-spawns the app itself and would drop
+    # the sandbox flags on the way; the wrapper is the path that adds them.
+    # This is the split the 1.x deb had too - its .desktop also named the
+    # app directory, not /usr/bin. No --no-sandbox in Exec for the same
+    # reason: the wrapper adds it, and a second copy is a second thing to
+    # keep in step.
+    cat << EOF > "$APPLICATIONS/antigravity-ide.desktop"
+[Desktop Entry]
+Type=Application
+Name=Antigravity IDE
+GenericName=Agentic IDE
+Comment=Edit code with the Antigravity agent
+Exec=$AG_WRAPPER %F
+Icon=antigravity-ide
+Terminal=false
+StartupNotify=false
+StartupWMClass=antigravity-ide
+Categories=Development;IDE;TextEditor;
+MimeType=text/plain;inode/directory;
+Keywords=antigravity;ide;editor;
+EOF
+
+    # Sign-in in 2.x does not come back on a localhost port any more:
+    # https://antigravity.google/auth-success hands the browser an
+    # antigravity-ide://oauth-success link. With no handler registered
+    # for that scheme the last step of the login lands nowhere, and the
+    # symptom is a login that never completes rather than an error.
+    cat << EOF > "$APPLICATIONS/antigravity-ide-url-handler.desktop"
+[Desktop Entry]
+Type=Application
+Name=Antigravity IDE - URL Handler
+Comment=Open antigravity-ide:// links in the IDE
+Exec=$AG_WRAPPER --open-url %U
+Icon=antigravity-ide
+Terminal=false
+NoDisplay=true
+StartupNotify=true
+Categories=Development;IDE;TextEditor;
+MimeType=x-scheme-handler/antigravity-ide;
+EOF
+
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$APPLICATIONS" || true
+    fi
+    register_url_scheme
+}
+
+# The failure that forced 2.x on us (#42). The extension hands this file
+# to its own language-server connection as the only CA, so an expired one
+# fails every agent call in the TLS handshake and the Agent Manager goes
+# quiet. The image build makes this a hard gate; here it is a warning -
+# refusing to finish an update would leave a running sandbox with no IDE
+# at all, which is worse than an IDE with a deadline on it.
+report_certificate() {
+    openssl x509 -in "$AG_CERT" -noout -dates
+    if ! openssl x509 -in "$AG_CERT" -noout -checkend 1209600 >/dev/null; then
+        print_warning "The bundled language-server certificate expires within 14 days; the Agent Manager will stop answering. See issue #42."
+    fi
+}
+
+# Electron caches compiled shaders and code against the binary it was
+# built by; after a version swap they are a known renderer-crash source.
+# Settings, extensions and the login live elsewhere and are never touched
+# - a reinstall is for a crash loop, not a reset.
+clear_caches() {
+    local deep="${1:-}"
+    local home
+    for home in /home/*; do
+        [ -d "$home" ] || continue
+        rm -rf "$home/.config/Antigravity IDE/GPUCache" \
+               "$home/.config/Antigravity IDE/Default/GPUCache"
+        if [ -n "$deep" ]; then
+            rm -rf "$home/.config/Antigravity IDE/CachedData" \
+                   "$home/.config/Antigravity IDE/Code Cache" \
+                   "$home/.config/Antigravity IDE/logs"
         fi
+    done
+}
+
+# install_ide <version>-<build id> <sha256>
+install_ide() {
+    local build_dir="$1" sha="$2"
+    resolve_platform
+
+    AG_TMP="$(mktemp -d)"
+    local tarball="$AG_TMP/ide.tar.gz"
+    local staged="$AG_TMP/app"
+    local url="$DOWNLOAD_BASE/$build_dir/$PLATFORM_PATH/Antigravity%20IDE.tar.gz"
+
+    print_info "Downloading Antigravity IDE $build_dir ($PLATFORM_PATH)..."
+    curl -fsSL -o "$tarball" "$url"
+    echo "$sha  $tarball" | sha256sum -c -
+
+    print_info "Extracting..."
+    mkdir -p "$staged"
+    # --strip-components=1: the tarball's top directory is "Antigravity
+    # IDE", space included, and nothing downstream should have to quote
+    # its way around that.
+    tar -xzf "$tarball" -C "$staged" --strip-components=1
+
+    # Cut the updater's wire where the sandbox user cannot reach it. VS
+    # Code's update service reports MissingConfiguration and stays off
+    # for the process when product.json names no URL. The seeded
+    # "update.mode": "none" setting is the user-visible half; this is the
+    # half that does not depend on the user's settings file. (The IDE has
+    # no app-update.yml - electron-updater is the separate 2.0 hub app's
+    # mechanism.) Upstream's releases page is explicit that these builds
+    # auto-update by default, and the update that fires is the one that
+    # moves the install off the IDE and onto that other app.
+    jq 'del(.updateUrl, .backupUpdateUrl)' "$staged/resources/app/product.json" \
+        > "$AG_TMP/product.json"
+    mv "$AG_TMP/product.json" "$staged/resources/app/product.json"
+
+    mv "$staged/antigravity-ide" "$staged/antigravity-ide-bin"
+
+    # chrome-sandbox arrives setuid root in the tarball. The wrapper's
+    # --no-sandbox means nothing ever calls it, and an unused setuid root
+    # binary is not worth shipping.
+    chmod 0755 "$staged/chrome-sandbox"
+
+    # Layout check: an upstream re-arrangement has to be a red build, not
+    # a sandbox whose IDE opens to nothing. cert.pem disappearing would
+    # be good news (#42) and still has to be noticed.
+    local f
+    for f in antigravity-ide-bin bin/antigravity-ide \
+             resources/app/out/cli.js \
+             resources/app/resources/linux/code.png \
+             resources/app/extensions/antigravity/dist/languageServer/cert.pem; do
+        if [ ! -e "$staged/$f" ]; then
+            print_error "missing from the tarball: $f"
+            exit 1
+        fi
+    done
+
+    print_info "Installing to $AG_DIR..."
+    rm -rf "$AG_DIR.old"
+    if [ -d "$AG_DIR" ]; then
+        mv "$AG_DIR" "$AG_DIR.old"
+    fi
+    mkdir -p "$(dirname "$AG_DIR")"
+    mv "$staged" "$AG_DIR"
+    rm -rf "$AG_DIR.old"
+    printf '%s\n' "$build_dir" > "$AG_BUILD_STAMP"
+
+    install_wrapper
+    install_desktop_entries
+    report_certificate
+}
+
+# Ask Google which build is current, and take the sha256 it publishes for
+# it. The apt route this replaced could verify nothing of the sort: it
+# trusted a repository that had not moved in five months.
+resolve_latest() {
+    resolve_platform
+    print_info "Asking the updater API for the current build..."
+    local meta url
+    meta="$(curl -fsSL "$UPDATER_API/api/update/$PLATFORM_API/stable/latest")"
+    LATEST_SHA="$(printf '%s' "$meta" | jq -r '.sha256hash')"
+    url="$(printf '%s' "$meta" | jq -r '.url')"
+
+    # The API hands over a URL; taking it on trust would make the whole
+    # verification circular. Only the immutable path on the official host
+    # is accepted, and only for this architecture.
+    case "$url" in
+        "$DOWNLOAD_BASE"/*/"$PLATFORM_PATH/Antigravity IDE.tar.gz") ;;
+        *) print_error "unexpected download URL from the updater API: $url"; exit 1 ;;
+    esac
+    if ! printf '%s' "$LATEST_SHA" | grep -Eq '^[0-9a-f]{64}$'; then
+        print_error "the updater API returned no usable sha256: $LATEST_SHA"
+        exit 1
     fi
 
-    # Always re-write wrapper to ensure --no-sandbox is present
-    mkdir -p /opt/google/chrome
-    rm -f /opt/google/chrome/google-chrome || true
-    cat << 'EOF' > /opt/google/chrome/google-chrome
-#!/bin/bash
-exec /opt/google/chrome/google-chrome-original --no-sandbox --disable-dev-shm-usage "$@"
-EOF
-    chmod +x /opt/google/chrome/google-chrome
+    LATEST_BUILD="${url#"$DOWNLOAD_BASE"/}"
+    LATEST_BUILD="${LATEST_BUILD%%/*}"
+}
+
+installed_build() {
+    if [ -f "$AG_BUILD_STAMP" ]; then
+        cat "$AG_BUILD_STAMP"
+    else
+        echo "unknown"
+    fi
+}
+
+install_pinned() {
+    if [ "$#" -ne 3 ]; then
+        print_error "usage: gravity-cli ide install <version> <build-id> <sha256>"
+        exit 1
+    fi
+    install_ide "$1-$2" "$3"
+    print_success "Antigravity IDE $1 installed."
 }
 
 update_ide() {
     print_info "Starting IDE Update Process..."
-    
-    ensure_wrapper_protection
-    ensure_chrome_protection
-
-    print_info "Updating package lists..."
-    apt-get update -y
-    
-    # We only want to upgrade antigravity, but we do it safely
-    print_info "Upgrading Antigravity IDE (Only)..."
-    if apt-get install --only-upgrade -y antigravity; then
-        # Clean caches which might cause crashes after updates
-        print_info "Cleaning up old electron caches to prevent renderer crashes..."
-        find /home -name "GPUCache" -type d -exec rm -rf {} + 2>/dev/null || true
-        find /home -name ".config/antigravity" -type d -exec rm -rf {}/GPUCache + 2>/dev/null || true
-        
-        print_success "IDE update completed successfully."
-    else
-        print_error "Failed to update package."
-        exit 1
-    fi
+    resolve_latest
+    print_info "Installed: $(installed_build). Upstream: $LATEST_BUILD."
+    install_ide "$LATEST_BUILD" "$LATEST_SHA"
+    clear_caches
+    print_success "IDE update completed successfully."
 }
 
 reinstall_ide() {
-    echo -e "${RED}${BOLD}WARNING: This will completely wipe the existing Antigravity installation.${NC}"
-    echo "It is recommended to only run this if the IDE is crashing continuously."
-    
-    print_info "Removing existing Antigravity IDE..."
-    # Warning: when we purge, dpkg-divert might complain or get removed
-    apt-get remove --purge -y antigravity || true
-    
-    # Temporarily remove divergence for a clean slate
-    print_info "Resetting diversion rules for clean slate..."
-    dpkg-divert --rename --remove /usr/share/antigravity/antigravity || true
-    # Remove lingering original binaries if any
-    rm -f /usr/share/antigravity/antigravity-original || true
-    rm -f /usr/share/antigravity/antigravity-bin || true
-
-    print_info "Installing fresh Antigravity IDE..."
-    apt-get update -y
-    apt-get install -y antigravity
-
-    # Re-apply the protective wrapper
-    print_info "Re-applying Sandbox container protections..."
-    ensure_wrapper_protection
-    ensure_chrome_protection
-
-    print_info "Cleaning up corrupted user configurations..."
-    find /home -type d -name ".config/antigravity" -exec rm -rf {} + 2>/dev/null || true
-
+    print_warning "This replaces the whole Antigravity IDE installation."
+    echo "Settings, extensions and the login are kept; the Electron caches are not."
+    resolve_latest
+    install_ide "$LATEST_BUILD" "$LATEST_SHA"
+    clear_caches deep
     print_success "IDE Reinstallation completed successfully."
 }
 
@@ -185,15 +400,23 @@ fi
 
 case "$1" in
     ide)
-        if [ "$2" = "update" ]; then
-            update_ide
-        elif [ "$2" = "reinstall" ]; then
-            reinstall_ide
-        else
-            print_error "Unknown ide command: $2"
-            show_help
-            exit 1
-        fi
+        case "${2:-}" in
+            install)
+                shift 2
+                install_pinned "$@"
+                ;;
+            update)
+                update_ide
+                ;;
+            reinstall)
+                reinstall_ide
+                ;;
+            *)
+                print_error "Unknown ide command: ${2:-}"
+                show_help
+                exit 1
+                ;;
+        esac
         ;;
     help)
         show_help
