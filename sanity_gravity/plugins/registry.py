@@ -264,13 +264,14 @@ class PluginRegistry:
     # -- tag enumeration --------------------------------------------
 
     def tag_tier(self, tag: Tag) -> str:
-        """Most restrictive tier among the tag's three plugins.
+        """Most restrictive tier among the tag's four plugins.
 
         One community or deprecated plugin taints the whole tag: a final
-        image embeds all three layers, so CI/publish eligibility follows
-        the weakest component.
+        image embeds every layer, the base included, so CI/publish
+        eligibility follows the weakest component.
         """
         manifests = (
+            self.get("base-image", tag.base),
             self.get("agent", tag.agent),
             self.get("desktop", tag.desktop),
             self.get("connector", tag.connector),
@@ -278,29 +279,33 @@ class PluginRegistry:
         return max((m.tier for m in manifests), key=TIERS.index)
 
     def valid_tags(self, tiers: Collection[str] | None = None) -> list[Tag]:
-        """All ``(agent, desktop, connector)`` combos that satisfy capabilities.
+        """Every ``(base, agent, desktop, connector)`` combo that satisfies
+        capabilities.
 
         ``tiers`` restricts the result to tags whose :meth:`tag_tier` is
         in the given set (e.g. ``("official",)`` for the CI/publish
         matrix). The default ``None`` keeps every tier so tag parsing
         and lifecycle verbs still resolve deprecated tags.
 
-        Mirrors the legacy ``generate_valid_tags`` ordering: agent outer,
-        desktop middle, connector inner; each loop uses the registry's
-        own (insertion) order.
+        Base outermost, so each base's tags form one contiguous block,
+        and the default base first, so registering a base never reorders
+        the tags written without one. Within a block the legacy
+        ``generate_valid_tags`` ordering: agent, then desktop, then
+        connector. Each loop uses the registry's own (insertion) order.
         """
         out: list[Tag] = []
-        for a in self.agents:
-            for d in self.desktops:
-                for c in self.connectors:
-                    tag = Tag(agent=a, desktop=d, connector=c)
-                    try:
-                        solve(tag, self)
-                    except CapabilityConflictError:
-                        continue
-                    if tiers is not None and self.tag_tier(tag) not in tiers:
-                        continue
-                    out.append(tag)
+        for b in sorted(self.base_images, key=lambda slug: slug != DEFAULT_BASE):
+            for a in self.agents:
+                for d in self.desktops:
+                    for c in self.connectors:
+                        tag = Tag(agent=a, desktop=d, connector=c, base=b)
+                        try:
+                            solve(tag, self)
+                        except CapabilityConflictError:
+                            continue
+                        if tiers is not None and self.tag_tier(tag) not in tiers:
+                            continue
+                        out.append(tag)
         return out
 
 

@@ -121,7 +121,7 @@ def test_none_desktop_no_capabilities():
 def test_kasm_ports_and_compose():
     m = load_manifest(PLUGINS_DIR / "connectors" / "kasm" / "manifest.toml")
     assert m.provides == ("remote-gui",)
-    assert m.requires == ("display",)
+    assert m.requires == ("display", "ubuntu:noble|debian:bookworm")
     by_label = m.ports_by_label()
     assert by_label["http"] == PortSpec(
         label="http", internal=8444, default=8444, env_var="KASM_PORT",

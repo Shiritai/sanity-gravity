@@ -7,11 +7,13 @@ api_version = "1"
 [capabilities]
 # Both kasm and vnc deliver the same capability shape ("remote graphical
 # access"); we use one stable name so future agents can require it
-# without caring which specific protocol provides it. The current
-# capability solver only makes `display` load-bearing — these provides
-# strings are descriptive labels reserved for forward-compat.
+# without caring which specific protocol provides it. No plugin requires
+# `remote-gui` - it is a descriptive label reserved for forward-compat.
 provides = ["remote-gui"]
-requires = ["display"]
+# Upstream ships one KasmVNC deb per distro codename, and the Dockerfile
+# pins a sum for exactly these; tests/unit/test_base_dimension.py holds
+# the two lists equal.
+requires = ["display", "ubuntu:noble|debian:bookworm"]
 
 [build]
 dockerfile = "Dockerfile"

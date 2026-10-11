@@ -153,7 +153,7 @@ def tag_tier(tag: Tag) -> str:
     """Tier of a tag value.
 
     See :meth:`PluginRegistry.tag_tier` - the most restrictive tier
-    among the tag's three plugins wins. Takes the value rather than the
+    among the tag's four plugins wins. Takes the value rather than the
     string: splitting a rendered tag back into dimensions here made this
     a second, quieter copy of the tag grammar.
     """

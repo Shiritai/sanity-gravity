@@ -127,7 +127,7 @@ KIND_DIRS: dict[str, str] = {
 _ROOT_KINDS = {"base-image"}
 
 # Support tiers, ordered least to most restrictive. A tag's tier is the
-# most restrictive tier among its three plugins. Only ``official``
+# most restrictive tier among its four plugins. Only ``official``
 # plugins enter the CI build/verify and release publish matrix;
 # ``community`` and ``deprecated`` stay locally buildable but leave the
 # matrix, and ``deprecated`` additionally warns on build/up.
@@ -561,9 +561,9 @@ def load_manifest(
             )
         is_default = plugin["default"]
         if is_default and tier != "official":
-            # tag_tier() rates a tag by the plugins its name spells out, yet
-            # the elided default is in every image built from it; an official
-            # default keeps that rating honest.
+            # tag_tier() counts the base: a community default would make
+            # every tag that elides it community and empty the official
+            # matrix.
             raise ManifestError(
                 f"{p}:[plugin].default: the default plugin of a dimension must be "
                 f'tier = "official", got "{tier}"'

@@ -1,9 +1,9 @@
 """Capability solver: tag validity from manifest-declared traits.
 
 Every plugin manifest carries ``provides`` / ``requires`` capability
-lists. A 3-tuple ``(agent, desktop, connector)`` is valid iff the union
-of all ``provides`` satisfies every entry in the union of all
-``requires``. A requirement may list alternatives, ``a|b``, met when
+lists. A tag is valid iff the union of its four plugins' ``provides``
+(base, desktop, agent, connector) satisfies every entry in the union of
+their ``requires``. A requirement may list alternatives, ``a|b``, met when
 any one of them is provided (Debian's ``Depends: a | b``).
 
 This replaces the legacy hardcoded boolean rules
@@ -32,7 +32,7 @@ class CapabilityConflictError(ValueError):
     Attributes
     ----------
     tag:
-        The 3-tuple under inspection.
+        The tag under inspection.
     missing:
         Requirements no plugin satisfies, each exactly as a manifest
         spelled it (alternatives included).
@@ -62,17 +62,19 @@ def _satisfied(requirement: str, provided: frozenset[str]) -> bool:
 def solve(tag: Tag, registry: PluginRegistry) -> Tag:
     """Validate ``tag`` against ``registry``; return the tag on success.
 
-    Resolves the three plugins, unions their ``provides`` and ``requires``,
+    Resolves the four plugins, unions their ``provides`` and ``requires``,
     and raises :class:`CapabilityConflictError` if any required capability
     is unprovided. Missing slugs surface as ``KeyError`` from the registry
     so they're distinguishable from capability conflicts.
     """
-    a = registry.get("agent", tag.agent)
-    d = registry.get("desktop", tag.desktop)
-    c = registry.get("connector", tag.connector)
-
-    provided = frozenset(p for plugin in (a, d, c) for p in plugin.provides)
-    required = {r for plugin in (a, d, c) for r in plugin.requires}
+    plugins = (
+        registry.get("base-image", tag.base),
+        registry.get("agent", tag.agent),
+        registry.get("desktop", tag.desktop),
+        registry.get("connector", tag.connector),
+    )
+    provided = frozenset(p for plugin in plugins for p in plugin.provides)
+    required = {r for plugin in plugins for r in plugin.requires}
 
     # A miss is reported as the whole requirement the manifest wrote:
     # naming one of its alternatives would read as that one being needed.

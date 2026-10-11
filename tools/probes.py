@@ -233,6 +233,15 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
         ("CA1-alternatives-ignored",
          'return any(alt in provided for alt in requirement.split("|"))',
          "return requirement in provided"),
+        ("CA2-base-not-solved",
+         '        registry.get("base-image", tag.base),\n', ""),
+    ),
+    (S + "plugins/registry.py", T + "test_tiers.py"): (
+        ("TI1-base-tier-ignored", '            self.get("base-image", tag.base),\n', ""),
+        ("TI2-base-not-enumerated", "connector=c, base=b)", "connector=c)"),
+        ("TI3-default-base-not-first",
+         "sorted(self.base_images, key=lambda slug: slug != DEFAULT_BASE)",
+         "self.base_images"),
     ),
     (S + "plugins/manifest.py", T + "test_plugin_hooks.py"): (
         ("MC5-environment-dropped",
