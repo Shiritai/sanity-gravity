@@ -129,13 +129,7 @@ skipping it has produced a real defect before.
    hand-written f-string that embeds a tag fails
    `tests/unit/test_naming_guard.py`, and `layer`/`parse_layer` must stay
    mutually inverse (a Hypothesis round-trip property asserts exactly that).
-3. **Compatibility is data.** Express any cross-dimension constraint as
-   `provides` / `requires` capability strings in the manifests. The solver is a
-   pure set operation over the union of a tag's plugins
-   (`sanity_gravity/domain/capability.py`) - it never learns member names.
-   If you find yourself adding an `if` to the kernel to express "X only works
-   on Y", you are writing a capability by hand: name it, declare it, delete the
-   `if`.
+3. **Compatibility is data.** Express any cross-dimension constraint as `provides` / `requires` capability strings in the manifests. The solver is a pure set operation over the union of a tag's plugins (`sanity_gravity/domain/capability.py`) - it never learns member names. A requirement may list alternatives, `"ubuntu:noble|debian:bookworm"`, met when any one of them is provided (Debian's `Depends: a | b`). If you find yourself adding an `if` to the kernel to express "X only works on Y", you are writing a capability by hand: name it, declare it, delete the `if`.
 4. **Member differences go in the manifest.** Two plugins of the same kind that
    differ only by a pinned upstream ref must share one Dockerfile and differ by
    one manifest field (`[build].from`, digest-pinned, root kinds only - every

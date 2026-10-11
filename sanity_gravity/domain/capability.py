@@ -2,7 +2,9 @@
 
 Every plugin manifest carries ``provides`` / ``requires`` capability
 lists. A 3-tuple ``(agent, desktop, connector)`` is valid iff the union
-of all ``provides`` covers the union of all ``requires``.
+of all ``provides`` satisfies every entry in the union of all
+``requires``. A requirement may list alternatives, ``a|b``, met when
+any one of them is provided (Debian's ``Depends: a | b``).
 
 This replaces the legacy hardcoded boolean rules
 (``connector.requires_gui`` ↔ ``desktop.has_gui``) with a pure set
@@ -32,7 +34,8 @@ class CapabilityConflictError(ValueError):
     tag:
         The 3-tuple under inspection.
     missing:
-        Sorted set of capability strings required but not provided.
+        Requirements no plugin satisfies, each exactly as a manifest
+        spelled it (alternatives included).
     """
 
     tag: Tag
@@ -49,6 +52,13 @@ class CapabilityConflictError(ValueError):
         return self.args[0] if self.args else super().__str__()
 
 
+def _satisfied(requirement: str, provided: frozenset[str]) -> bool:
+    """Alternatives, not conjunction: ``a|b`` is met when ANY of them is
+    provided. This is how "runs on noble or bookworm" is stated as data
+    rather than as an ``if`` in the kernel."""
+    return any(alt in provided for alt in requirement.split("|"))
+
+
 def solve(tag: Tag, registry: PluginRegistry) -> Tag:
     """Validate ``tag`` against ``registry``; return the tag on success.
 
@@ -61,13 +71,12 @@ def solve(tag: Tag, registry: PluginRegistry) -> Tag:
     d = registry.get("desktop", tag.desktop)
     c = registry.get("connector", tag.connector)
 
-    provided: set[str] = set()
-    required: set[str] = set()
-    for plugin in (a, d, c):
-        provided.update(plugin.provides)
-        required.update(plugin.requires)
+    provided = frozenset(p for plugin in (a, d, c) for p in plugin.provides)
+    required = {r for plugin in (a, d, c) for r in plugin.requires}
 
-    missing = required - provided
+    # A miss is reported as the whole requirement the manifest wrote:
+    # naming one of its alternatives would read as that one being needed.
+    missing = frozenset(r for r in required if not _satisfied(r, provided))
     if missing:
-        raise CapabilityConflictError(tag=tag, missing=frozenset(missing))
+        raise CapabilityConflictError(tag=tag, missing=missing)
     return tag

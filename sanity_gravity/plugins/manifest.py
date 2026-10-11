@@ -30,7 +30,11 @@ Schema (TOML)::
 
     [capabilities]                                      # optional
     provides = ["http-gui"]
-    requires = ["display"]
+    requires = ["display", "ubuntu:noble|debian:bookworm"]
+                             # a requirement may list alternatives with
+                             # '|', met by any one; a provide may not.
+                             # No whitespace, no empty or repeated
+                             # alternative.
 
     [build]                                             # required
     dockerfile = "Dockerfile"   # required. Relative to the manifest dir; may
@@ -323,6 +327,27 @@ def _str_list(value: Any, where: str) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _capabilities(value: Any, where: str, *, alternatives: bool) -> tuple[str, ...]:
+    """Capability names are an open vocabulary, so no charset is
+    imposed. Refused: what can never match, with nothing at solve time
+    to say why - whitespace, and '|' in a provide (a provide is a fact,
+    not a choice) - and what can only be a typo: an empty name or an
+    empty or repeated alternative."""
+    items = _str_list(value, where)
+    for i, item in enumerate(items):
+        at = f"{where}[{i}] {item!r}"
+        alts = item.split("|")
+        if any(c.isspace() for c in item):
+            raise ManifestError(f"{at}: capability names contain no whitespace")
+        if len(alts) > 1 and not alternatives:
+            raise ManifestError(f"{at}: '|' alternatives belong in requires")
+        if "" in alts:
+            raise ManifestError(f"{at}: empty capability name")
+        if len(set(alts)) != len(alts):
+            raise ManifestError(f"{at}: repeated alternative")
+    return items
+
+
 def _int(value: Any, where: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ManifestError(f"{where}: expected int, got {type(value).__name__}")
@@ -564,11 +589,13 @@ def load_manifest(
         )
 
     capabilities = data.get("capabilities") or {}
-    provides = _str_list(
-        capabilities.get("provides", []), f"{p}:[capabilities].provides"
+    provides = _capabilities(
+        capabilities.get("provides", []), f"{p}:[capabilities].provides",
+        alternatives=False,
     )
-    requires = _str_list(
-        capabilities.get("requires", []), f"{p}:[capabilities].requires"
+    requires = _capabilities(
+        capabilities.get("requires", []), f"{p}:[capabilities].requires",
+        alternatives=True,
     )
 
     # One boundary for both [build] paths: a context may reach a sibling
