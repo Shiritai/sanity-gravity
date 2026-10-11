@@ -127,8 +127,7 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
     ),
     (S + "hooks/build.py", T + "test_build_golden.py"): (
         ("G1-build-arg",
-         'cb.opt("--build-arg", f"BASE_IMAGE={Naming.layer_image(node.parent)}")',
-         "pass"),
+         'cb.opt("--build-arg", f"BASE_IMAGE={parent_image}")', "pass"),
         ("G2-cachehit-text", 'f"  Cache hit: {Naming.layer_image(ref)}"',
          'f"  cache hit: {Naming.layer_image(ref)}"'),
     ),

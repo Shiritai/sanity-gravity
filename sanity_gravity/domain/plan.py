@@ -2,8 +2,8 @@
 
 Nothing here renders a name and nothing here talks to Docker: the
 closure is pure structure, the cache probe is an injected predicate,
-and the (dockerfile, context) binding arrives as a callable from the
-hook layer - the only module that knows about the filesystem.
+and the :class:`LayerBinding` arrives as a callable from the hook
+layer - the only module that knows about the filesystem.
 """
 from __future__ import annotations
 
@@ -15,13 +15,23 @@ from sanity_gravity.domain.tags import Tag
 
 
 @dataclass(frozen=True)
+class LayerBinding:
+    """Where a layer's Dockerfile and build context are. A root layer
+    has no parent to build FROM, so it also carries ``from_image``; a
+    non-root layer leaves it None."""
+
+    dockerfile: str
+    context: str
+    from_image: str | None = None
+
+
+@dataclass(frozen=True)
 class PlanNode:
     """One planned ``docker build``. ``parent`` is structure, so nothing
     downstream ever re-derives it from a rendered name."""
 
     layer: LayerRef
-    dockerfile: str
-    context: str
+    binding: LayerBinding
 
     @property
     def parent(self) -> LayerRef | None:
@@ -71,7 +81,7 @@ def official_layers(official_tags: Iterable[Tag]) -> list[LayerRef]:
 def plan(
     roots: Sequence[LayerRef],
     *,
-    bind: Callable[[LayerRef], tuple[str, str]],
+    bind: Callable[[LayerRef], LayerBinding],
     probe: CacheProbe = NEVER_CACHED,
     on_cache_hit: Callable[[LayerRef], None] = lambda ref: None,
 ) -> list[PlanNode]:
@@ -87,6 +97,5 @@ def plan(
         if ref.kind not in _ALWAYS_BUILD and probe(ref):
             on_cache_hit(ref)
             continue
-        dockerfile, context = bind(ref)
-        nodes.append(PlanNode(layer=ref, dockerfile=dockerfile, context=context))
+        nodes.append(PlanNode(layer=ref, binding=bind(ref)))
     return nodes

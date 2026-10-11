@@ -242,7 +242,7 @@ class BuildContext:
     json_output: bool = False
     plan: list = field(default_factory=list)
     # ``plan`` entries are ``PlanNode`` values (sanity_gravity.domain.plan):
-    # structural layer identity + dockerfile + context; parent derives
+    # structural layer identity + LayerBinding; parent derives
     # from the structure, never from a rendered name.
     actions: list[Action] = field(default_factory=list)
     dry_run: bool = False

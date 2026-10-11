@@ -158,7 +158,7 @@ class TestLayeredBuildSystem:
         for tag in VALID_TAGS:
             ref = LayerRef.of_tag(Tag.parse(tag))
             for layer in (*ref.ancestors, ref):
-                dockerfile, _context = _bind(layer)
+                dockerfile = _bind(layer).dockerfile
                 assert os.path.exists(dockerfile), \
                     f"Missing: {dockerfile} (for {tag})"
 

@@ -6,8 +6,8 @@ ${BASE_IMAGE}``. Planning is a topological closure over
 :class:`~sanity_gravity.domain.layers.LayerRef` parents
 (:mod:`sanity_gravity.domain.plan`); this module contributes only the
 two edges the pure planner cannot own - binding a layer to its
-(dockerfile, context) on the filesystem, and probing the local docker
-image store - plus the rendering of names at the ``docker`` argv edge
+filesystem artifacts, and probing the local docker image store - plus
+the rendering of names at the ``docker`` argv edge
 via :class:`~sanity_gravity.domain.naming.Naming`.
 
 Phase split:
@@ -34,7 +34,7 @@ from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.phase import Phase
-from sanity_gravity.domain.plan import NEVER_CACHED, plan
+from sanity_gravity.domain.plan import NEVER_CACHED, LayerBinding, plan
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.actions import RunSubprocess
 
@@ -61,8 +61,8 @@ _PLUGIN_KIND: dict[LayerKind, str] = {
 }
 
 
-def _bind(ref: LayerRef) -> tuple[str, str]:
-    """Resolve a layer to (dockerfile, build context).
+def _bind(ref: LayerRef) -> LayerBinding:
+    """Resolve a layer to its :class:`LayerBinding`.
 
     The base layer keeps ``sandbox/`` as its context so it can
     ``COPY rootfs /``; every plugin layer builds from its own
@@ -70,7 +70,7 @@ def _bind(ref: LayerRef) -> tuple[str, str]:
     path-string comparison.
     """
     if ref.kind is LayerKind.BASE:
-        return BASE_DOCKERFILE, SANDBOX_DIR
+        return LayerBinding(dockerfile=BASE_DOCKERFILE, context=SANDBOX_DIR)
     slug = {
         LayerKind.DESKTOP: ref.desktop,
         LayerKind.AGENT: ref.agent,
@@ -83,7 +83,9 @@ def _bind(ref: LayerRef) -> tuple[str, str]:
         raise LayerError(
             f"Unknown intermediate target: {Naming.layer(ref.kind, ref.detail)}"
         ) from None
-    return str(manifest.dockerfile_path), str(manifest.dir)
+    return LayerBinding(
+        dockerfile=str(manifest.dockerfile_path), context=str(manifest.dir)
+    )
 
 
 def _official_tags() -> Sequence[Tag]:
@@ -129,16 +131,24 @@ def build_layers(ctx) -> None:
     """
     total = len(ctx.plan)
     for i, node in enumerate(ctx.plan, 1):
-        if not os.path.exists(node.dockerfile):
-            raise SanityError(f"Layer file not found: {node.dockerfile}")
+        b = node.binding
+        if not os.path.exists(b.dockerfile):
+            raise SanityError(f"Layer file not found: {b.dockerfile}")
         image = Naming.layer_image(node.layer)
-        layer_label = os.path.relpath(node.dockerfile)
+        layer_label = os.path.relpath(b.dockerfile)
         ctx.reporter.info(f"  [{i}/{total}] Building {image} ({layer_label})")
 
         cb = CommandBuilder("docker", "build").flag("--no-cache", when=ctx.no_cache)
-        if node.parent is not None:
-            cb.opt("--build-arg", f"BASE_IMAGE={Naming.layer_image(node.parent)}")
-        cb.opt("-f", node.dockerfile).opt("-t", image).positional(node.context)
+        # One knob for every layer: a layer with a parent in the plan
+        # builds FROM that parent, a root layer FROM the ref its
+        # binding carries.
+        parent_image = (
+            Naming.layer_image(node.parent) if node.parent is not None
+            else b.from_image
+        )
+        if parent_image is not None:
+            cb.opt("--build-arg", f"BASE_IMAGE={parent_image}")
+        cb.opt("-f", b.dockerfile).opt("-t", image).positional(b.context)
         ctx.actions.append(RunSubprocess(argv=cb.build()))
 
 
