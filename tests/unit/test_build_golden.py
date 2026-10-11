@@ -27,7 +27,7 @@ import pytest
 
 from sanity_gravity.core.eventbus import EventBus
 from sanity_gravity.core.orchestrator import _BUILD_PHASES, BuildContext, Orchestrator
-from sanity_gravity.core.registry import OFFICIAL_TAGS, resolve_tag
+from sanity_gravity.core.registry import OFFICIAL_TAGS
 from sanity_gravity.core.reporter import Reporter
 from sanity_gravity.events import Info
 from sanity_gravity.hooks.build import register_builtin_build_hooks
@@ -50,33 +50,10 @@ CACHE_STATES: dict[str, frozenset[str]] = {
 }
 
 
-_OFFICIAL = [resolve_tag(t) for t in OFFICIAL_TAGS]
-
-
-def _official_desktops() -> list[str]:
-    return sorted({t.desktop for t in _OFFICIAL})
-
-
-def _official_pairs() -> list[tuple[str, str]]:
-    return sorted({(t.agent, t.desktop) for t in _OFFICIAL})
-
-
 def _cases():
     yield "all", dict(targets=["all"])
     for t in OFFICIAL_TAGS:
         yield f"tag:{t}", dict(targets=[t])
-    yield "layer:base", dict(targets=[], layer_target="base")
-    yield "layer:desktop", dict(targets=[], layer_target="desktop")
-    for d in _official_desktops():
-        yield f"layer:desktop:{d}", dict(
-            targets=[], layer_target="desktop", layer_target_specific=d
-        )
-    yield "layer:agent", dict(targets=[], layer_target="agent")
-    for a, d in _official_pairs():
-        yield f"layer:agent:{a}-{d}", dict(
-            targets=[], layer_target="agent", layer_target_specific=f"{a}-{d}"
-        )
-    yield "layer:connector", dict(targets=[], layer_target="connector")
     # Two finals sharing agent+desktop: the closure dedups the common
     # ancestor chain (5 builds, not 2x4) - the multi-target contract.
     yield "multi:ag-xfce-kasm+ag-xfce-vnc", dict(
@@ -188,10 +165,8 @@ def test_build_command_sequences_are_golden():
 
 
 def test_golden_covers_the_whole_matrix():
-    """Enumeration growth must be a deliberate act: a new official tag or
-    layer kind red-lights until the fixture is regenerated."""
+    """Enumeration growth must be a deliberate act: a new official tag
+    red-lights until the fixture is regenerated."""
     expected = _parse(FIXTURE.read_text(encoding="utf-8"))
     missing_tags = {f"tag:{t}|cold" for t in OFFICIAL_TAGS} - set(expected)
     assert not missing_tags, f"golden fixture lacks cases: {sorted(missing_tags)}"
-    kinds = {f"layer:{k}|cold" for k in ("base", "desktop", "agent", "connector")}
-    assert kinds <= set(expected)

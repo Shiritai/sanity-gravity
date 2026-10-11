@@ -34,12 +34,7 @@ from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.phase import Phase
-from sanity_gravity.domain.plan import (
-    NEVER_CACHED,
-    official_layers,
-    plan,
-    roots_for,
-)
+from sanity_gravity.domain.plan import NEVER_CACHED, plan
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.actions import RunSubprocess
 
@@ -99,30 +94,11 @@ def _official_tags() -> Sequence[Tag]:
 
 def _roots(ctx) -> list[LayerRef]:
     """argv edge: ctx's raw strings become LayerRef roots exactly once."""
-    if ctx.layer_target:
-        kind = LayerKind.parse(ctx.layer_target)
-        return roots_for(
-            tags=(),
-            layer_kind=kind,
-            layer_target=ctx.layer_target_specific,
-            official_tags=_official_tags(),
-        )
-
     targets = ctx.targets or []
     if "all" in targets:
-        return roots_for(
-            tags=(),
-            layer_kind=LayerKind.CONNECTOR,
-            layer_target=None,
-            official_tags=_official_tags(),
-        )
-
-    tags: list[Tag] = []
-    for target in targets:
-        tags.append(resolve_tag(target))  # registry + capability gate
-    return roots_for(
-        tags=tags, layer_kind=None, layer_target=None, official_tags=(),
-    )
+        return [LayerRef.of_tag(t) for t in _official_tags()]
+    # resolve_tag IS the registry + capability gate.
+    return [LayerRef.of_tag(resolve_tag(t)) for t in targets]
 
 
 def build_plan(ctx) -> None:
@@ -172,9 +148,7 @@ def build_done(ctx) -> None:
         ctx.reporter.info("Nothing to build (everything cached).")
         return
     targets = ctx.targets or []
-    if ctx.layer_target:
-        ctx.reporter.success(f"{ctx.layer_target} layer(s) built")
-    elif "all" in targets:
+    if "all" in targets:
         ctx.reporter.success("All builds complete!")
     else:
         # The plan already holds each final image as structure; naming
@@ -201,6 +175,5 @@ __all__ = [
     "build_plan",
     "build_layers",
     "build_done",
-    "official_layers",
     "register_builtin_build_hooks",
 ]

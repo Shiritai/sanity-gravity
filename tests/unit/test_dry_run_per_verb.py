@@ -123,8 +123,6 @@ def test_build_dry_run_no_subprocess(reporter, guard, fake_proc, monkeypatch):
     args = argparse.Namespace(
         no_cache=False,
         list_intermediates=False,
-        layer=None,
-        layer_target=None,
         variant=["ag-xfce-kasm"],
         dry_run=True,
         json_output=False,

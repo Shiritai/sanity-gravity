@@ -238,8 +238,6 @@ class BuildContext:
     targets: list[str]
     reporter: Any
     no_cache: bool = False
-    layer_target: str | None = None              # "base" / "desktop" / "agent" / "connector"
-    layer_target_specific: str | None = None     # e.g. "xfce" or "ag-xfce"
     list_intermediates: bool = False
     json_output: bool = False
     plan: list = field(default_factory=list)
