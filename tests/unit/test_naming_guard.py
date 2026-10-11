@@ -61,7 +61,7 @@ _FAMILIES = (
     ("volume", re.compile(r"^sg[_-]\{")),
     ("compose", re.compile(r"docker-compose\.\{")),
     ("ghcr", re.compile(r"ghcr\.io/")),
-    ("layer", re.compile(r"^_base-\{|^_\{\}-\{")),
+    ("layer", re.compile(r"^_\{")),
     ("backup", re.compile(r"sanity-migrate/")),
 )
 

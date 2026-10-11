@@ -18,53 +18,82 @@ from sanity_gravity.domain.tags import RESERVED_SLUGS, Tag
 slugs = st.from_regex(r"\A[a-z][a-z0-9]{0,7}\Z").filter(
     lambda s: s not in RESERVED_SLUGS
 )
-tags = st.builds(Tag, agent=slugs, desktop=slugs, connector=slugs)
+tags = st.builds(Tag, agent=slugs, desktop=slugs, connector=slugs, base=slugs)
 
 layer_refs = st.one_of(
-    st.just(LayerRef.base()),
-    st.builds(LayerRef.of_desktop, slugs),
-    st.builds(LayerRef.of_agent, slugs, slugs),
+    st.builds(LayerRef.of_base, slugs),
+    st.builds(LayerRef.of_desktop, slugs, slugs),
+    st.builds(LayerRef.of_agent, slugs, slugs, slugs),
     st.builds(LayerRef.of_tag, tags),
 )
 
 
-@pytest.mark.parametrize("kind,detail,rendered", [
-    (LayerKind.BASE, None, "_base"),
-    (LayerKind.DESKTOP, "xfce", "_base-xfce"),
-    (LayerKind.AGENT, "ag-xfce", "_ag-xfce"),
-    (LayerKind.CONNECTOR, "ag-xfce-kasm", "ag-xfce-kasm"),
+@pytest.mark.parametrize("ref,rendered", [
+    (LayerRef.of_base("ubuntu"), "_ubuntu"),
+    (LayerRef.of_desktop("ubuntu", "xfce"), "_ubuntu-xfce"),
+    (LayerRef.of_agent("ubuntu", "xfce", "ag"), "_ubuntu-xfce-ag"),
+    (LayerRef.of_tag(Tag.parse("ag-xfce-kasm")), "ag-xfce-kasm"),
+    (LayerRef.of_base("debian"), "_debian"),
+    (LayerRef.of_desktop("debian", "xfce"), "_debian-xfce"),
+    (LayerRef.of_agent("debian", "xfce", "ag"), "_debian-xfce-ag"),
+    (LayerRef.of_tag(Tag.parse("ag-xfce-kasm-debian")), "ag-xfce-kasm-debian"),
 ])
-def test_explicit_renderings(kind, detail, rendered):
-    assert Naming.layer(kind, detail) == rendered
+def test_explicit_renderings(ref, rendered):
+    """Literal names, not derived ones: an intermediate is its build
+    path, and the final layer is its tag."""
+    assert Naming.layer(ref) == rendered
 
 
-def test_parent_chain_of_a_final_tag():
-    ref = LayerRef.of_tag(Tag.parse("cc-none-ssh"))
-    assert ref.parent == LayerRef.of_agent("cc", "none")
-    assert ref.parent.parent == LayerRef.of_desktop("none")
-    assert ref.parent.parent.parent == LayerRef.base()
+@pytest.mark.parametrize("tag,base", [("cc-none-ssh", "ubuntu"),
+                                      ("cc-none-ssh-debian", "debian")])
+def test_parent_chain_of_a_final_tag(tag, base):
+    ref = LayerRef.of_tag(Tag.parse(tag))
+    assert ref.parent == LayerRef.of_agent(base, "none", "cc")
+    assert ref.parent.parent == LayerRef.of_desktop(base, "none")
+    assert ref.parent.parent.parent == LayerRef.of_base(base)
     assert ref.parent.parent.parent.parent is None
     assert ref.ancestors == (
-        LayerRef.base(),
-        LayerRef.of_desktop("none"),
-        LayerRef.of_agent("cc", "none"),
+        LayerRef.of_base(base),
+        LayerRef.of_desktop(base, "none"),
+        LayerRef.of_agent(base, "none", "cc"),
     )
 
 
-def test_field_occupancy_enforced():
+def test_a_ref_binds_a_prefix_of_the_build_order():
     with pytest.raises(LayerError):
-        LayerRef(LayerKind.BASE, desktop="xfce")
+        LayerRef("ubuntu", agent="cc")  # desktop skipped
     with pytest.raises(LayerError):
-        LayerRef(LayerKind.AGENT, agent="ag")  # desktop missing
+        LayerRef("ubuntu", "xfce", tag=Tag.parse("cc-xfce-ssh"))  # agent skipped
+    with pytest.raises(LayerError):  # the tag disagrees with the slots
+        LayerRef("debian", "xfce", "cc", Tag.parse("cc-xfce-ssh"))
+    with pytest.raises(LayerError):  # binds nothing
+        LayerRef.from_bound([])
+    with pytest.raises(LayerError):  # binds nothing, directly
+        LayerRef(None)
+    with pytest.raises(LayerError):  # base skipped
+        LayerRef(None, "xfce")
 
 
 @pytest.mark.parametrize(
-    "name", ["_", "_ag", "_ag-xfce-kasm", "_base-a-b", "_base-", "_-x", "_x-"]
+    "slots",
+    [("a-b",), ("ubuntu", "x-y"), ("UBUNTU",), ("_",), ("ubuntu", "none", "base")],
+)
+def test_a_ref_binds_only_valid_slugs(slots):
+    """A slug holding '-' would render to a name that parses as a
+    different, deeper ref."""
+    with pytest.raises(LayerError):
+        LayerRef(*slots)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["_", "_ubuntu-", "_-x", "_ubuntu--cc", "_ubuntu-xfce-cc-kasm",
+     "_base", "_UBUNTU", "__"],
 )
 def test_malformed_layer_names_are_rejected(name):
-    """Segment count is the whole decoder: a body no rule accepts must
-    fail closed rather than be coerced into the nearest ref."""
-    with pytest.raises(LayerError, match="malformed layer name"):
+    """A segment that is no valid slug, and a fully bound prefix, which
+    is a final image and carries no '_': neither may decode to a ref."""
+    with pytest.raises(LayerError):
         Naming.parse_layer(name)
 
 
@@ -74,7 +103,7 @@ def test_layer_render_parse_roundtrip(ref):
     the same name, parse could return only one of them, so this
     round-trip is red for exactly the collisions a separate
     distinct-names property would have caught."""
-    assert Naming.parse_layer(Naming.layer(ref.kind, ref.detail)) == ref
+    assert Naming.parse_layer(Naming.layer(ref)) == ref
 
 
 @given(layer_refs)
@@ -97,8 +126,20 @@ def test_parent_is_one_step_shallower(ref):
 
 @given(st.lists(layer_refs, min_size=1, max_size=10))
 def test_sort_key_puts_parents_before_children(refs):
-    ordered = sorted(set(refs), key=lambda r: r.sort_key)
+    """Each drawn ref brings its ancestors along: independently drawn
+    refs almost never include one another's parents, which would leave
+    the ordering assertion with nothing to compare."""
+    pool = {a for r in refs for a in (*r.ancestors, r)}
+    ordered = sorted(pool, key=lambda r: r.sort_key)
     index = {r: i for i, r in enumerate(ordered)}
     for r in ordered:
-        if r.parent is not None and r.parent in index:
+        if r.parent is not None:
             assert index[r.parent] < index[r]
+
+
+@given(st.lists(layer_refs, min_size=1, max_size=10))
+def test_sort_key_tells_every_ref_apart(refs):
+    """The planner sorts a set; equal keys would leave the plan order to
+    hash order, which varies between runs."""
+    pool = set(refs)
+    assert len({r.sort_key for r in pool}) == len(pool)

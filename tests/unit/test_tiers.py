@@ -193,7 +193,7 @@ def _layer_name(node):
     """Rendered layer name of a PlanNode, via the one grammar owner."""
     from sanity_gravity.domain.naming import Naming
 
-    return Naming.layer(node.layer.kind, node.layer.detail)
+    return Naming.layer(node.layer)
 
 
 class TestBuildAllTierFilter:
@@ -227,7 +227,7 @@ class TestBuildAllTierFilter:
         # Finals restricted to the official set; intermediates follow.
         assert [n for n in planned if not n.startswith("_")] == ["cc-none-ssh"]
         assert set(n for n in planned if n.startswith("_")) == {
-            "_base", "_base-none", "_cc-none",
+            "_ubuntu", "_ubuntu-none", "_ubuntu-none-cc",
         }
 
     def test_build_all_finals_match_official_tags(self):

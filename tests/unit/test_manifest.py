@@ -364,8 +364,7 @@ _REJECTIONS = [
     pytest.param(_slug("9lives") + _BUILD, _SLUG_RULE, id="slug-leading-digit"),
     pytest.param(_slug("Xfce") + _BUILD, _SLUG_RULE, id="slug-uppercase"),
     pytest.param(_slug("") + _BUILD, _SLUG_RULE, id="slug-empty"),
-    # 'base' is reserved by the layer-name grammar: slug 'base' renders
-    # '_base-<desktop>', colliding with the desktop layer's own name.
+    # 'base' names a tag dimension, so no member may take it.
     # RESERVED_SLUGS is checked kind-independently, so one kind suffices.
     pytest.param(_slug("base") + _BUILD,
                  r"slug 'base' is reserved", id="slug-reserved"),

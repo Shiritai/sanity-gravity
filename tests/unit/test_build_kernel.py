@@ -73,9 +73,9 @@ def test_build_plan_populates_chain_for_single_target():
     # The full chain: base -> desktop -> agent -> final. Identity, not
     # rendered strings: command shapes are pinned by the golden master.
     assert _layers(_run_build(["cc-none-ssh"])) == [
-        LayerRef.base(),
-        LayerRef.of_desktop("none"),
-        LayerRef.of_agent("cc", "none"),
+        LayerRef.of_base("ubuntu"),
+        LayerRef.of_desktop("ubuntu", "none"),
+        LayerRef.of_agent("ubuntu", "none", "cc"),
         LayerRef.of_tag(Tag.parse("cc-none-ssh")),
     ]
 
@@ -106,7 +106,7 @@ def test_no_cache_bypasses_a_hot_probe():
     assert len(hot_no_cache) == 4, (
         f"--no-cache must ignore a hot cache; planned only {hot_no_cache}"
     )
-    assert hot_no_cache[0] == LayerRef.base()
+    assert hot_no_cache[0] == LayerRef.of_base("ubuntu")
 
 
 def test_no_cache_passes_the_docker_flag():
@@ -123,12 +123,12 @@ def test_build_two_targets_share_their_ancestor_chain():
     contract; no other test would notice its regression."""
     layers = _layers(_run_build(["ag-xfce-kasm", "ag-xfce-vnc"]))
     assert len(layers) == 5, f"expected 5 deduped builds, got {len(layers)}"
-    assert layers.count(LayerRef.base()) == 1
+    assert layers.count(LayerRef.of_base("ubuntu")) == 1
     # Depth-major order: the shared chain precedes both finals.
     assert layers[:3] == [
-        LayerRef.base(),
-        LayerRef.of_desktop("xfce"),
-        LayerRef.of_agent("ag", "xfce"),
+        LayerRef.of_base("ubuntu"),
+        LayerRef.of_desktop("ubuntu", "xfce"),
+        LayerRef.of_agent("ubuntu", "xfce", "ag"),
     ]
     assert set(layers[3:]) == {
         LayerRef.of_tag(Tag.parse("ag-xfce-kasm")),
@@ -168,7 +168,7 @@ def test_build_context_has_no_base_override():
 
 
 def test_missing_base_plugin_is_a_layer_error(tmp_path, monkeypatch):
-    """A tree without a default base-image binds every other layer and
+    """A tree without the ref's base-image binds every other layer and
     reports the base as a LayerError, not a raw KeyError."""
     import sanity_gravity.hooks.build as build_hooks
     from sanity_gravity.domain.layers import LayerError
@@ -183,6 +183,6 @@ def test_missing_base_plugin_is_a_layer_error(tmp_path, monkeypatch):
     reg = PluginRegistry.from_dir(tmp_path)
     monkeypatch.setattr(build_hooks, "get_registry", lambda: reg)
 
-    assert build_hooks._bind(LayerRef.of_desktop("none")).context == str(desktop.resolve())
-    with pytest.raises(LayerError, match="No default base-image plugin"):
-        build_hooks._bind(LayerRef.base())
+    assert build_hooks._bind(LayerRef.of_desktop("ubuntu", "none")).context == str(desktop.resolve())
+    with pytest.raises(LayerError, match="No base-image plugin 'ubuntu'"):
+        build_hooks._bind(LayerRef.of_base("ubuntu"))

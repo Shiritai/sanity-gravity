@@ -72,14 +72,14 @@ def test_the_base_segment_is_last_and_the_default_is_elided():
         ("cc-none-ssh\n", r"expected \[a-z\]"),     # '$' would accept it
         # '.' is reserved for an in-segment version qualifier.
         ("cc.1-none-ssh", r"expected \[a-z\]"),
-        ("base-xfce-kasm", "reserved"),             # layer-grammar collision
+        ("base-xfce-kasm", "reserved"),             # names a dimension
         ("cc-none-ssh-base", "reserved"),
     ],
 )
 def test_malformed_input_raises_a_named_tag_error(bad, match):
     """Arity is a parse question; alphabet and reservation are enforced
-    by the constructor so every Tag in the process round-trips, however
-    it was built ('base' would make '_base-<desktop>' ambiguous)."""
+    by the constructor, so every Tag in the process obeys them however
+    it was built."""
     with pytest.raises(TagError, match=match):
         Tag.parse(bad)
 

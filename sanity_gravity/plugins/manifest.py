@@ -515,9 +515,8 @@ def load_manifest(
         )
     if slug in RESERVED_SLUGS:
         raise ManifestError(
-            f"{p}: [plugin].slug '{slug}' is reserved: the layer-name "
-            f"grammar renders desktop layers as '_base-<desktop>', so an "
-            f"agent named 'base' would make layer names ambiguous"
+            f"{p}: [plugin].slug '{slug}' is reserved: it names a tag "
+            f"dimension, so a member by that name reads as the dimension"
         )
 
     tier = "official"

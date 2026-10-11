@@ -59,32 +59,18 @@ _PLUGIN_KIND: dict[LayerKind, str] = {
 def _bind(ref: LayerRef) -> LayerBinding:
     """Resolve a layer to its :class:`LayerBinding` through the registry.
 
-    A tag names no base, so the base layer's slug is the registry's
-    default base-image. Its manifest points the context at the shared
-    ``sandbox/`` tree, whose ``COPY rootfs /`` stages the entrypoint,
-    supervisor configs and browser recipe, and carries the pinned
-    upstream image the root layer builds FROM.
+    A layer's own plugin is the last slug it binds. The base manifest
+    points the context at the shared ``sandbox/`` tree, whose ``COPY
+    rootfs /`` stages the entrypoint, supervisor configs and browser
+    recipe, and carries the pinned upstream image the root layer builds
+    FROM.
     """
-    if ref.kind is LayerKind.BASE:
-        try:
-            slug = get_registry().default_slug("base-image")
-        except KeyError:
-            raise LayerError(
-                "No default base-image plugin is registered: the base layer "
-                "needs a plugins/base-images/<slug>/ with [plugin].default = true"
-            ) from None
-    else:
-        slug = {
-            LayerKind.DESKTOP: ref.desktop,
-            LayerKind.AGENT: ref.agent,
-            LayerKind.CONNECTOR: ref.connector,
-        }[ref.kind]
-        assert slug is not None  # field occupancy guaranteed by LayerRef
+    kind, slug = _PLUGIN_KIND[ref.kind], ref.bound[-1]
     try:
-        manifest = get_registry().get(_PLUGIN_KIND[ref.kind], slug)
+        manifest = get_registry().get(kind, slug)
     except KeyError:
         raise LayerError(
-            f"Unknown intermediate target: {Naming.layer(ref.kind, ref.detail)}"
+            f"No {kind} plugin '{slug}' for layer {Naming.layer(ref)}"
         ) from None
     return LayerBinding(
         dockerfile=str(manifest.dockerfile_path),

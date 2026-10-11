@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=sanity-gravity:_base-xfce
+ARG BASE_IMAGE=sanity-gravity:_ubuntu-xfce
 FROM ${BASE_IMAGE}
 
 # The browser comes from the desktop layer below (ag requires a display,

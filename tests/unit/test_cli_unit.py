@@ -121,16 +121,16 @@ class TestLayeredBuildSystem:
     def test_chain_is_base_desktop_agent_connector(self):
         ref = LayerRef.of_tag(Tag.parse("gc-none-ssh"))
         assert ref.ancestors == (
-            LayerRef.base(),
-            LayerRef.of_desktop("none"),
-            LayerRef.of_agent("gc", "none"),
+            LayerRef.of_base("ubuntu"),
+            LayerRef.of_desktop("ubuntu", "none"),
+            LayerRef.of_agent("ubuntu", "none", "gc"),
         )
 
     def test_parent_rule(self):
         assert LayerRef.of_tag(Tag.parse("ag-xfce-kasm")).parent == \
-            LayerRef.of_agent("ag", "xfce")
+            LayerRef.of_agent("ubuntu", "xfce", "ag")
         assert LayerRef.of_tag(Tag.parse("cc-xfce-vnc")).parent == \
-            LayerRef.of_agent("cc", "xfce")
+            LayerRef.of_agent("ubuntu", "xfce", "cc")
 
     def test_shared_intermediates(self):
         """Two connectors on the same agent-desktop share their parent."""
@@ -139,14 +139,14 @@ class TestLayeredBuildSystem:
 
     def test_generate_intermediates(self):
         intermediates = generate_intermediates()
-        assert "_base" in intermediates
-        assert "_base-xfce" in intermediates
-        assert "_base-none" in intermediates
-        assert "_ag-xfce" in intermediates
-        assert "_cc-xfce" in intermediates
+        assert "_ubuntu" in intermediates
+        assert "_ubuntu-xfce" in intermediates
+        assert "_ubuntu-none" in intermediates
+        assert "_ubuntu-xfce-ag" in intermediates
+        assert "_ubuntu-xfce-cc" in intermediates
         # gc is tier=deprecated: its intermediates leave the automatic
         # enumeration (explicit ``build gc-*`` still resolves the chain).
-        assert "_gc-none" not in intermediates
+        assert "_ubuntu-none-gc" not in intermediates
         for name in intermediates:
             assert name.startswith("_"), f"Non-intermediate in list: {name}"
 

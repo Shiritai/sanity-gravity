@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from sanity_gravity.domain.errors import SanityError
-from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
-from sanity_gravity.domain.tags import Tag
+from sanity_gravity.domain.layers import LayerRef
+from sanity_gravity.domain.tags import SEP, Tag
 
 
 class NamingError(SanityError, ValueError):
@@ -115,55 +115,36 @@ class Naming:
     # -- layer names: the second grammar ------------------------------
 
     @staticmethod
-    def layer(kind: LayerKind, detail: str | None = None) -> str:
+    def layer(ref: LayerRef) -> str:
         """Render a layer name. The SOLE owner of the layer grammar;
         inverse of ``parse_layer`` (a property test binds the pair).
 
-        Static rather than instance-bound: intermediate layers (_base,
-        _base-xfce) carry no full tag, and the connector layer's detail
-        IS the tag string."""
-        if kind is LayerKind.BASE:
-            return "_base"
-        if detail is None:
-            raise NamingError(f"{kind} layer name requires a detail")
-        if kind is LayerKind.DESKTOP:
-            return f"_base-{detail}"
-        if kind is LayerKind.AGENT:
-            return f"_{detail}"
-        return detail  # CONNECTOR: the final image is the tag
+        A layer name is its build path: '_' marks an intermediate, and
+        the segments are the slugs bound so far, in build order. The
+        final layer is the image users run, so its name IS the tag.
+        Static rather than instance-bound because an intermediate carries
+        no full tag."""
+        if ref.tag is not None:
+            return str(ref.tag)
+        return f"_{SEP.join(ref.bound)}"
 
     @classmethod
     def parse_layer(cls, name: str) -> LayerRef:
         """Decode a layer name. The SOLE owner of layer parsing.
 
-        Injectivity holds by construction, not by rule order: slugs
-        contain no '-', and 'base' is a reserved slug
-        (tags.RESERVED_SLUGS), so '_base-x' can only be a desktop
-        layer and a prefix-free name can only be a final tag.
-
-        The segment count is checked here because a slug is the unit a
-        name splits into: a body with the wrong number of segments is a
-        malformed name, and a name no rule accepts fails closed rather
-        than being coerced into the nearest ref."""
+        Injective by segment count alone: LayerRef and Tag refuse a slug
+        containing '-', so the number of segments is the number of bound
+        slugs, which is the kind. No registry is involved. A segment
+        that is no valid slug (empty, '_', a capital) fails closed in
+        the LayerRef constructor rather than decoding to a ref no
+        renderer produces."""
         if not name.startswith("_"):
             return LayerRef.of_tag(Tag.parse(name))
-        parts = name[1:].split("-")
-        if "" not in parts:
-            if parts[0] == "base":
-                if len(parts) == 1:
-                    return LayerRef.base()
-                if len(parts) == 2:
-                    return LayerRef.of_desktop(parts[1])
-            elif len(parts) == 2:
-                return LayerRef.of_agent(parts[0], parts[1])
-        raise LayerError(
-            f"malformed layer name '{name}': expected '_base', "
-            "'_base-<desktop>' or '_<agent>-<desktop>'"
-        )
+        return LayerRef.from_bound(name[1:].split(SEP))
 
     @staticmethod
     def layer_image(ref: LayerRef) -> str:
         """Full docker ref for a layer: repository prefix + layer name.
         A combinator over ``image()``'s prefix and ``layer()``'s name,
         so the planner writes zero f-strings of its own."""
-        return f"{Naming.IMAGE_REPO}:{Naming.layer(ref.kind, ref.detail)}"
+        return f"{Naming.IMAGE_REPO}:{Naming.layer(ref)}"

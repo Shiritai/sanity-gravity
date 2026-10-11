@@ -243,8 +243,8 @@ def test_two_defaults_in_one_kind_rejected(tmp_path):
 
 
 def test_base_images_without_default_rejected(tmp_path):
-    """An elidable kind with registered plugins but no default would
-    leave elided tags unresolvable."""
+    """An elidable kind with registered plugins must name, in data, the
+    plugin a tag without that segment means."""
     _write_plugin(tmp_path, "base-images", "ubuntu", _base_manifest("ubuntu"))
     with pytest.raises(ManifestError, match=r"found \[\]"):
         PluginRegistry.from_dir(tmp_path)
@@ -262,21 +262,15 @@ def test_a_default_other_than_the_grammar_default_rejected(tmp_path):
         PluginRegistry.from_dir(tmp_path)
 
 
-def test_default_slug_returns_marked_plugin(tmp_path):
+def test_one_default_among_several_bases_loads(tmp_path):
     _write_plugin(
         tmp_path, "base-images", "ubuntu", _base_manifest("ubuntu", default=True)
     )
     _write_plugin(tmp_path, "base-images", "debian", _base_manifest("debian"))
     reg = PluginRegistry.from_dir(tmp_path)
-    assert reg.default_slug("base-image") == "ubuntu"
-    assert set(reg.base_images) == {"ubuntu", "debian"}
-
-
-def test_default_slug_without_default_raises(tmp_path):
-    _write_plugin(tmp_path, "agents", "solo", _MINIMAL_AGENT % "solo")
-    reg = PluginRegistry.from_dir(tmp_path)
-    with pytest.raises(KeyError):
-        reg.default_slug("agent")
+    assert {m.slug: m.is_default for m in reg.base_images.values()} == {
+        "ubuntu": True, "debian": False,
+    }
 
 
 def test_default_on_spelled_out_kind_rejected(tmp_path):

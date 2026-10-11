@@ -165,8 +165,7 @@ class PluginRegistry:
         - Kinds always spelled out in a tag must not declare a default.
 
         A kind with no plugins is not checked: the registry indexes
-        whatever tree it is given, and a consumer that needs the default
-        gets a ``KeyError`` from :meth:`default_slug`.
+        whatever tree it is given.
         """
         for kind in _VALID_KINDS:
             bucket = self._bucket(kind)
@@ -190,18 +189,6 @@ class PluginRegistry:
                     f"kind '{kind}' is always spelled out in a tag; "
                     f"[plugin].default on '{defaults[0]}' is meaningless"
                 )
-
-    def default_slug(self, kind: str) -> str:
-        """The slug marked ``[plugin].default = true`` for ``kind``.
-
-        Raises ``KeyError`` when there is none: any spelled-out kind, or
-        an elidable kind with no plugins registered. For a populated
-        elidable kind :meth:`_validate_defaults` guarantees a hit.
-        """
-        for m in self._bucket(kind).values():
-            if m.is_default:
-                return m.slug
-        raise KeyError(f"kind {kind!r} has no default plugin")
 
     @staticmethod
     def _load_hooks_module(kind: str, slug: str, hooks_path: Path) -> str | None:

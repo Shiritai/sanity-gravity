@@ -6,41 +6,41 @@ Every Sanity-Gravity image is assembled through a **4-layer FROM chain**. Each l
 
 ```
 ubuntu:24.04 (pinned SHA)
- └─ Dockerfile.base                      → sanity-gravity:_base
-     ├─ plugins/desktops/xfce/           → sanity-gravity:_base-xfce
-     │   ├─ plugins/agents/ag/           → sanity-gravity:_ag-xfce → ag-xfce-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-xfce → agy-xfce-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-xfce → cc-xfce-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-xfce → cx-xfce-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-xfce → gc-xfce-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-xfce → oc-xfce-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-xfce → ocd-xfce-{kasm,vnc,ssh}
-     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-xfce → dsh-xfce-{kasm,vnc,ssh}
-     ├─ plugins/desktops/lxqt/           → sanity-gravity:_base-lxqt
-     │   ├─ plugins/agents/ag/           → sanity-gravity:_ag-lxqt → ag-lxqt-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-lxqt → agy-lxqt-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-lxqt → cc-lxqt-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-lxqt → cx-lxqt-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-lxqt → gc-lxqt-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-lxqt → oc-lxqt-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-lxqt → ocd-lxqt-{kasm,vnc,ssh}
-     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-lxqt → dsh-lxqt-{kasm,vnc,ssh}
-     ├─ plugins/desktops/openbox/        → sanity-gravity:_base-openbox
-     │   ├─ plugins/agents/ag/           → sanity-gravity:_ag-openbox → ag-openbox-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/agy/          → sanity-gravity:_agy-openbox → agy-openbox-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/cc/           → sanity-gravity:_cc-openbox → cc-openbox-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/cx/           → sanity-gravity:_cx-openbox → cx-openbox-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/gc/           → sanity-gravity:_gc-openbox → gc-openbox-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/oc/           → sanity-gravity:_oc-openbox → oc-openbox-{kasm,vnc,ssh}
-     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ocd-openbox → ocd-openbox-{kasm,vnc,ssh}
-     │   └─ plugins/agents/dsh/          → sanity-gravity:_dsh-openbox → dsh-openbox-{kasm,vnc,ssh}
-     └─ plugins/desktops/none/           → sanity-gravity:_base-none
-         ├─ plugins/agents/agy/          → sanity-gravity:_agy-none → agy-none-ssh
-         ├─ plugins/agents/cc/           → sanity-gravity:_cc-none → cc-none-ssh
-         ├─ plugins/agents/cx/           → sanity-gravity:_cx-none → cx-none-ssh
-         ├─ plugins/agents/gc/           → sanity-gravity:_gc-none → gc-none-ssh
-         ├─ plugins/agents/oc/           → sanity-gravity:_oc-none → oc-none-ssh
-         └─ plugins/agents/dsh/          → sanity-gravity:_dsh-none → dsh-none-ssh
+ └─ Dockerfile.base                      → sanity-gravity:_ubuntu
+     ├─ plugins/desktops/xfce/           → sanity-gravity:_ubuntu-xfce
+     │   ├─ plugins/agents/ag/           → sanity-gravity:_ubuntu-xfce-ag → ag-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/agy/          → sanity-gravity:_ubuntu-xfce-agy → agy-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cc/           → sanity-gravity:_ubuntu-xfce-cc → cc-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cx/           → sanity-gravity:_ubuntu-xfce-cx → cx-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_ubuntu-xfce-gc → gc-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_ubuntu-xfce-oc → oc-xfce-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ubuntu-xfce-ocd → ocd-xfce-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_ubuntu-xfce-dsh → dsh-xfce-{kasm,vnc,ssh}
+     ├─ plugins/desktops/lxqt/           → sanity-gravity:_ubuntu-lxqt
+     │   ├─ plugins/agents/ag/           → sanity-gravity:_ubuntu-lxqt-ag → ag-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/agy/          → sanity-gravity:_ubuntu-lxqt-agy → agy-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cc/           → sanity-gravity:_ubuntu-lxqt-cc → cc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cx/           → sanity-gravity:_ubuntu-lxqt-cx → cx-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_ubuntu-lxqt-gc → gc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_ubuntu-lxqt-oc → oc-lxqt-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ubuntu-lxqt-ocd → ocd-lxqt-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_ubuntu-lxqt-dsh → dsh-lxqt-{kasm,vnc,ssh}
+     ├─ plugins/desktops/openbox/        → sanity-gravity:_ubuntu-openbox
+     │   ├─ plugins/agents/ag/           → sanity-gravity:_ubuntu-openbox-ag → ag-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/agy/          → sanity-gravity:_ubuntu-openbox-agy → agy-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cc/           → sanity-gravity:_ubuntu-openbox-cc → cc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/cx/           → sanity-gravity:_ubuntu-openbox-cx → cx-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/gc/           → sanity-gravity:_ubuntu-openbox-gc → gc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/oc/           → sanity-gravity:_ubuntu-openbox-oc → oc-openbox-{kasm,vnc,ssh}
+     │   ├─ plugins/agents/ocd/          → sanity-gravity:_ubuntu-openbox-ocd → ocd-openbox-{kasm,vnc,ssh}
+     │   └─ plugins/agents/dsh/          → sanity-gravity:_ubuntu-openbox-dsh → dsh-openbox-{kasm,vnc,ssh}
+     └─ plugins/desktops/none/           → sanity-gravity:_ubuntu-none
+         ├─ plugins/agents/agy/          → sanity-gravity:_ubuntu-none-agy → agy-none-ssh
+         ├─ plugins/agents/cc/           → sanity-gravity:_ubuntu-none-cc → cc-none-ssh
+         ├─ plugins/agents/cx/           → sanity-gravity:_ubuntu-none-cx → cx-none-ssh
+         ├─ plugins/agents/gc/           → sanity-gravity:_ubuntu-none-gc → gc-none-ssh
+         ├─ plugins/agents/oc/           → sanity-gravity:_ubuntu-none-oc → oc-none-ssh
+         └─ plugins/agents/dsh/          → sanity-gravity:_ubuntu-none-dsh → dsh-none-ssh
 ```
 
 (`ag` and `ocd` require a GUI desktop, so they have no headless `none` variant.)
@@ -53,7 +53,7 @@ via `lib/plugins.PluginRegistry`; adding a new agent/desktop/connector is
 
 ## Naming Convention
 
-- **Intermediate images** are prefixed with `_` (e.g. `sanity-gravity:_base-xfce`). They are local-only and never pushed to a registry.
+- **Intermediate images** are prefixed with `_` and named by their build path: the slugs bound so far, in build order (base, desktop, agent), so a layer's name is its parent's name plus one segment (e.g. `sanity-gravity:_ubuntu-xfce` -> `sanity-gravity:_ubuntu-xfce-ag`). They are local-only and never pushed to a registry.
 - **Final images** use the full tag (e.g. `sanity-gravity:ag-xfce-kasm`). These are what you run and what CI publishes.
 
 ## How FROM Chaining Works
@@ -71,7 +71,7 @@ FROM ${BASE_IMAGE}
 The CLI chains them via `--build-arg`:
 
 ```bash
-docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce \
+docker build --build-arg BASE_IMAGE=sanity-gravity:_ubuntu-xfce-ag \
   -f plugins/connectors/kasm/Dockerfile \
   -t sanity-gravity:ag-xfce-kasm plugins/connectors/kasm
 ```
@@ -91,7 +91,7 @@ visibility to its own files.
 
 `./sanity-cli build` (with no arguments) builds all 19 **official** images in two phases; non-official tags (the deprecated `gc-*`, the community `ocd-*`, `dsh-*`, `*-lxqt-*` and `*-openbox-*`) build only when named explicitly:
 
-1. **Phase 1: Intermediates** - builds the 12 shared intermediate images (`_base`, `_base-xfce`, `_base-none`, `_ag-xfce`, `_agy-xfce`, `_agy-none`, `_cc-xfce`, `_cc-none`, `_cx-xfce`, `_cx-none`, `_oc-xfce`, `_oc-none`).
+1. **Phase 1: Intermediates** - builds the 12 shared intermediate images (`_ubuntu`, `_ubuntu-xfce`, `_ubuntu-none`, `_ubuntu-xfce-ag`, `_ubuntu-xfce-agy`, `_ubuntu-none-agy`, `_ubuntu-xfce-cc`, `_ubuntu-none-cc`, `_ubuntu-xfce-cx`, `_ubuntu-none-cx`, `_ubuntu-xfce-oc`, `_ubuntu-none-oc`).
 2. **Phase 2: Finals** - builds all 19 official final images on top of the intermediates.
 
 ## Entrypoint

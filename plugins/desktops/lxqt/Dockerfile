@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=sanity-gravity:_base
+ARG BASE_IMAGE=sanity-gravity:_ubuntu
 FROM ${BASE_IMAGE}
 
 # Install LXQt Desktop and Core Utilities

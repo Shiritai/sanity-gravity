@@ -23,10 +23,11 @@ SEP = "-"
 #: newline. Mirrored by the manifest loader's _SLUG_RE.
 SLUG_RE = re.compile(r"^[a-z][a-z0-9]*$")
 
-#: The layer grammar renders desktop layers as ``_base-<desktop>`` and
-#: agent layers as ``_<agent>-<desktop>``: an agent slug of ``base``
-#: would make those renderings collide. Reserved across all dimensions
-#: rather than just the agent one - simpler rule, zero real cost.
+#: ``base`` is the name of a tag dimension, so a member called ``base``
+#: (an agent in ``base-xfce-kasm``, a base in ``cc-none-ssh-base``)
+#: reads as the dimension instead of a value. Naming hygiene only: no
+#: grammar depends on it, since layer names are told apart by segment
+#: count. Reserved across all dimensions - simpler rule, zero real cost.
 RESERVED_SLUGS = frozenset({"base"})
 
 #: The base a three-segment tag means. A grammar constant rather than
@@ -68,7 +69,7 @@ class Tag:
                 )
             if slug in RESERVED_SLUGS:
                 raise TagError(
-                    f"{dim} slug {slug!r} is reserved by the layer-name grammar"
+                    f"{dim} slug {slug!r} is reserved: it names a tag dimension"
                 )
 
     @classmethod

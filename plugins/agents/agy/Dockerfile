@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=sanity-gravity:_base-none
+ARG BASE_IMAGE=sanity-gravity:_ubuntu-none
 FROM ${BASE_IMAGE}
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
