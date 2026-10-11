@@ -36,9 +36,13 @@ def _manifests() -> list[PluginManifest]:
 
     Deliberately not the registry: the question is about manifest text
     and sibling files, and a cached global registry would answer it for
-    whichever plugin root some earlier test happened to load.
+    whichever plugin root some earlier test happened to load. States
+    the checkout root, as the registry does.
     """
-    return [load_manifest(p) for p in sorted(_PLUGINS_DIR.glob("*/*/manifest.toml"))]
+    return [
+        load_manifest(p, repo_root=REPO_ROOT)
+        for p in sorted(_PLUGINS_DIR.glob("*/*/manifest.toml"))
+    ]
 
 
 #: A command handing the launcher to ``rm``/``unlink`` instead of writing

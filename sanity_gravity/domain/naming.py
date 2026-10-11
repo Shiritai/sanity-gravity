@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from sanity_gravity.domain.errors import SanityError
-from sanity_gravity.domain.layers import LayerKind, LayerRef
+from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
 from sanity_gravity.domain.tags import Tag
 
 
@@ -139,15 +139,27 @@ class Naming:
         Injectivity holds by construction, not by rule order: slugs
         contain no '-', and 'base' is a reserved slug
         (tags.RESERVED_SLUGS), so '_base-x' can only be a desktop
-        layer and a prefix-free name can only be a final tag."""
+        layer and a prefix-free name can only be a final tag.
+
+        The segment count is checked here because a slug is the unit a
+        name splits into: a body with the wrong number of segments is a
+        malformed name, and a name no rule accepts fails closed rather
+        than being coerced into the nearest ref."""
         if not name.startswith("_"):
             return LayerRef.of_tag(Tag.parse(name))
-        body = name[1:]
-        if body == "base":
-            return LayerRef.base()
-        if body.startswith("base-"):
-            return LayerRef.of(LayerKind.DESKTOP, body[len("base-"):])
-        return LayerRef.of(LayerKind.AGENT, body)
+        parts = name[1:].split("-")
+        if "" not in parts:
+            if parts[0] == "base":
+                if len(parts) == 1:
+                    return LayerRef.base()
+                if len(parts) == 2:
+                    return LayerRef.of_desktop(parts[1])
+            elif len(parts) == 2:
+                return LayerRef.of_agent(parts[0], parts[1])
+        raise LayerError(
+            f"malformed layer name '{name}': expected '_base', "
+            "'_base-<desktop>' or '_<agent>-<desktop>'"
+        )
 
     @staticmethod
     def layer_image(ref: LayerRef) -> str:

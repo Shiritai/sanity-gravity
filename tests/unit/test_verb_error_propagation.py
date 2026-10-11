@@ -145,7 +145,7 @@ class TestBuildPropagation:
 
         args = argparse.Namespace(
             no_cache=False, list_intermediates=False,
-            layer=None, layer_target=None, variant=["ag-xfce-kasm"],
+            variant=["ag-xfce-kasm"],
             dry_run=False, json_output=False, reporter=_reporter(),
         )
         with patch.object(build_mod, "Orchestrator", _RaisingOrch), \
@@ -163,7 +163,7 @@ class TestBuildPropagation:
 
         args = argparse.Namespace(
             no_cache=False, list_intermediates=False,
-            layer=None, layer_target=None, variant=["zz-zz-zz"],
+            variant=["zz-zz-zz"],
             dry_run=False, json_output=False, reporter=_reporter(),
         )
         with pytest.raises(TagError):

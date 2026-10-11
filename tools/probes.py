@@ -60,7 +60,9 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
     ),
     (S + "domain/naming.py", T + "test_layer_grammar.py"): (
         ("L1-base-literal", 'return "_base"', 'return "_bass"'),
-        ("L6-parse-inverse", 'if body.startswith("base-"):', "if False:"),
+        ("L6-parse-arity",
+         "if len(parts) == 2:\n                    return LayerRef.of_desktop",
+         "if len(parts) >= 2:\n                    return LayerRef.of_desktop"),
     ),
     (S + "domain/layers.py", T + "test_layer_grammar.py"): (
         ("L2-parent-rule",
@@ -68,11 +70,7 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
          "case LayerKind.DESKTOP:\n                return None"),
         ("L3-occupancy", 'for field in ("agent", "desktop", "connector"):',
          "for field in ():"),
-        ("L4-kind-msg", "Valid: base, desktop, agent, connector",
-         "Valid: some kinds"),
         ("L5-sort-depth", "            int(self.kind),", "            -int(self.kind),"),
-        ("L7-selector-arity", "if len(parts) != len(fields):",
-         "if len(parts) > len(fields):"),
     ),
     (S + "domain/errors.py", T + "test_errors.py"): (
         ("E1-default-exit", "exit_code: int = 1  # class-level default",
@@ -113,9 +111,6 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
          "    seen: set[LayerRef] = set()\n    for root in roots:\n        seen.add(root)\n        seen.update(root.ancestors)\n    return sorted(seen, key=lambda ref: ref.sort_key)",
          "    out: list[LayerRef] = []\n    for root in roots:\n        out.extend(root.ancestors)\n        out.append(root)\n    return out"),
         ("K4-always-build", "frozenset({LayerKind.CONNECTOR})", "frozenset()"),
-        ("K6-connector-target",
-         "        if layer_kind is LayerKind.CONNECTOR:\n            raise LayerError(",
-         "        if False:\n            raise LayerError("),
     ),
     (S + "hooks/build.py", T + "test_build_kernel.py"): (
         ("K2-nocache-ignored", "use_probe = not ctx.no_cache and not ctx.dry_run",
@@ -132,8 +127,7 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
     ),
     (S + "hooks/build.py", T + "test_build_golden.py"): (
         ("G1-build-arg",
-         'cb.opt("--build-arg", f"BASE_IMAGE={Naming.layer_image(node.parent)}")',
-         "pass"),
+         'cb.opt("--build-arg", f"BASE_IMAGE={parent_image}")', "pass"),
         ("G2-cachehit-text", 'f"  Cache hit: {Naming.layer_image(ref)}"',
          'f"  cache hit: {Naming.layer_image(ref)}"'),
     ),
@@ -208,7 +202,7 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
         ("MN7-plugin-not-a-table",
          'raise ManifestError(f"{p}: [plugin] must be a table")', "pass"),
         ("MN8-build-not-a-table",
-         'raise ManifestError(f"{p}: [build] must be a table")', "pass"),
+         'raise ManifestError(f"{where} must be a table")', "pass"),
         ("MN9-dockerfile-path-guard",
          """            raise ManifestError(
                 f"Manifest {self.slug!r} has no source_path; "
@@ -241,6 +235,8 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
                 f"{hooks_path}: failed to build import spec for plugin hooks"
             )""",
          "            pass"),
+        ("PR4-checkout-boundary", "checkout_root = r.resolve().parent",
+         'checkout_root = Path("/")'),
     ),
     (S + "cli/io.py", T + "test_cli_io_validation.py"): (
         ("V1-username-none-guard", "if not name or not _USERNAME_RE.match(name):",

@@ -3,10 +3,10 @@
 A layer is *structure*, not a name. The only place a LayerRef becomes a
 string is :meth:`sanity_gravity.domain.naming.Naming.layer`;
 ``Naming.parse_layer`` is its inverse, whose job is to witness the
-grammar's round-trip property (a property test binds the pair) -
-production strings enter as (--layer, --layer-target) selectors via
-:meth:`LayerRef.of` instead. Everything in between - planning, parent
-resolution, ``--layer`` filtering, cache probing - moves values.
+grammar's round-trip property (a property test binds the pair).
+Production strings enter as tags, through :meth:`LayerRef.of_tag`.
+Everything in between - planning, parent resolution, cache probing -
+moves values.
 """
 from __future__ import annotations
 
@@ -31,23 +31,13 @@ class LayerKind(IntEnum):
     AGENT = 2
     CONNECTOR = 3
 
-    @classmethod
-    def parse(cls, raw: str) -> LayerKind:
-        """argv edge: the ``--layer`` value."""
-        try:
-            return cls[raw.upper()]
-        except KeyError:
-            raise LayerError(
-                f"Unknown layer type: {raw}. Valid: base, desktop, agent, connector"
-            ) from None
-
     def __str__(self) -> str:
         return self.name.lower()
 
 
 #: Which structural fields each kind carries. This table IS the shape
-#: contract: it drives validation, detail rendering, and --layer-target
-#: parsing. Adding a dimension is one edit here.
+#: contract: it drives validation and detail rendering. Adding a
+#: dimension is one edit here.
 _FIELDS: dict[LayerKind, tuple[str, ...]] = {
     LayerKind.BASE: (),
     LayerKind.DESKTOP: ("desktop",),
@@ -97,20 +87,6 @@ class LayerRef:
             desktop=tag.desktop,
             connector=tag.connector,
         )
-
-    @classmethod
-    def of(cls, kind: LayerKind, detail: str | None) -> LayerRef:
-        """Inverse of :attr:`detail` - and also the (--layer,
-        --layer-target) selector pair. Splitting on '-' is total
-        because slugs match ^[a-z][a-z0-9]*$."""
-        parts = detail.split("-") if detail else []
-        fields = _FIELDS[kind]
-        if len(parts) != len(fields):
-            expected = "-".join(f"<{f}>" for f in fields) or "(none)"
-            raise LayerError(
-                f"--layer {kind} expects --layer-target {expected}, got {detail!r}"
-            )
-        return cls(kind, **dict(zip(fields, parts)))
 
     # -- projections ---------------------------------------------------
 

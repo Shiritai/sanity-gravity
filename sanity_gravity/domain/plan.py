@@ -2,16 +2,27 @@
 
 Nothing here renders a name and nothing here talks to Docker: the
 closure is pure structure, the cache probe is an injected predicate,
-and the (dockerfile, context) binding arrives as a callable from the
-hook layer - the only module that knows about the filesystem.
+and the :class:`LayerBinding` arrives as a callable from the hook
+layer - the only module that knows about the filesystem.
 """
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
-from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
+from sanity_gravity.domain.layers import LayerKind, LayerRef
 from sanity_gravity.domain.tags import Tag
+
+
+@dataclass(frozen=True)
+class LayerBinding:
+    """Where a layer's Dockerfile and build context are. A root layer
+    has no parent to build FROM, so it also carries ``from_image``; a
+    non-root layer leaves it None."""
+
+    dockerfile: str
+    context: str
+    from_image: str | None = None
 
 
 @dataclass(frozen=True)
@@ -20,8 +31,7 @@ class PlanNode:
     downstream ever re-derives it from a rendered name."""
 
     layer: LayerRef
-    dockerfile: str
-    context: str
+    binding: LayerBinding
 
     @property
     def parent(self) -> LayerRef | None:
@@ -59,55 +69,19 @@ def closure(roots: Sequence[LayerRef]) -> list[LayerRef]:
     return sorted(seen, key=lambda ref: ref.sort_key)
 
 
-def official_layers(
-    official_tags: Iterable[Tag], kind: LayerKind | None = None
-) -> list[LayerRef]:
-    """The closure of the official matrix, optionally filtered by kind.
+def official_layers(official_tags: Iterable[Tag]) -> list[LayerRef]:
+    """The closure of the official matrix.
 
     Every official-matrix enumeration goes through this one closure, so
-    a kind filter can never disagree with the full walk it filters."""
-    layers = closure([LayerRef.of_tag(t) for t in official_tags])
-    return [ref for ref in layers if kind is None or ref.kind is kind]
-
-
-def roots_for(
-    *,
-    tags: Sequence[Tag],
-    layer_kind: LayerKind | None,
-    layer_target: str | None,
-    official_tags: Sequence[Tag],
-) -> list[LayerRef]:
-    """The four historical --layer branches, as one filter.
-
-    - no --layer            -> the requested final tags
-    - --layer K --target D  -> exactly that layer (works for any
-      registered slug, official or not - explicit selection has always
-      ignored tiers)
-    - --layer K             -> every layer of kind K in the official
-      closure
-
-    The connector kind takes no target: a fully specified connector
-    layer IS a final tag, which the plain tag form already expresses.
-    Passing one raises :class:`LayerError` rather than silently
-    enumerating the official closure with the target ignored.
+    no caller can enumerate a subset that disagrees with the full walk.
     """
-    if layer_kind is None:
-        return [LayerRef.of_tag(t) for t in tags]
-    if layer_target is not None:
-        if layer_kind is LayerKind.CONNECTOR:
-            raise LayerError(
-                "--layer connector takes no --layer-target: a fully "
-                "specified connector layer is a final image - request "
-                f"the plain tag instead (e.g. 'ag-xfce-{layer_target}')"
-            )
-        return [LayerRef.of(layer_kind, layer_target)]
-    return official_layers(official_tags, kind=layer_kind)
+    return closure([LayerRef.of_tag(t) for t in official_tags])
 
 
 def plan(
     roots: Sequence[LayerRef],
     *,
-    bind: Callable[[LayerRef], tuple[str, str]],
+    bind: Callable[[LayerRef], LayerBinding],
     probe: CacheProbe = NEVER_CACHED,
     on_cache_hit: Callable[[LayerRef], None] = lambda ref: None,
 ) -> list[PlanNode]:
@@ -123,6 +97,5 @@ def plan(
         if ref.kind not in _ALWAYS_BUILD and probe(ref):
             on_cache_hit(ref)
             continue
-        dockerfile, context = bind(ref)
-        nodes.append(PlanNode(layer=ref, dockerfile=dockerfile, context=context))
+        nodes.append(PlanNode(layer=ref, binding=bind(ref)))
     return nodes

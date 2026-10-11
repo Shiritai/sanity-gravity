@@ -27,8 +27,6 @@ Build sandbox images. Defaults to building all 19 official tags.
 | Flag | Description |
 |:-----|:------------|
 | `--no-cache` | Disable Docker layer cache |
-| `--layer {base,desktop,agent,connector}` | Build only up to a specific layer (CI use) |
-| `--layer-target <target>` | Target within `--layer` (e.g. `xfce`, `ag-xfce`) |
 | `--list-intermediates` | Print intermediate image names and exit |
 | `--json` | Output in JSON format (with `--list-intermediates`) |
 

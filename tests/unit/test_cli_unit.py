@@ -29,6 +29,7 @@ from sanity_gravity.core.registry import (
 from sanity_gravity.domain.layers import LayerRef
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.hooks.build import _bind
+from sanity_gravity.plugins.registry import default_registry
 from sanity_gravity.verbs import lifecycle as lifecycle_mod
 from sanity_gravity.verbs import open as open_mod
 from sanity_gravity.verbs import shell as shell_mod
@@ -158,20 +159,19 @@ class TestLayeredBuildSystem:
         for tag in VALID_TAGS:
             ref = LayerRef.of_tag(Tag.parse(tag))
             for layer in (*ref.ancestors, ref):
-                dockerfile, _context = _bind(layer)
+                dockerfile = _bind(layer).dockerfile
                 assert os.path.exists(dockerfile), \
                     f"Missing: {dockerfile} (for {tag})"
 
     def test_layer_dockerfiles_have_from(self):
-        """All non-base plugin Dockerfiles must have ARG BASE_IMAGE and FROM."""
-        import glob
-        plugin_dir = str(_REPO_ROOT / "plugins")
-        for df in glob.glob(
-            os.path.join(plugin_dir, "**", "Dockerfile"), recursive=True
-        ):
-            content = open(df).read()
-            assert "ARG BASE_IMAGE" in content, f"Missing ARG BASE_IMAGE in {df}"
-            assert "FROM ${BASE_IMAGE}" in content, f"Missing FROM in {df}"
+        """Every registered plugin's Dockerfile takes ARG BASE_IMAGE and
+        builds FROM it; walked via manifests, since a base-image
+        Dockerfile lives outside its plugin dir."""
+        for m in default_registry().all_manifests():
+            path = m.dockerfile_path
+            content = path.read_text()
+            assert "ARG BASE_IMAGE" in content, f"Missing ARG BASE_IMAGE in {path}"
+            assert "FROM ${BASE_IMAGE}" in content, f"Missing FROM in {path}"
 
     def test_rd_connector_removed(self):
         """rd connector should not exist."""

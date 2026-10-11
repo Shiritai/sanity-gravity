@@ -6,8 +6,8 @@ ${BASE_IMAGE}``. Planning is a topological closure over
 :class:`~sanity_gravity.domain.layers.LayerRef` parents
 (:mod:`sanity_gravity.domain.plan`); this module contributes only the
 two edges the pure planner cannot own - binding a layer to its
-(dockerfile, context) on the filesystem, and probing the local docker
-image store - plus the rendering of names at the ``docker`` argv edge
+filesystem artifacts, and probing the local docker image store - plus
+the rendering of names at the ``docker`` argv edge
 via :class:`~sanity_gravity.domain.naming.Naming`.
 
 Phase split:
@@ -34,20 +34,9 @@ from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.phase import Phase
-from sanity_gravity.domain.plan import (
-    NEVER_CACHED,
-    official_layers,
-    plan,
-    roots_for,
-)
+from sanity_gravity.domain.plan import NEVER_CACHED, LayerBinding, plan
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.actions import RunSubprocess
-
-SANDBOX_DIR = "sandbox"
-# The single Dockerfile.base literal: every base-layer build binds
-# through this constant. It disappears once the base becomes a plugin
-# and the planner reads the path from a manifest like any other layer.
-BASE_DOCKERFILE = os.path.join(SANDBOX_DIR, "Dockerfile.base")
 
 
 def _image_exists(tag: str) -> bool:
@@ -60,35 +49,48 @@ def _docker_probe(ref: LayerRef) -> bool:
 
 
 _PLUGIN_KIND: dict[LayerKind, str] = {
+    LayerKind.BASE: "base-image",
     LayerKind.DESKTOP: "desktop",
     LayerKind.AGENT: "agent",
     LayerKind.CONNECTOR: "connector",
 }
 
 
-def _bind(ref: LayerRef) -> tuple[str, str]:
-    """Resolve a layer to (dockerfile, build context).
+def _bind(ref: LayerRef) -> LayerBinding:
+    """Resolve a layer to its :class:`LayerBinding` through the registry.
 
-    The base layer keeps ``sandbox/`` as its context so it can
-    ``COPY rootfs /``; every plugin layer builds from its own
-    directory. Answering "is this the base?" is now a kind check, not a
-    path-string comparison.
+    A tag names no base, so the base layer's slug is the registry's
+    default base-image. Its manifest points the context at the shared
+    ``sandbox/`` tree, whose ``COPY rootfs /`` stages the entrypoint,
+    supervisor configs and browser recipe, and carries the pinned
+    upstream image the root layer builds FROM.
     """
     if ref.kind is LayerKind.BASE:
-        return BASE_DOCKERFILE, SANDBOX_DIR
-    slug = {
-        LayerKind.DESKTOP: ref.desktop,
-        LayerKind.AGENT: ref.agent,
-        LayerKind.CONNECTOR: ref.connector,
-    }[ref.kind]
-    assert slug is not None  # field occupancy guaranteed by LayerRef
+        try:
+            slug = get_registry().default_slug("base-image")
+        except KeyError:
+            raise LayerError(
+                "No default base-image plugin is registered: the base layer "
+                "needs a plugins/base-images/<slug>/ with [plugin].default = true"
+            ) from None
+    else:
+        slug = {
+            LayerKind.DESKTOP: ref.desktop,
+            LayerKind.AGENT: ref.agent,
+            LayerKind.CONNECTOR: ref.connector,
+        }[ref.kind]
+        assert slug is not None  # field occupancy guaranteed by LayerRef
     try:
         manifest = get_registry().get(_PLUGIN_KIND[ref.kind], slug)
     except KeyError:
         raise LayerError(
             f"Unknown intermediate target: {Naming.layer(ref.kind, ref.detail)}"
         ) from None
-    return str(manifest.dockerfile_path), str(manifest.dir)
+    return LayerBinding(
+        dockerfile=str(manifest.dockerfile_path),
+        context=str(manifest.context_path),
+        from_image=manifest.from_ref,
+    )
 
 
 def _official_tags() -> Sequence[Tag]:
@@ -99,30 +101,11 @@ def _official_tags() -> Sequence[Tag]:
 
 def _roots(ctx) -> list[LayerRef]:
     """argv edge: ctx's raw strings become LayerRef roots exactly once."""
-    if ctx.layer_target:
-        kind = LayerKind.parse(ctx.layer_target)
-        return roots_for(
-            tags=(),
-            layer_kind=kind,
-            layer_target=ctx.layer_target_specific,
-            official_tags=_official_tags(),
-        )
-
     targets = ctx.targets or []
     if "all" in targets:
-        return roots_for(
-            tags=(),
-            layer_kind=LayerKind.CONNECTOR,
-            layer_target=None,
-            official_tags=_official_tags(),
-        )
-
-    tags: list[Tag] = []
-    for target in targets:
-        tags.append(resolve_tag(target))  # registry + capability gate
-    return roots_for(
-        tags=tags, layer_kind=None, layer_target=None, official_tags=(),
-    )
+        return [LayerRef.of_tag(t) for t in _official_tags()]
+    # resolve_tag IS the registry + capability gate.
+    return [LayerRef.of_tag(resolve_tag(t)) for t in targets]
 
 
 def build_plan(ctx) -> None:
@@ -153,16 +136,23 @@ def build_layers(ctx) -> None:
     """
     total = len(ctx.plan)
     for i, node in enumerate(ctx.plan, 1):
-        if not os.path.exists(node.dockerfile):
-            raise SanityError(f"Layer file not found: {node.dockerfile}")
+        b = node.binding
+        if not os.path.exists(b.dockerfile):
+            raise SanityError(f"Layer file not found: {b.dockerfile}")
         image = Naming.layer_image(node.layer)
-        layer_label = os.path.relpath(node.dockerfile)
+        layer_label = os.path.relpath(b.dockerfile)
         ctx.reporter.info(f"  [{i}/{total}] Building {image} ({layer_label})")
 
         cb = CommandBuilder("docker", "build").flag("--no-cache", when=ctx.no_cache)
-        if node.parent is not None:
-            cb.opt("--build-arg", f"BASE_IMAGE={Naming.layer_image(node.parent)}")
-        cb.opt("-f", node.dockerfile).opt("-t", image).positional(node.context)
+        # One knob for every layer: a layer with a parent in the plan
+        # builds FROM that parent, a root layer FROM the ref its
+        # binding carries.
+        parent_image = (
+            Naming.layer_image(node.parent) if node.parent is not None
+            else b.from_image
+        )
+        cb.opt("--build-arg", f"BASE_IMAGE={parent_image}")
+        cb.opt("-f", b.dockerfile).opt("-t", image).positional(b.context)
         ctx.actions.append(RunSubprocess(argv=cb.build()))
 
 
@@ -172,9 +162,7 @@ def build_done(ctx) -> None:
         ctx.reporter.info("Nothing to build (everything cached).")
         return
     targets = ctx.targets or []
-    if ctx.layer_target:
-        ctx.reporter.success(f"{ctx.layer_target} layer(s) built")
-    elif "all" in targets:
+    if "all" in targets:
         ctx.reporter.success("All builds complete!")
     else:
         # The plan already holds each final image as structure; naming
@@ -201,6 +189,5 @@ __all__ = [
     "build_plan",
     "build_layers",
     "build_done",
-    "official_layers",
     "register_builtin_build_hooks",
 ]

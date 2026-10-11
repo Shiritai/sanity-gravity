@@ -64,16 +64,9 @@ def build(args):
                 print(n)
         return
 
-    layer = getattr(args, "layer", None)
-    layer_target = getattr(args, "layer_target", None)
     targets = list(args.variant) if getattr(args, "variant", None) else [DEFAULT_TAG]
 
-    if layer:
-        print_header(
-            f"Building layer: {layer}"
-            + (f" ({layer_target})" if layer_target else "")
-        )
-    elif "all" in targets:
+    if "all" in targets:
         print_header(f"Building all {len(OFFICIAL_TAGS)} images")
     else:
         # Validate eagerly so a bad tag aborts before we set up the
@@ -95,8 +88,6 @@ def build(args):
         targets=targets,
         reporter=reporter,
         no_cache=no_cache,
-        layer_target=layer,
-        layer_target_specific=layer_target,
         list_intermediates=False,
         json_output=bool(getattr(args, "json_output", False)),
         dry_run=dry_run,

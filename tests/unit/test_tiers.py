@@ -197,7 +197,7 @@ def _layer_name(node):
 
 
 class TestBuildAllTierFilter:
-    def _run_build(self, **ctx_kwargs):
+    def _run_build_all(self):
         from sanity_gravity.core.eventbus import EventBus
         from sanity_gravity.core.orchestrator import (
             _BUILD_PHASES,
@@ -212,13 +212,10 @@ class TestBuildAllTierFilter:
         ctx = BuildContext(
             reporter=Reporter(sinks=[], run_id="test"),
             dry_run=True,
-            **ctx_kwargs,
+            targets=["all"],
         )
         Orchestrator(bus, ctx.reporter).run(_BUILD_PHASES, ctx)
         return ctx
-
-    def _run_build_all(self):
-        return self._run_build(targets=["all"])
 
     def test_build_all_plans_only_official_tags(self, monkeypatch):
         import sanity_gravity.hooks.build as build_hooks
@@ -243,30 +240,6 @@ class TestBuildAllTierFilter:
         ]
         assert finals == list(OFFICIAL_TAGS)
 
-    def test_layer_desktop_follows_official_tier(self, monkeypatch):
-        import sanity_gravity.hooks.build as build_hooks
-
-        monkeypatch.setattr(build_hooks, "OFFICIAL_TAG_VALUES",
-                            (Tag.parse("cc-none-ssh"),))
-        ctx = self._run_build(targets=[], layer_target="desktop")
-        planned = [_layer_name(node) for node in ctx.plan]
-        assert "_base-none" in planned
-        # xfce exists in the registry, but no official tag references it
-        # in this scenario: the default enumeration must skip it, same
-        # as the agent / connector layer branches.
-        assert "_base-xfce" not in planned
-
-    def test_layer_desktop_explicit_target_ignores_tier(self, monkeypatch):
-        import sanity_gravity.hooks.build as build_hooks
-
-        monkeypatch.setattr(build_hooks, "OFFICIAL_TAG_VALUES",
-                            (Tag.parse("cc-none-ssh"),))
-        ctx = self._run_build(
-            targets=[], layer_target="desktop", layer_target_specific="xfce",
-        )
-        planned = [_layer_name(node) for node in ctx.plan]
-        assert "_base-xfce" in planned
-
 
 # ---------------------------------------------------------------------------
 # Deprecation warnings on local build / up (warn, never block).
@@ -284,8 +257,6 @@ class TestDeprecationWarnings:
         args = argparse.Namespace(
             no_cache=False,
             list_intermediates=False,
-            layer=None,
-            layer_target=None,
             variant=["cc-none-ssh"],
             dry_run=True,
             json_output=False,

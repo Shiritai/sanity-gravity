@@ -19,9 +19,8 @@ from sanity_gravity.core.orchestrator import (
     Orchestrator,
 )
 from sanity_gravity.core.reporter import Reporter
-from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
+from sanity_gravity.domain.layers import LayerRef
 from sanity_gravity.domain.phase import Phase
-from sanity_gravity.domain.plan import roots_for
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.actions import RunSubprocess
 from sanity_gravity.hooks.build import register_builtin_build_hooks
@@ -137,36 +136,6 @@ def test_build_two_targets_share_their_ancestor_chain():
     }
 
 
-def test_layer_target_base_plans_exactly_the_base_layer():
-    """--layer base plans the closure of the base layer: itself, nothing
-    else. Deliberately an equality on identities - the previous version
-    also pinned plan-entry tuple shapes, which made every structural
-    refactor look like a behavior regression."""
-    ctx = _run_build([], layer_target="base")
-    assert _layers(ctx) == [LayerRef.base()]
-    assert ctx.plan[0].parent is None
-
-
-def test_layer_target_desktop_with_specific():
-    layers = _layers(
-        _run_build([], layer_target="desktop", layer_target_specific="xfce")
-    )
-    # Plan must include base + the requested desktop intermediate.
-    assert LayerRef.base() in layers
-    assert LayerRef.of_desktop("xfce") in layers
-
-
-def test_layer_connector_with_target_is_rejected():
-    """The connector kind used to silently DROP the target and plan the
-    whole official connector closure; it must reject instead, pointing
-    at the plain-tag form that expresses the same request."""
-    with pytest.raises(LayerError, match="plain tag"):
-        roots_for(
-            tags=(), layer_kind=LayerKind.CONNECTOR,
-            layer_target="kasm", official_tags=(),
-        )
-
-
 def test_dry_run_in_executor_does_not_execute():
     """When the Executor is dry-run, the action's runtime is never called."""
     from sanity_gravity.effects.executor import Executor
@@ -196,3 +165,24 @@ def test_build_context_has_no_base_override():
     }
     with pytest.raises(SystemExit):
         build_parser().parse_args(["build", "--base-image", "debian", "cc-none-ssh"])
+
+
+def test_missing_base_plugin_is_a_layer_error(tmp_path, monkeypatch):
+    """A tree without a default base-image binds every other layer and
+    reports the base as a LayerError, not a raw KeyError."""
+    import sanity_gravity.hooks.build as build_hooks
+    from sanity_gravity.domain.layers import LayerError
+    from sanity_gravity.plugins.registry import PluginRegistry
+
+    desktop = tmp_path / "desktops" / "none"
+    desktop.mkdir(parents=True)
+    (desktop / "manifest.toml").write_text(
+        '[plugin]\nslug = "none"\nname = "x"\nkind = "desktop"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n'
+    )
+    reg = PluginRegistry.from_dir(tmp_path)
+    monkeypatch.setattr(build_hooks, "get_registry", lambda: reg)
+
+    assert build_hooks._bind(LayerRef.of_desktop("none")).context == str(desktop.resolve())
+    with pytest.raises(LayerError, match="No default base-image plugin"):
+        build_hooks._bind(LayerRef.base())

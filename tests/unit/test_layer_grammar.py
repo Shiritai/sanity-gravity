@@ -58,16 +58,14 @@ def test_field_occupancy_enforced():
         LayerRef(LayerKind.AGENT, agent="ag")  # desktop missing
 
 
-def test_layer_kind_parse_rejects_unknown():
-    assert LayerKind.parse("desktop") is LayerKind.DESKTOP
-    with pytest.raises(LayerError, match="base, desktop, agent, connector"):
-        LayerKind.parse("weapon")
-
-
-@pytest.mark.parametrize("detail", ["ag", "ag-xfce-kasm"])
-def test_selector_arity_mismatch_is_a_readable_error(detail):
-    with pytest.raises(LayerError, match="--layer"):
-        LayerRef.of(LayerKind.AGENT, detail)  # needs exactly agent-desktop
+@pytest.mark.parametrize(
+    "name", ["_", "_ag", "_ag-xfce-kasm", "_base-a-b", "_base-", "_-x", "_x-"]
+)
+def test_malformed_layer_names_are_rejected(name):
+    """Segment count is the whole decoder: a body no rule accepts must
+    fail closed rather than be coerced into the nearest ref."""
+    with pytest.raises(LayerError, match="malformed layer name"):
+        Naming.parse_layer(name)
 
 
 @given(layer_refs)
@@ -77,12 +75,6 @@ def test_layer_render_parse_roundtrip(ref):
     round-trip is red for exactly the collisions a separate
     distinct-names property would have caught."""
     assert Naming.parse_layer(Naming.layer(ref.kind, ref.detail)) == ref
-
-
-@given(layer_refs)
-def test_selector_roundtrip(ref):
-    """(--layer, --layer-target) is exactly the (kind, detail) pair."""
-    assert LayerRef.of(ref.kind, ref.detail) == ref
 
 
 @given(layer_refs)
