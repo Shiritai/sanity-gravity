@@ -41,5 +41,10 @@ jobs:
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
+          # Same scope as _build-and-verify.yml: the Antigravity IDE's
+          # vendor-bundled npm tree is fixed only by a newer IDE build
+          # (the version pin in plugins/agents/ag/Dockerfile), so it is
+          # skipped; OS packages and every other path stay in scope.
+          skip-dirs: 'usr/share/antigravity-ide/resources/app'
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
