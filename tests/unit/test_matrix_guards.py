@@ -11,10 +11,11 @@ the three implicit rules fail closed on a developer laptop instead:
    ``requires_image``, or is explicitly declared as debt (a list that
    may only shrink). The marker is the coverage record: substring
    grepping used to count docstrings and mock strings as coverage.
-3. Tag-list filters in tests must parse tags, not prefix-match them:
+3. Tag-list filters in tests must parse tags, not match their ends:
    ``t.startswith("ag-")`` silently stops matching the moment another
-   dimension prefixes the tag, so invariants keep passing while
-   covering ever less of the matrix.
+   dimension prefixes the tag, and ``t.endswith("-ssh")`` the moment a
+   tag spells out its trailing base segment, so invariants keep passing
+   while covering ever less of the matrix.
 """
 from __future__ import annotations
 
@@ -178,8 +179,8 @@ def test_official_tags_are_exercised_or_declared_debt():
     )
 
 
-def test_no_prefix_matching_on_tag_lists():
-    """Filters over VALID_TAGS/OFFICIAL_TAGS must parse, not prefix-match.
+def test_no_prefix_or_suffix_matching_on_tag_lists():
+    """Filters over VALID_TAGS/OFFICIAL_TAGS must parse, not match ends.
 
     Every .py under tests/, not only test modules: tests/support.py and
     tests/utils.py are exactly where a shared helper would hide such a
@@ -190,10 +191,13 @@ def test_no_prefix_matching_on_tag_lists():
         if path.name == Path(__file__).name:
             continue
         for lineno, line in enumerate(path.read_text().splitlines(), 1):
-            if "startswith(" in line and re.search(r"\b(VALID|OFFICIAL)_TAGS\b", line):
+            if re.search(r"\b(starts|ends)with\(", line) and re.search(
+                r"\b(VALID|OFFICIAL)_TAGS\b", line
+            ):
                 offenders.append(f"{rel}:{lineno}: {line.strip()}")
     assert not offenders, (
-        "prefix-matching a tag list goes silently blind when a new "
-        "dimension prefixes the tag; filter via resolve_tag(t).<dim> instead:\n"
+        "prefix- or suffix-matching a tag list goes silently blind when "
+        "a tag gains a segment at that end; filter via "
+        "resolve_tag(t).<dim> instead:\n"
         + "\n".join(offenders)
     )

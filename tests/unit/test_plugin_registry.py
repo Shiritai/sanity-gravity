@@ -246,9 +246,19 @@ def test_base_images_without_default_rejected(tmp_path):
     """An elidable kind with registered plugins but no default would
     leave elided tags unresolvable."""
     _write_plugin(tmp_path, "base-images", "ubuntu", _base_manifest("ubuntu"))
-    with pytest.raises(
-        ManifestError, match=r"no plugin with \[plugin\]\.default = true"
-    ):
+    with pytest.raises(ManifestError, match=r"found \[\]"):
+        PluginRegistry.from_dir(tmp_path)
+
+
+def test_a_default_other_than_the_grammar_default_rejected(tmp_path):
+    """A tag without a base segment means DEFAULT_BASE, so a flag on any
+    other base would put the official-tier check on a plugin no such
+    tag builds on."""
+    _write_plugin(tmp_path, "base-images", "ubuntu", _base_manifest("ubuntu"))
+    _write_plugin(
+        tmp_path, "base-images", "debian", _base_manifest("debian", default=True)
+    )
+    with pytest.raises(ManifestError, match=r"on 'ubuntu' and nowhere else"):
         PluginRegistry.from_dir(tmp_path)
 
 

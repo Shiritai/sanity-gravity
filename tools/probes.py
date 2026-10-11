@@ -32,18 +32,21 @@ T = "tests/unit/"
 
 #: (file to mutate, test file that must go red) -> (probe id, old, new)...
 #:
-#: Grouped rather than flat 5-tuples: the file pair is what the 82
-#: entries repeat - two dozen probes hit manifest.py alone - and a typo
-#: there reads as "PATTERN MISSING" rather than as a wrong answer.
+#: Grouped rather than flat 5-tuples: the file pair is what the entries
+#: repeat - two dozen probes hit manifest.py alone - and a typo there
+#: reads as "PATTERN MISSING" rather than as a wrong answer.
 SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
     (S + "domain/tags.py", T + "test_tag_grammar.py"): (
-        ("T1-arity", "if len(parts) != 3:", "if len(parts) > 3:"),
-        ("T2-charset", "if not SLUG_RE.match(slug):",
-         "if False and not SLUG_RE.match(slug):"),
+        ("T1-arity", "if len(parts) not in (3, 4):", "if len(parts) < 3:"),
+        ("T2-charset", "if not SLUG_RE.fullmatch(slug):",
+         "if False and not SLUG_RE.fullmatch(slug):"),
+        ("T8-slug-trailing-newline", "SLUG_RE.fullmatch(slug)", "SLUG_RE.match(slug)"),
         ("T3-reserved", "if slug in RESERVED_SLUGS:", "if slug in ():"),
         ("T4-render-sep",
-         'return f"{self.agent}{SEP}{self.desktop}{SEP}{self.connector}"',
-         'return f"{self.agent}+{self.desktop}+{self.connector}"'),
+         'return f"{self.agent}{SEP}{self.desktop}{SEP}{self.connector}{base}"',
+         'return f"{self.agent}+{self.desktop}+{self.connector}{base}"'),
+        ("T7-default-base-spelled",
+         'base = "" if self.base == DEFAULT_BASE else', 'base = "" if False else'),
         ("T6-parse-canonicalizes", "parts = s.split(SEP)",
          "parts = s.strip().split(SEP)"),
         ("T5-parser-arg", "def parse(cls, s: str) -> Tag:",
@@ -237,6 +240,7 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
          "            pass"),
         ("PR4-checkout-boundary", "checkout_root = r.resolve().parent",
          'checkout_root = Path("/")'),
+        ("PR5-default-not-grammar-default", "defaults != [expected]", "not defaults"),
     ),
     (S + "cli/io.py", T + "test_cli_io_validation.py"): (
         ("V1-username-none-guard", "if not name or not _USERNAME_RE.match(name):",

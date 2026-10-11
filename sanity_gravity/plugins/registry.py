@@ -36,7 +36,7 @@ from collections.abc import Collection
 from pathlib import Path
 
 from sanity_gravity.domain.capability import CapabilityConflictError, solve
-from sanity_gravity.domain.tags import Tag
+from sanity_gravity.domain.tags import DEFAULT_BASE, Tag
 from sanity_gravity.plugins.manifest import (
     KIND_DIRS,
     TIERS,
@@ -147,18 +147,21 @@ class PluginRegistry:
 
     # -- invariants --------------------------------------------------
 
-    #: Kinds whose slug the tag grammar may elide, and which therefore
-    #: MUST resolve a default. Dimensions spelled out in full (agent /
-    #: desktop / connector) need no default and must not declare one.
-    _ELIDABLE_KINDS: tuple[str, ...] = ("base-image",)
+    #: Kinds whose slug the tag grammar may elide, each mapped to the
+    #: slug an elided segment means. Dimensions spelled out in full
+    #: (agent / desktop / connector) need no default and must not
+    #: declare one.
+    _ELIDABLE_KINDS: dict[str, str] = {"base-image": DEFAULT_BASE}
 
     def _validate_defaults(self) -> None:
         """Enforce the [plugin].default invariants across the loaded tree.
 
         - At most one default per kind.
         - A kind in :attr:`_ELIDABLE_KINDS` with at least one registered
-          plugin must have exactly one default: the tag grammar elides
-          its slug, so a missing default leaves elided tags unresolvable.
+          plugin must mark exactly the slug the grammar elides as its
+          default: a tag without that segment means that slug, so the
+          official-tier rule on defaults then checks the plugin such
+          tags build on.
         - Kinds always spelled out in a tag must not declare a default.
 
         A kind with no plugins is not checked: the registry indexes
@@ -174,12 +177,13 @@ class PluginRegistry:
                     f"({sorted(defaults)}); exactly one plugin may set "
                     f"[plugin].default = true"
                 )
-            if kind in self._ELIDABLE_KINDS and bucket and not defaults:
+            expected = self._ELIDABLE_KINDS.get(kind)
+            if expected is not None and bucket and defaults != [expected]:
                 raise ManifestError(
-                    f"kind '{kind}' has no plugin with [plugin].default = true, "
-                    f"but the tag grammar elides it - a tag like 'ag-xfce-kasm' "
-                    f"would have no resolvable {kind}. Mark one manifest as the "
-                    f"default."
+                    f"kind '{kind}' must set [plugin].default = true on "
+                    f"'{expected}' and nowhere else, found {defaults}: a tag "
+                    f"without that segment means '{expected}' "
+                    f"(DEFAULT_BASE in sanity_gravity/domain/tags.py)"
                 )
             if defaults and kind not in self._ELIDABLE_KINDS:
                 raise ManifestError(

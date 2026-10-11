@@ -142,11 +142,7 @@ skipping it has produced a real defect before.
    non-root layer gets its parent from the build plan). Two near-identical
    Dockerfiles is the symptom of a missing manifest field - add the field
    instead.
-5. **Defaults live in data.** If the dimension is elidable from the tag string,
-   its default member declares `[plugin].default = true`; the registry enforces
-   at most one default per kind, official tier only, and only on elidable
-   kinds. No default slug is ever hardcoded in `sanity_gravity/domain/` - the
-   domain layer must not name a file in `plugins/`.
+5. **State the default twice, and pin the two together.** If the dimension is elidable from the tag string, the tag grammar states its default slug as a constant (`DEFAULT_BASE` in `sanity_gravity/domain/tags.py`), because `Tag.parse` and `str(tag)` must stay inverse without a registry lookup. The member with that slug declares `[plugin].default = true`, official tier only. The registry refuses to load a tree where the flag sits on any other member, on no member, or on a kind that is never elided.
 6. **Budget the matrix.** A new dimension multiplies `OFFICIAL_TAGS`. Ship the
    new members at `tier = "community"` first; see "Matrix budget" before
    promoting anything.
@@ -199,11 +195,7 @@ Do **not** bump the number as a formality. The process is:
 3. Raise `MAX_OFFICIAL_TAGS` in that same change, and update the comment above
    it with the new reasoning.
 
-Two related guards live in the same file and follow the same "may only shrink"
-discipline: `KNOWN_UNTESTED_OFFICIAL_TAGS` (official tags without an integration
-reference - add a test, then delete the entry; never add one) and a lint that
-forbids prefix-matching tag lists (`t.startswith("ag-")` goes silently blind the
-moment another dimension prefixes the tag - filter via `resolve_tag(t).<dim>` instead).
+Two related guards live in the same file and follow the same "may only shrink" discipline: `KNOWN_UNTESTED_OFFICIAL_TAGS` (official tags without an integration reference - add a test, then delete the entry; never add one) and a lint that forbids prefix- or suffix-matching tag lists (`t.startswith("ag-")` goes silently blind the moment another dimension prefixes the tag, `t.endswith("-ssh")` the moment a tag spells out its base - filter via `resolve_tag(t).<dim>` instead).
 
 ## Code style
 
