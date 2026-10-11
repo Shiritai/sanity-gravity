@@ -59,6 +59,7 @@ USERNAME_INVALID = [
     "unicodeé",    # body is ASCII-only, not \\w
     "A" * 33,           # one over the length boundary, upper
     "u" * 33,           # one over the length boundary, lower
+    "user\n",           # '$' matches before a final newline; fullmatch does not
 ]
 
 # --- validate_project_name: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$ ------------
@@ -86,6 +87,7 @@ PROJECT_INVALID = [
     "my/project",       # '/' behind a valid head
     "my$project",       # shell expansion
     "a" * 64,           # one over the length boundary
+    "proj\n",           # '$' matches before a final newline; fullmatch does not
 ]
 
 #: (validator, message prefix) - the two surfaces share every contract
