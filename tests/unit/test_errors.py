@@ -104,6 +104,7 @@ class TestResolveTagRaisesTagError:
     @pytest.mark.parametrize("bad,message_part", [
         ("nope", "Invalid tag format"),
         ("zz-xfce-kasm", "Unknown agent"),
+        ("cc-none-ssh-zz", "Unknown base"),
         ("ag-none-ssh", "requires a GUI desktop"),   # capability conflict
     ])
     def test_each_rejection_names_the_cause_and_hints_the_fix(

@@ -94,6 +94,12 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
         ("E7-unknown-msg",
          'f"Unknown agent \'{agent}\'. Valid: {\', \'.join(reg.agents.keys())}",',
          'f"Unmapped agent \'{agent}\'. Valid: {\', \'.join(reg.agents.keys())}",'),
+        ("E8-grammar-hint-dropped",
+         "boundary's.\n        raise TagError(str(exc), hint=_TAG_HINT) from exc",
+         "boundary's.\n        raise"),
+    ),
+    (S + "core/registry.py", T + "test_parse_tag_conflicts.py"): (
+        ("RT1-base-unchecked", "if parsed.base not in reg.base_images:", "if False:"),
     ),
     (S + "core/proc.py", T + "test_proc.py"): (
         ("P1-capture-collapse", ").raise_for_status(hint=hint).stdout", ").stdout"),

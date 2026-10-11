@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from sanity_gravity.core.registry import resolve_tag
-from sanity_gravity.domain.tags import Tag
+from sanity_gravity.domain.tags import DEFAULT_BASE, Tag
 
 
 class TestUnknownDimensions:
@@ -31,9 +31,18 @@ class TestUnknownDimensions:
         with pytest.raises(ValueError, match="Invalid tag format"):
             resolve_tag("ag-xfce")
 
+    def test_unknown_base(self):
+        with pytest.raises(ValueError, match=r"Unknown base 'nosuchbase'"):
+            resolve_tag("cc-none-ssh-nosuchbase")
+
+    def test_the_first_unknown_segment_is_the_one_reported(self):
+        """Checked in reading order, so the base comes last."""
+        with pytest.raises(ValueError, match=r"Unknown agent 'zz'"):
+            resolve_tag("zz-none-ssh-nosuchbase")
+
     def test_format_error_extra_part(self):
         with pytest.raises(ValueError, match="Invalid tag format"):
-            resolve_tag("ag-xfce-kasm-extra")
+            resolve_tag("ag-xfce-kasm-ubuntu-extra")
 
 
 class TestCapabilityConflictMapping:
@@ -77,9 +86,12 @@ class TestResolveTagValueBoundary:
         """
         parsed = resolve_tag("ag-xfce-kasm")
         assert isinstance(parsed, Tag)
-        assert (parsed.agent, parsed.desktop, parsed.connector) == (
-            "ag", "xfce", "kasm",
+        assert (parsed.agent, parsed.desktop, parsed.connector, parsed.base) == (
+            "ag", "xfce", "kasm", DEFAULT_BASE,
         )
+
+    def test_a_spelled_out_default_base_is_the_same_tag(self):
+        assert resolve_tag(f"ag-xfce-kasm-{DEFAULT_BASE}") == resolve_tag("ag-xfce-kasm")
 
     def test_no_tuple_shim_survives(self):
         """parse_tag existed 'for callers that still unpack tuples' and

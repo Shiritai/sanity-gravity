@@ -109,7 +109,7 @@ class TestDimensionConstraints:
         with pytest.raises(ValueError, match="Invalid tag format"):
             resolve_tag("ag-xfce")
         with pytest.raises(ValueError, match="Invalid tag format"):
-            resolve_tag("ag-xfce-kasm-extra")
+            resolve_tag("ag-xfce-kasm-ubuntu-extra")
 
 
 class TestLayeredBuildSystem:

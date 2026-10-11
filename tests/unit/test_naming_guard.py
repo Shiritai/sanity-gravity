@@ -95,12 +95,9 @@ KNOWN_IDENTITY_FSTRINGS = {
 _KNOWN_FAMILIES = {k: frozenset(v) for k, v in KNOWN_IDENTITY_FSTRINGS.items()}
 
 # split("-") outside domain/ is tag grammar smuggled into a call site.
-# core/registry.py's resolve_tag / tag_tier are the two survivors: they
-# ARE the registry-validating grammar shim, retired once their callers
-# take the Tag from the parse directly. This set may only shrink.
-KNOWN_DASH_SPLITS = frozenset({
-    "sanity_gravity/core/registry.py::resolve_tag",
-})
+# Empty: every caller takes the Tag from Tag.parse. This set may only
+# shrink, so it stays empty.
+KNOWN_DASH_SPLITS: frozenset[str] = frozenset()
 
 
 def _fv_text(expr: ast.expr) -> str:
