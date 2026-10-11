@@ -208,7 +208,7 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
         ("MN7-plugin-not-a-table",
          'raise ManifestError(f"{p}: [plugin] must be a table")', "pass"),
         ("MN8-build-not-a-table",
-         'raise ManifestError(f"{p}: [build] must be a table")', "pass"),
+         'raise ManifestError(f"{where} must be a table")', "pass"),
         ("MN9-dockerfile-path-guard",
          """            raise ManifestError(
                 f"Manifest {self.slug!r} has no source_path; "
@@ -241,6 +241,8 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
                 f"{hooks_path}: failed to build import spec for plugin hooks"
             )""",
          "            pass"),
+        ("PR4-checkout-boundary", "checkout_root = r.resolve().parent",
+         'checkout_root = Path("/")'),
     ),
     (S + "cli/io.py", T + "test_cli_io_validation.py"): (
         ("V1-username-none-guard", "if not name or not _USERNAME_RE.match(name):",

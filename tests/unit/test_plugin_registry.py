@@ -168,3 +168,125 @@ def test_from_dir_empty_root_returns_empty_registry(tmp_path):
     reg = PluginRegistry.from_dir(tmp_path)
     assert reg.all_manifests() == []
     assert reg.valid_tags() == []
+
+
+def test_all_manifests_covers_every_bucket(tmp_path):
+    """all_manifests() is the cross-kind fan-in, so it must cover every
+    kind discovery registers, base images included."""
+    _write_plugin(tmp_path, "base-images", "ubuntu", _base_manifest("ubuntu", default=True))
+    _write_plugin(tmp_path, "agents", "aa", _MINIMAL_AGENT % "aa")
+    reg = PluginRegistry.from_dir(tmp_path)
+    assert {(m.kind, m.slug) for m in reg.all_manifests()} == {
+        ("base-image", "ubuntu"),
+        ("agent", "aa"),
+    }
+
+
+def test_build_paths_are_bounded_by_the_checkout(tmp_path):
+    """from_dir states the checkout root (the plugin tree's parent) as
+    the [build] containment boundary: a hop to a sibling of plugins/
+    loads, a hop past the checkout does not."""
+    checkout = tmp_path / "checkout"
+    (checkout / "shared").mkdir(parents=True)
+    body = _base_manifest("ubuntu", default=True)
+    _write_plugin(
+        checkout / "plugins", "base-images", "ubuntu",
+        body + 'context = "../../../shared"\n',
+    )
+    reg = PluginRegistry.from_dir(checkout / "plugins")
+    assert reg.base_images["ubuntu"].context_path == (checkout / "shared").resolve()
+
+    (checkout / "plugins" / "base-images" / "ubuntu" / "manifest.toml").write_text(
+        body + 'context = "../../../../outside"\n'
+    )
+    with pytest.raises(ManifestError, match="outside the allowed root"):
+        PluginRegistry.from_dir(checkout / "plugins")
+
+
+# ---------------------------------------------------------------------------
+# [plugin].default invariants (load-time assertions).
+# ---------------------------------------------------------------------------
+
+
+_PIN = "debian:12-slim@sha256:" + "0" * 64
+
+
+def _base_manifest(slug: str, default: bool = False) -> str:
+    lines = [
+        "[plugin]",
+        f'slug = "{slug}"',
+        f'name = "{slug} (base)"',
+        'kind = "base-image"',
+        'api_version = "1"',
+    ]
+    if default:
+        lines.append("default = true")
+    lines += ["[build]", 'dockerfile = "Dockerfile"', f'from = "{_PIN}"']
+    return "\n".join(lines) + "\n"
+
+
+_MINIMAL_AGENT = (
+    '[plugin]\nslug = "%s"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+    '[build]\ndockerfile = "Dockerfile"\n'
+)
+
+
+def test_two_defaults_in_one_kind_rejected(tmp_path):
+    _write_plugin(
+        tmp_path, "base-images", "ubuntu", _base_manifest("ubuntu", default=True)
+    )
+    _write_plugin(
+        tmp_path, "base-images", "debian", _base_manifest("debian", default=True)
+    )
+    with pytest.raises(ManifestError, match="exactly one plugin may set"):
+        PluginRegistry.from_dir(tmp_path)
+
+
+def test_base_images_without_default_rejected(tmp_path):
+    """An elidable kind with registered plugins but no default would
+    leave elided tags unresolvable."""
+    _write_plugin(tmp_path, "base-images", "ubuntu", _base_manifest("ubuntu"))
+    with pytest.raises(
+        ManifestError, match=r"no plugin with \[plugin\]\.default = true"
+    ):
+        PluginRegistry.from_dir(tmp_path)
+
+
+def test_default_slug_returns_marked_plugin(tmp_path):
+    _write_plugin(
+        tmp_path, "base-images", "ubuntu", _base_manifest("ubuntu", default=True)
+    )
+    _write_plugin(tmp_path, "base-images", "debian", _base_manifest("debian"))
+    reg = PluginRegistry.from_dir(tmp_path)
+    assert reg.default_slug("base-image") == "ubuntu"
+    assert set(reg.base_images) == {"ubuntu", "debian"}
+
+
+def test_default_slug_without_default_raises(tmp_path):
+    _write_plugin(tmp_path, "agents", "solo", _MINIMAL_AGENT % "solo")
+    reg = PluginRegistry.from_dir(tmp_path)
+    with pytest.raises(KeyError):
+        reg.default_slug("agent")
+
+
+def test_default_on_spelled_out_kind_rejected(tmp_path):
+    """agent/desktop/connector are always spelled out in a tag; a
+    default there is meaningless and must fail loudly."""
+    _write_plugin(
+        tmp_path,
+        "agents",
+        "solo",
+        '[plugin]\nslug = "solo"\nname = "x"\nkind = "agent"\napi_version = "1"\n'
+        "default = true\n"
+        '[build]\ndockerfile = "Dockerfile"\n',
+    )
+    with pytest.raises(ManifestError, match="always spelled out"):
+        PluginRegistry.from_dir(tmp_path)
+
+
+def test_zero_base_image_plugins_load_fine(tmp_path):
+    """An elidable kind with no plugins is not checked for a default."""
+    _write_plugin(tmp_path, "agents", "solo", _MINIMAL_AGENT % "solo")
+    reg = PluginRegistry.from_dir(tmp_path)
+    assert reg.base_images == {}
+    assert set(reg.agents) == {"solo"}

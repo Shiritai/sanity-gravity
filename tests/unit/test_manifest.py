@@ -25,6 +25,8 @@ import re
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from sanity_gravity.plugins.manifest import (
     TIERS,
@@ -306,6 +308,12 @@ _REJECTIONS = [
     pytest.param(_PLUGIN, rf"{_MISSING_KEY} 'build'", id="no-build-table"),
     pytest.param(_PLUGIN + '[build]\n',
                  rf"{_MISSING_KEY} 'dockerfile'", id="no-build-dockerfile"),
+    pytest.param(_PLUGIN + '[build]\ndockerfile = ""\n',
+                 r"\.dockerfile: must not be empty", id="dockerfile-empty"),
+    pytest.param(_PLUGIN + '[build]\ndockerfile = "."\n',
+                 r"names a directory, not a file", id="dockerfile-is-dir"),
+    pytest.param(_MINIMAL + 'context = ""\n',
+                 r"\.context: must not be empty", id="context-empty"),
     pytest.param(_MINIMAL + '[ports.web]\ndefault = 8080\nenv_var = "WEB_PORT"\n',
                  rf"{_MISSING_KEY} 'internal'", id="no-port-internal"),
     pytest.param(_MINIMAL + '[ports.web]\ninternal = 80\nenv_var = "WEB_PORT"\n',
@@ -419,3 +427,245 @@ def test_near_miss_api_version_gets_an_exact_string_hint(tmp_path):
             rf"api_version '{re.escape(near_miss)}' is not supported",
         )
         assert 'try api_version = "1"' in msg
+
+
+# ---------------------------------------------------------------------------
+# base-image kind: [build].from / [build].context / [plugin].default.
+# ---------------------------------------------------------------------------
+
+
+_PIN = "debian:12-slim@sha256:" + "0" * 64
+
+_MINIMAL_BASE = (
+    '[plugin]\nslug = "deb"\nname = "deb (base)"\nkind = "base-image"\n'
+    'api_version = "1"\n'
+)
+
+
+def _write_base_plugin(root: Path, body: str, slug: str = "deb") -> Path:
+    """Lay out ``<root>/plugins/base-images/<slug>/manifest.toml``.
+
+    ``root`` plays the checkout root: containment tests pass
+    ``repo_root=root``, as the registry does for the real tree.
+    """
+    d = root / "plugins" / "base-images" / slug
+    d.mkdir(parents=True)
+    p = d / "manifest.toml"
+    p.write_text(body)
+    return p
+
+
+def test_base_image_kind_accepted(tmp_path):
+    """kind = "base-image" parses; from/context/default surface with
+    their defaults."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    m = load_manifest(path)
+    assert m.kind == "base-image"
+    assert m.from_ref == _PIN
+    assert m.context == "."
+    assert m.context_path == path.parent.resolve()
+    assert m.is_default is False
+
+
+def test_base_image_requires_from(tmp_path):
+    """A base-image layer is a build-graph root: its upstream ref must
+    come from data, not from an ARG default inside the Dockerfile."""
+    path = _write_base_plugin(
+        tmp_path, _MINIMAL_BASE + '[build]\ndockerfile = "Dockerfile"\n'
+    )
+    with pytest.raises(ManifestError, match=r"from is required for kind 'base-image'"):
+        load_manifest(path)
+
+
+def test_from_rejected_on_agent(tmp_path):
+    """Non-root kinds get their parent from the build plan; a pinned
+    upstream ref on an agent would be dead-but-plausible data."""
+    path = _write(
+        tmp_path,
+        _PLUGIN + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match="pin an upstream"):
+        load_manifest(path)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "debian:12-slim",                             # floating tag
+        "@sha256:",                                   # bare marker, no name/digest
+        "garbage@sha256:zz",                          # digest is not hex
+        f"@sha256:{'0' * 64}",                        # empty name:tag
+        f"debian@sha256:{'0' * 64}",                  # no tag - the promise is name:tag
+        f"debian:12-slim@sha256:{'0' * 63}",          # 63 hex chars
+        f"debian:12-slim@sha256:{'0' * 65}",          # 65 hex chars
+        f"debian:12-slim@sha256:{'A' * 64}",          # uppercase hex
+        f"debian:12-slim@sha256:{'0' * 64} ",         # trailing junk
+        f"x debian:12-slim@sha256:{'0' * 64}",        # leading junk
+        f"debian:12-slim@sha512:{'0' * 64}",          # wrong algorithm
+    ],
+)
+def test_from_pin_rejects_lookalikes(tmp_path, bad):
+    """A pin is the error message's promise: name:tag followed by an
+    anchored @sha256:<exactly 64 lowercase hex>, nothing around it."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{bad}"\n',
+    )
+    with pytest.raises(ManifestError, match="digest-pinned"):
+        load_manifest(path, repo_root=tmp_path)
+
+
+@given(
+    name=st.from_regex(r"[a-z0-9]{1,8}(/[a-z0-9]{1,8}){0,2}", fullmatch=True),
+    tag=st.from_regex(r"[A-Za-z0-9_][A-Za-z0-9._-]{0,16}", fullmatch=True),
+    digest=st.text(alphabet="0123456789abcdef", min_size=64, max_size=64),
+)
+def test_from_pin_accepts_well_formed_refs(tmp_path_factory, name, tag, digest):
+    """Property: every name:tag@sha256:<64 lowercase hex> loads, and the
+    parsed from_ref round-trips verbatim."""
+    tmp = tmp_path_factory.mktemp("pin")
+    ref = f"{name}:{tag}@sha256:{digest}"
+    path = _write_base_plugin(
+        tmp,
+        _MINIMAL_BASE + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{ref}"\n',
+    )
+    assert load_manifest(path, repo_root=tmp).from_ref == ref
+
+
+def test_context_upward_hop_inside_repo_accepted(tmp_path):
+    """A shared sibling dir (no manifest.toml, invisible to discovery)
+    is a legal build context."""
+    shared = tmp_path / "plugins" / "base-images" / "_shared"
+    shared.mkdir(parents=True)
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n'
+        'context = "../_shared"\n',
+    )
+    m = load_manifest(path, repo_root=tmp_path)
+    assert m.context == "../_shared"
+    assert m.context_path == shared.resolve()
+
+
+def test_context_absolute_rejected(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n'
+        'context = "/etc"\n',
+    )
+    with pytest.raises(ManifestError, match="must be relative, not absolute"):
+        load_manifest(path)
+
+
+def test_context_escaping_repo_rejected(tmp_path):
+    """The manifest dir sits at <repo>/plugins/base-images/<slug>/, so
+    four upward hops leave the repo checkout."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n'
+        'context = "../../../.."\n',
+    )
+    with pytest.raises(ManifestError, match="outside the allowed root"):
+        load_manifest(path, repo_root=tmp_path)
+
+
+def test_shared_dockerfile_upward_hop_accepted(tmp_path):
+    """dockerfile may traverse into a shared sibling dir; the resolved
+    path stays inside the repo checkout."""
+    shared = tmp_path / "plugins" / "base-images" / "_shared"
+    shared.mkdir(parents=True)
+    (shared / "os-base.Dockerfile").write_text("ARG BASE_IMAGE\nFROM ${BASE_IMAGE}\n")
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "../_shared/os-base.Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    m = load_manifest(path, repo_root=tmp_path)
+    assert m.dockerfile_path == (shared / "os-base.Dockerfile").resolve()
+    assert m.dockerfile_path.is_file()
+
+
+def test_dockerfile_absolute_rejected(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE + f'[build]\ndockerfile = "/etc/Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match="must be relative, not absolute"):
+        load_manifest(path)
+
+
+def test_dockerfile_escaping_repo_rejected(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "../../../../Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match="outside the allowed root"):
+        load_manifest(path, repo_root=tmp_path)
+
+
+def test_upward_hop_without_boundary_fails_closed(tmp_path):
+    """Without a stated boundary, an upward hop is judged against the
+    manifest dir."""
+    p = tmp_path / "manifest.toml"
+    p.write_text(
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "{"../" * 12}etc/passwd"\nfrom = "{_PIN}"\n'
+    )
+    with pytest.raises(ManifestError, match="outside the allowed root"):
+        load_manifest(p)
+
+
+@pytest.mark.parametrize("section", ["ports.web", "compose", "environment", "announce", "ide"])
+def test_base_image_rejects_runtime_sections(tmp_path, section):
+    """Nothing merges a base's runtime sections, so declaring one fails
+    closed instead of loading data no consumer reads."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n[{section}]\n',
+    )
+    with pytest.raises(ManifestError, match=rf"cannot declare \['{section.split('.')[0]}'\]"):
+        load_manifest(path)
+
+
+def test_default_true_on_official_accepted(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + 'default = true\n'
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    m = load_manifest(path)
+    assert m.is_default is True
+    assert m.tier == "official"
+
+
+def test_default_wrong_type_rejected(tmp_path):
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + 'default = "yes"\n'
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match="expected bool"):
+        load_manifest(path)
+
+
+def test_default_on_community_rejected(tmp_path):
+    """tag_tier() rates a tag by the plugins its name spells out, so an
+    elided default must not be the one plugin below official."""
+    path = _write_base_plugin(
+        tmp_path,
+        _MINIMAL_BASE
+        + 'tier = "community"\ndefault = true\n'
+        + f'[build]\ndockerfile = "Dockerfile"\nfrom = "{_PIN}"\n',
+    )
+    with pytest.raises(ManifestError, match='must be tier = "official"'):
+        load_manifest(path)

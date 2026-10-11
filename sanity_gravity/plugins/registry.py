@@ -38,6 +38,7 @@ from pathlib import Path
 from sanity_gravity.domain.capability import CapabilityConflictError, solve
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.plugins.manifest import (
+    KIND_DIRS,
     TIERS,
     ManifestError,
     PluginManifest,
@@ -56,32 +57,35 @@ __all__ = ["PluginRegistry", "default_registry", "reset_default_registry"]
 _LOADED_HOOK_MODULES: set[str] = set()
 
 
-_VALID_KINDS: tuple[str, ...] = ("agent", "desktop", "connector")
-_KIND_TO_PLURAL: dict[str, str] = {
-    "agent": "agents",
-    "desktop": "desktops",
-    "connector": "connectors",
-}
+_VALID_KINDS: tuple[str, ...] = tuple(KIND_DIRS)
 
 
 class PluginRegistry:
-    """Three-keyed index of parsed plugin manifests.
+    """Kind-keyed index of parsed plugin manifests.
 
     Attributes
     ----------
-    agents / desktops / connectors:
+    agents / desktops / connectors / base_images:
         ``dict[slug -> PluginManifest]`` for that kind.
     root:
         Root of the plugin tree (e.g. ``plugins/``). Useful for callers
         that need to resolve relative manifest paths.
     """
 
-    __slots__ = ("agents", "desktops", "connectors", "root", "_loaded_hook_modules")
+    __slots__ = (
+        "agents",
+        "desktops",
+        "connectors",
+        "base_images",
+        "root",
+        "_loaded_hook_modules",
+    )
 
     def __init__(self, root: Path | None = None) -> None:
         self.agents: dict[str, PluginManifest] = {}
         self.desktops: dict[str, PluginManifest] = {}
         self.connectors: dict[str, PluginManifest] = {}
+        self.base_images: dict[str, PluginManifest] = {}
         self.root = root
         # Synthetic dotted names of every hooks.py module this registry
         # has imported. ``reset_default_registry`` clears these from
@@ -92,7 +96,8 @@ class PluginRegistry:
 
     @classmethod
     def from_dir(cls, root: str | Path) -> PluginRegistry:
-        """Walk ``<root>/{agents,desktops,connectors}/<slug>/manifest.toml``.
+        """Walk ``<root>/<kind-dir>/<slug>/manifest.toml`` for every
+        registered kind (agents, desktops, connectors, base-images).
 
         Each subdirectory missing a ``manifest.toml`` is silently skipped
         (it can host stale aux files mid-refactor); each *present* one is
@@ -100,8 +105,12 @@ class PluginRegistry:
         """
         r = Path(root)
         reg = cls(root=r)
+        # The registry is the one caller that knows the checkout root:
+        # it scans <checkout>/plugins, so every [build] path is bounded
+        # by the plugin tree's parent.
+        checkout_root = r.resolve().parent
         for kind in _VALID_KINDS:
-            kind_dir = r / _KIND_TO_PLURAL[kind]
+            kind_dir = r / KIND_DIRS[kind]
             if not kind_dir.is_dir():
                 continue
             for slug_dir in sorted(kind_dir.iterdir()):
@@ -110,7 +119,7 @@ class PluginRegistry:
                 manifest_path = slug_dir / "manifest.toml"
                 if not manifest_path.is_file():
                     continue
-                m = load_manifest(manifest_path)
+                m = load_manifest(manifest_path, repo_root=checkout_root)
                 if m.kind != kind:
                     raise ManifestError(
                         f"{manifest_path}: kind '{m.kind}' does not match "
@@ -133,7 +142,62 @@ class PluginRegistry:
                     mod_name = reg._load_hooks_module(kind, m.slug, hooks_path)
                     if mod_name is not None:
                         reg._loaded_hook_modules.append(mod_name)
+        reg._validate_defaults()
         return reg
+
+    # -- invariants --------------------------------------------------
+
+    #: Kinds whose slug the tag grammar may elide, and which therefore
+    #: MUST resolve a default. Dimensions spelled out in full (agent /
+    #: desktop / connector) need no default and must not declare one.
+    _ELIDABLE_KINDS: tuple[str, ...] = ("base-image",)
+
+    def _validate_defaults(self) -> None:
+        """Enforce the [plugin].default invariants across the loaded tree.
+
+        - At most one default per kind.
+        - A kind in :attr:`_ELIDABLE_KINDS` with at least one registered
+          plugin must have exactly one default: the tag grammar elides
+          its slug, so a missing default leaves elided tags unresolvable.
+        - Kinds always spelled out in a tag must not declare a default.
+
+        A kind with no plugins is not checked: the registry indexes
+        whatever tree it is given, and a consumer that needs the default
+        gets a ``KeyError`` from :meth:`default_slug`.
+        """
+        for kind in _VALID_KINDS:
+            bucket = self._bucket(kind)
+            defaults = [m.slug for m in bucket.values() if m.is_default]
+            if len(defaults) > 1:
+                raise ManifestError(
+                    f"kind '{kind}' declares {len(defaults)} defaults "
+                    f"({sorted(defaults)}); exactly one plugin may set "
+                    f"[plugin].default = true"
+                )
+            if kind in self._ELIDABLE_KINDS and bucket and not defaults:
+                raise ManifestError(
+                    f"kind '{kind}' has no plugin with [plugin].default = true, "
+                    f"but the tag grammar elides it - a tag like 'ag-xfce-kasm' "
+                    f"would have no resolvable {kind}. Mark one manifest as the "
+                    f"default."
+                )
+            if defaults and kind not in self._ELIDABLE_KINDS:
+                raise ManifestError(
+                    f"kind '{kind}' is always spelled out in a tag; "
+                    f"[plugin].default on '{defaults[0]}' is meaningless"
+                )
+
+    def default_slug(self, kind: str) -> str:
+        """The slug marked ``[plugin].default = true`` for ``kind``.
+
+        Raises ``KeyError`` when there is none: any spelled-out kind, or
+        an elidable kind with no plugins registered. For a populated
+        elidable kind :meth:`_validate_defaults` guarantees a hit.
+        """
+        for m in self._bucket(kind).values():
+            if m.is_default:
+                return m.slug
+        raise KeyError(f"kind {kind!r} has no default plugin")
 
     @staticmethod
     def _load_hooks_module(kind: str, slug: str, hooks_path: Path) -> str | None:
@@ -182,6 +246,8 @@ class PluginRegistry:
             return self.desktops
         if kind == "connector":
             return self.connectors
+        if kind == "base-image":
+            return self.base_images
         raise KeyError(f"unknown plugin kind: {kind!r}")
 
     def get(self, kind: str, slug: str) -> PluginManifest:
@@ -199,11 +265,9 @@ class PluginRegistry:
         return list(self._bucket(kind).keys())
 
     def all_manifests(self) -> list[PluginManifest]:
-        """Flat list of every registered manifest (agents → desktops → connectors)."""
+        """Flat list of every registered manifest, in ``_VALID_KINDS`` order."""
         return [
-            *self.agents.values(),
-            *self.desktops.values(),
-            *self.connectors.values(),
+            m for kind in _VALID_KINDS for m in self._bucket(kind).values()
         ]
 
     # -- tag enumeration --------------------------------------------
