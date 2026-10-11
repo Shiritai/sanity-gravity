@@ -1,5 +1,5 @@
 # case=all:no-cache|cold
-docker build --no-cache -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --no-cache --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
 docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
@@ -32,7 +32,7 @@ docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>
 docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc
 
 # case=all|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
@@ -145,7 +145,7 @@ _oc-none
 _oc-xfce
 
 # case=multi:ag-xfce-kasm+ag-xfce-vnc|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
 docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
@@ -166,13 +166,13 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
 
 # case=tag:ag-xfce-kasm:no-cache|cold
-docker build --no-cache -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --no-cache --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
 docker build --no-cache --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
 
 # case=tag:ag-xfce-kasm|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
 docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
@@ -190,7 +190,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:ag-xfce-kasm <REPO>/plugins/connectors/kasm
 
 # case=tag:ag-xfce-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
 docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
@@ -208,7 +208,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:ag-xfce-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:ag-xfce-vnc|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/ag/Dockerfile -t sanity-gravity:_ag-xfce <REPO>/plugins/agents/ag
 docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
@@ -226,7 +226,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_ag-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:ag-xfce-vnc <REPO>/plugins/connectors/vnc
 
 # case=tag:agy-none-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-none <REPO>/plugins/agents/agy
 docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
@@ -244,7 +244,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/c
 docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-none-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:agy-xfce-kasm|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
 docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
@@ -262,7 +262,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/c
 docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:agy-xfce-kasm <REPO>/plugins/connectors/kasm
 
 # case=tag:agy-xfce-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
 docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
@@ -280,7 +280,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/c
 docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:agy-xfce-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:agy-xfce-vnc|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/agy/Dockerfile -t sanity-gravity:_agy-xfce <REPO>/plugins/agents/agy
 docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
@@ -298,7 +298,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/c
 docker build --build-arg BASE_IMAGE=sanity-gravity:_agy-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:agy-xfce-vnc <REPO>/plugins/connectors/vnc
 
 # case=tag:cc-none-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-none <REPO>/plugins/agents/cc
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
@@ -316,7 +316,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-none-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:cc-xfce-kasm|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
@@ -334,7 +334,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cc-xfce-kasm <REPO>/plugins/connectors/kasm
 
 # case=tag:cc-xfce-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
@@ -352,7 +352,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cc-xfce-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:cc-xfce-vnc|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cc/Dockerfile -t sanity-gravity:_cc-xfce <REPO>/plugins/agents/cc
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
@@ -370,7 +370,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cc-xfce-vnc <REPO>/plugins/connectors/vnc
 
 # case=tag:cx-none-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-none <REPO>/plugins/agents/cx
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
@@ -388,7 +388,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-none-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:cx-xfce-kasm|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
@@ -406,7 +406,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:cx-xfce-kasm <REPO>/plugins/connectors/kasm
 
 # case=tag:cx-xfce-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
@@ -424,7 +424,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:cx-xfce-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:cx-xfce-vnc|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/cx/Dockerfile -t sanity-gravity:_cx-xfce <REPO>/plugins/agents/cx
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
@@ -442,7 +442,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_cx-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:cx-xfce-vnc <REPO>/plugins/connectors/vnc
 
 # case=tag:oc-none-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/none/Dockerfile -t sanity-gravity:_base-none <REPO>/plugins/desktops/none
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-none -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-none <REPO>/plugins/agents/oc
 docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
@@ -460,7 +460,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-none -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-none-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:oc-xfce-kasm|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
 docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
@@ -478,7 +478,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/kasm/Dockerfile -t sanity-gravity:oc-xfce-kasm <REPO>/plugins/connectors/kasm
 
 # case=tag:oc-xfce-ssh|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
 docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
@@ -496,7 +496,7 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/co
 docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/ssh/Dockerfile -t sanity-gravity:oc-xfce-ssh <REPO>/plugins/connectors/ssh
 
 # case=tag:oc-xfce-vnc|cold
-docker build -f sandbox/Dockerfile.base -t sanity-gravity:_base sandbox
+docker build --build-arg BASE_IMAGE=ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c -f <REPO>/sandbox/Dockerfile.base -t sanity-gravity:_base <REPO>/sandbox
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base -f <REPO>/plugins/desktops/xfce/Dockerfile -t sanity-gravity:_base-xfce <REPO>/plugins/desktops/xfce
 docker build --build-arg BASE_IMAGE=sanity-gravity:_base-xfce -f <REPO>/plugins/agents/oc/Dockerfile -t sanity-gravity:_oc-xfce <REPO>/plugins/agents/oc
 docker build --build-arg BASE_IMAGE=sanity-gravity:_oc-xfce -f <REPO>/plugins/connectors/vnc/Dockerfile -t sanity-gravity:oc-xfce-vnc <REPO>/plugins/connectors/vnc

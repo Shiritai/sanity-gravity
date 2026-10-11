@@ -1,5 +1,11 @@
-# Pinned: ubuntu:24.04 as of 2026-03-30
-FROM ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c
+# The upstream image is pinned per base plugin in
+# plugins/base-images/<slug>/manifest.toml ([build].from); the planner
+# always passes it through the same --build-arg BASE_IMAGE every other
+# layer uses, so there is deliberately no default here - a bare
+# `docker build` without --build-arg must fail loudly rather than
+# silently pick a distro.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL=C.UTF-8

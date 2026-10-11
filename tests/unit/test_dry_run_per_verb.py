@@ -30,15 +30,12 @@ from __future__ import annotations
 
 import argparse
 import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from sanity_gravity.effects.actions import ActionResult, SystemRuntime
 from sanity_gravity.effects.executor import Executor
-
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class _DryRunGuard:
@@ -113,11 +110,7 @@ def reporter(tmp_path):
     rep.close()
 
 
-def test_build_dry_run_no_subprocess(reporter, guard, fake_proc, monkeypatch):
-    # Build needs to find sandbox/Dockerfile.base; run from the real
-    # repo root rather than tmp_path. Dry-run is the operative
-    # property, not isolation of the working tree.
-    monkeypatch.chdir(_REPO_ROOT)
+def test_build_dry_run_no_subprocess(reporter, guard, fake_proc):
     from sanity_gravity.verbs import build as build_mod
 
     args = argparse.Namespace(

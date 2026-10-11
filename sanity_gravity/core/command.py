@@ -10,7 +10,7 @@ Usage::
         .flag("--no-cache", when=no_cache)
         .opt("-f", dockerfile)
         .opt("-t", tag)
-        .positional(SANDBOX_DIR)
+        .positional(context)
         .build()
     )
     subprocess.run(cmd, check=True)   # shell=False by default

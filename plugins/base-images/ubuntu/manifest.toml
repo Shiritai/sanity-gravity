@@ -1,0 +1,19 @@
+[plugin]
+slug = "ubuntu"
+name = "Ubuntu 24.04"
+kind = "base-image"
+api_version = "1"
+tier = "official"
+default = true
+
+[capabilities]
+# The ${ID}:${VERSION_CODENAME} key the image reports.
+provides = ["ubuntu:noble"]
+
+[build]
+# The sandbox tree is the context because the Dockerfile's COPY rootfs /
+# stages the entrypoint, supervisor configs and browser recipe every
+# layer above depends on.
+dockerfile = "../../../sandbox/Dockerfile.base"
+context = "../../../sandbox"
+from = "ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c"

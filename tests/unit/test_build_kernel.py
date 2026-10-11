@@ -165,3 +165,24 @@ def test_build_context_has_no_base_override():
     }
     with pytest.raises(SystemExit):
         build_parser().parse_args(["build", "--base-image", "debian", "cc-none-ssh"])
+
+
+def test_missing_base_plugin_is_a_layer_error(tmp_path, monkeypatch):
+    """A tree without a default base-image binds every other layer and
+    reports the base as a LayerError, not a raw KeyError."""
+    import sanity_gravity.hooks.build as build_hooks
+    from sanity_gravity.domain.layers import LayerError
+    from sanity_gravity.plugins.registry import PluginRegistry
+
+    desktop = tmp_path / "desktops" / "none"
+    desktop.mkdir(parents=True)
+    (desktop / "manifest.toml").write_text(
+        '[plugin]\nslug = "none"\nname = "x"\nkind = "desktop"\napi_version = "1"\n'
+        '[build]\ndockerfile = "Dockerfile"\n'
+    )
+    reg = PluginRegistry.from_dir(tmp_path)
+    monkeypatch.setattr(build_hooks, "get_registry", lambda: reg)
+
+    assert build_hooks._bind(LayerRef.of_desktop("none")).context == str(desktop.resolve())
+    with pytest.raises(LayerError, match="No default base-image plugin"):
+        build_hooks._bind(LayerRef.base())

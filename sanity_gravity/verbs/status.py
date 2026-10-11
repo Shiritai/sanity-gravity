@@ -176,6 +176,7 @@ def plugins_list(args):
         ("Agents", reg.agents),
         ("Desktops", reg.desktops),
         ("Connectors", reg.connectors),
+        ("Base images", reg.base_images),
     )
     for label, bucket in sections:
         print_plain(f"\n  {Colors.BOLD}{label}:{Colors.ENDC}")
@@ -189,5 +190,5 @@ def plugins_list(args):
             )
             print_plain(line)
 
-    total = len(reg.agents) + len(reg.desktops) + len(reg.connectors)
+    total = len(reg.all_manifests())
     print_success(f"{total} plugins registered")

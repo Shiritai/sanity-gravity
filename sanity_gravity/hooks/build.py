@@ -38,12 +38,6 @@ from sanity_gravity.domain.plan import NEVER_CACHED, LayerBinding, plan
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.actions import RunSubprocess
 
-SANDBOX_DIR = "sandbox"
-# The single Dockerfile.base literal: every base-layer build binds
-# through this constant. It disappears once the base becomes a plugin
-# and the planner reads the path from a manifest like any other layer.
-BASE_DOCKERFILE = os.path.join(SANDBOX_DIR, "Dockerfile.base")
-
 
 def _image_exists(tag: str) -> bool:
     """Local image existence check (skipped in dry-run upstream)."""
@@ -55,6 +49,7 @@ def _docker_probe(ref: LayerRef) -> bool:
 
 
 _PLUGIN_KIND: dict[LayerKind, str] = {
+    LayerKind.BASE: "base-image",
     LayerKind.DESKTOP: "desktop",
     LayerKind.AGENT: "agent",
     LayerKind.CONNECTOR: "connector",
@@ -62,21 +57,29 @@ _PLUGIN_KIND: dict[LayerKind, str] = {
 
 
 def _bind(ref: LayerRef) -> LayerBinding:
-    """Resolve a layer to its :class:`LayerBinding`.
+    """Resolve a layer to its :class:`LayerBinding` through the registry.
 
-    The base layer keeps ``sandbox/`` as its context so it can
-    ``COPY rootfs /``; every plugin layer builds from its own
-    directory. Answering "is this the base?" is now a kind check, not a
-    path-string comparison.
+    A tag names no base, so the base layer's slug is the registry's
+    default base-image. Its manifest points the context at the shared
+    ``sandbox/`` tree, whose ``COPY rootfs /`` stages the entrypoint,
+    supervisor configs and browser recipe, and carries the pinned
+    upstream image the root layer builds FROM.
     """
     if ref.kind is LayerKind.BASE:
-        return LayerBinding(dockerfile=BASE_DOCKERFILE, context=SANDBOX_DIR)
-    slug = {
-        LayerKind.DESKTOP: ref.desktop,
-        LayerKind.AGENT: ref.agent,
-        LayerKind.CONNECTOR: ref.connector,
-    }[ref.kind]
-    assert slug is not None  # field occupancy guaranteed by LayerRef
+        try:
+            slug = get_registry().default_slug("base-image")
+        except KeyError:
+            raise LayerError(
+                "No default base-image plugin is registered: the base layer "
+                "needs a plugins/base-images/<slug>/ with [plugin].default = true"
+            ) from None
+    else:
+        slug = {
+            LayerKind.DESKTOP: ref.desktop,
+            LayerKind.AGENT: ref.agent,
+            LayerKind.CONNECTOR: ref.connector,
+        }[ref.kind]
+        assert slug is not None  # field occupancy guaranteed by LayerRef
     try:
         manifest = get_registry().get(_PLUGIN_KIND[ref.kind], slug)
     except KeyError:
@@ -84,7 +87,9 @@ def _bind(ref: LayerRef) -> LayerBinding:
             f"Unknown intermediate target: {Naming.layer(ref.kind, ref.detail)}"
         ) from None
     return LayerBinding(
-        dockerfile=str(manifest.dockerfile_path), context=str(manifest.dir)
+        dockerfile=str(manifest.dockerfile_path),
+        context=str(manifest.context_path),
+        from_image=manifest.from_ref,
     )
 
 
@@ -146,8 +151,7 @@ def build_layers(ctx) -> None:
             Naming.layer_image(node.parent) if node.parent is not None
             else b.from_image
         )
-        if parent_image is not None:
-            cb.opt("--build-arg", f"BASE_IMAGE={parent_image}")
+        cb.opt("--build-arg", f"BASE_IMAGE={parent_image}")
         cb.opt("-f", b.dockerfile).opt("-t", image).positional(b.context)
         ctx.actions.append(RunSubprocess(argv=cb.build()))
 
