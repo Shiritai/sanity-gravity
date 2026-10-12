@@ -25,8 +25,15 @@ FROM ${BASE_IMAGE}
 # switch (~/.config/opencode/opencode.json with "autoupdate": false) into the
 # home of the user created at boot. Auth still lands in the user's own
 # ~/.local/share/opencode.
+#
+# The version is pinned: without --version the installer resolves "latest"
+# through an anonymous api.github.com call, which fails under the rate limit
+# shared by CI runners. Bump it to upgrade, like OPENCODE_DESKTOP_VERSION in
+# the ocd plugin.
 ENV OPENCODE_DISABLE_AUTOUPDATE=true
-RUN curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path && \
+ARG OPENCODE_VERSION=1.19.0
+RUN curl -fsSL https://opencode.ai/install | \
+        bash -s -- --version "${OPENCODE_VERSION}" --no-modify-path && \
     test -f /root/.opencode/bin/opencode && \
     cp /root/.opencode/bin/opencode /usr/local/bin/opencode && \
     chmod 755 /usr/local/bin/opencode && \
