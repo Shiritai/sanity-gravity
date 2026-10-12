@@ -47,20 +47,23 @@ COPY rootfs/ /
 # declares nothing, so they are named here rather than left to whatever
 # the desktop layer below happens to have pulled in - this layer should
 # not depend on another layer's transitive dependencies. Ubuntu 24.04
-# renamed seven of them with a t64 suffix. Then the tools the install
-# itself needs: jq patches product.json, desktop-file-utils registers the
-# URL handler, openssl runs the certificate gate below.
+# renamed eight of them with a t64 suffix that Debian 12 does not have,
+# so the suffix is set per distro. Then the tools the install itself
+# needs: jq patches product.json, desktop-file-utils registers the URL
+# handler, openssl runs the certificate gate below.
 #
 # gravity-cli does the install so there is one copy of it: the same
 # script runs `ide update` inside a live sandbox, and the wrapper and
 # .desktop entries a built image carries are therefore the ones
 # tests/integration/test_gravity_cli.py reads. They used to be written
 # twice - here and there - and the two had already drifted apart.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN t64=t64; if [ "$(. /etc/os-release && echo "$ID")" = "debian" ]; then t64=; fi \
+    && apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates desktop-file-utils jq openssl xdg-utils \
-        libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libatspi2.0-0t64 \
-        libcairo2 libcups2t64 libcurl4 libdbus-1-3 libexpat1 libgbm1 \
-        libglib2.0-0t64 libgtk-3-0t64 libnspr4 libnss3 libpango-1.0-0 \
+        libasound2${t64} libatk-bridge2.0-0${t64} libatk1.0-0${t64} \
+        libatspi2.0-0${t64} libcairo2 libcups2${t64} libcurl4${t64} libdbus-1-3 \
+        libexpat1 libgbm1 libglib2.0-0${t64} libgtk-3-0${t64} libnspr4 \
+        libnss3 libpango-1.0-0 \
         libstdc++6 libudev1 libvulkan1 libx11-6 libxcb1 libxcomposite1 \
         libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxkbfile1 libxrandr2 \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \

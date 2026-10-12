@@ -70,14 +70,15 @@ def _ocd_valid_tags(registry: PluginRegistry) -> list[Tag]:
     requirement no GUI desktop here provides.
     """
     tags = []
-    for d in _gui_desktops(registry):
-        for c in registry.connectors:
-            tag = Tag("ocd", d, c)
-            try:
-                solve(tag, registry)
-            except CapabilityConflictError:
-                continue
-            tags.append(tag)
+    for b in registry.base_images:
+        for d in _gui_desktops(registry):
+            for c in registry.connectors:
+                tag = Tag("ocd", d, c, b)
+                try:
+                    solve(tag, registry)
+                except CapabilityConflictError:
+                    continue
+                tags.append(tag)
     return tags
 
 
@@ -113,7 +114,7 @@ def test_ocd_requires_display(reg):
     """ocd is a GUI app: it needs a display, unlike the oc CLI plugin."""
     m = reg.agents["ocd"]
     assert m.provides == ()
-    assert m.requires == ("display",)
+    assert m.requires == ("display", "ubuntu:noble|debian:bookworm")
 
 
 def test_ocd_injects_no_host_env(reg):
@@ -162,10 +163,13 @@ def test_ocd_known_tags_are_a_subset_of_the_derived_valid_tags(ocd_valid_tags):
 
 
 def test_ocd_valid_tags_count_is_gui_desktops_times_connectors(reg, ocd_valid_tags):
-    """Count invariant, not a magic number: one tag per (GUI desktop,
-    connector) pair. Moves on its own as desktops or connectors are
-    added or removed -- nothing here to keep in sync by hand."""
-    assert len(ocd_valid_tags) == len(_gui_desktops(reg)) * len(reg.connectors)
+    """Count invariant, not a magic number: one tag per (base, GUI
+    desktop, connector) triple. Moves on its own as bases, desktops or
+    connectors are added or removed -- nothing here to keep in sync by
+    hand."""
+    assert len(ocd_valid_tags) == (
+        len(reg.base_images) * len(_gui_desktops(reg)) * len(reg.connectors)
+    )
 
 
 def test_ocd_appears_in_valid_tags(reg, ocd_valid_tags):

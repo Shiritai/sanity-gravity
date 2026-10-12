@@ -1,6 +1,6 @@
 # Modular Tag System
 
-Every Sanity-Gravity image is described by a **3-dimensional tag**: `{agent}-{desktop}-{connector}`.
+Every Sanity-Gravity image is described by a **4-dimensional tag**: `{agent}-{desktop}-{connector}[-{base}]`. The base is the last segment and is left out when it is the default (`ubuntu`): `cc-none-ssh` and `cc-none-ssh-ubuntu` are the same tag, and `cc-none-ssh` is how it is written.
 
 ## Dimensions
 
@@ -21,14 +21,14 @@ The AI tool installed in the sandbox.
 
 > **`ag` pins the IDE, and the pin has a deadline.** `ag` installs the standalone Antigravity IDE 2.5.5 from Google's official tarball, pinned by version and build id and verified against the sha256 Google publishes for that exact artifact; auto-update is off, so a sandbox stays on the build it was built with. The 1.x package this replaced is deprecated and its apt repo froze on 2026-04-16 - the language-server certificate 1.x bundles expired on 2026-09-04, and after that every Agent Manager message was stored and never answered, with no error shown ([#42](https://github.com/Shiritai/sanity-gravity/issues/42)). 2.5.5 keeps the same design with a later certificate, valid until **2026-11-03**, so the image build fails on purpose once that is 14 days away; re-check upstream for a newer IDE build before 2026-10-20. Sign-in is in-container: the IDE opens Google's page in the bundled browser and the callback comes back over an `antigravity-ide://` link, which the image registers as a URL handler, so nothing is forwarded from the host.
 
-> **Community tier (`dsh`).** DeepSeek Harness is an upstream developer preview (rc releases only, breaking changes promised), so its ten tags build locally but never enter the CI/publish matrix - `pull` has nothing to fetch, run `./sanity-cli build dsh-none-ssh` first. The single `dsh` launcher serves both profiles: `dsh --profile headless "task"` for one-shot CLI runs, and `dsh web` for the browser UI, which listens on `127.0.0.1:3080` only (upstream refuses `0.0.0.0`) - reach it with `ssh -p 2222 -L 3080:127.0.0.1:3080 <user>@localhost` or the in-container browser every desktop variant ships. **The web UI is broken on the pinned 0.1.5rc1 PyPI wheel**: the packaged runtime drops the `dsh.client` manifests while building its module proxy, so the page loads with zero client packages and shows `Failed to load plugins`; nothing in this image can repair that, so use the headless profile until an upstream PyPI release fixes it (the npm channel is unaffected, but cannot be hash-pinned here). Auth is in-container only: `export DEEPSEEK_API_KEY=...`, put the key in `~/.dsh/.env`, or use the web UI's Settings -> Models; no host key is ever forwarded. See [Support tiers](../CONTRIBUTING.md#support-tiers).
+> **Community tier (`dsh`).** DeepSeek Harness is an upstream developer preview (rc releases only, breaking changes promised), so its tags build locally but never enter the CI/publish matrix - `pull` has nothing to fetch, run `./sanity-cli build dsh-none-ssh` first. The single `dsh` launcher serves both profiles: `dsh --profile headless "task"` for one-shot CLI runs, and `dsh web` for the browser UI, which listens on `127.0.0.1:3080` only (upstream refuses `0.0.0.0`) - reach it with `ssh -p 2222 -L 3080:127.0.0.1:3080 <user>@localhost` or the in-container browser every desktop variant ships. **The web UI is broken on the pinned 0.1.5rc1 PyPI wheel**: the packaged runtime drops the `dsh.client` manifests while building its module proxy, so the page loads with zero client packages and shows `Failed to load plugins`; nothing in this image can repair that, so use the headless profile until an upstream PyPI release fixes it (the npm channel is unaffected, but cannot be hash-pinned here). Auth is in-container only: `export DEEPSEEK_API_KEY=...`, put the key in `~/.dsh/.env`, or use the web UI's Settings -> Models; no host key is ever forwarded. See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 > **`gc` is deprecated.** Google shut down the Gemini CLI free tier on
 > 2026-06-18; it now requires a paid Gemini API key / Code Assist license.
 > The plugin and its images are kept for those users, but new users should
 > prefer **`agy`** (Antigravity CLI), Google's official replacement.
 
-> **Community tier (`ocd`).** Its nine tags build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build ocd-xfce-kasm` first. The app is the Electron GUI, reachable only from the desktop menu of a GUI variant (`xfce`, `lxqt` or `openbox`); there is no `opencode` command on PATH (that is the sibling `oc` plugin). OpenCode's free-tier models are gated server-side to the official harness since 2026-09-17, so they fail inside the sandbox with `Error from provider (Console)` no matter which version is pinned ([anomalyco/opencode#49588](https://github.com/anomalyco/opencode/issues/49588)) - configure your own provider API key in `~/.config/opencode/opencode.json` instead (the entrypoint seed already creates that file). See [Support tiers](../CONTRIBUTING.md#support-tiers).
+> **Community tier (`ocd`).** Its tags build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build ocd-xfce-kasm` first. The app is the Electron GUI, reachable only from the desktop menu of a GUI variant (`xfce`, `lxqt` or `openbox`); there is no `opencode` command on PATH (that is the sibling `oc` plugin). OpenCode's free-tier models are gated server-side to the official harness since 2026-09-17, so they fail inside the sandbox with `Error from provider (Console)` no matter which version is pinned ([anomalyco/opencode#49588](https://github.com/anomalyco/opencode/issues/49588)) - configure your own provider API key in `~/.config/opencode/opencode.json` instead (the entrypoint seed already creates that file). See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 ### Desktops
 
@@ -43,7 +43,7 @@ Whether a graphical desktop environment is included.
 
 > **The browser belongs to the desktop.** Each display desktop installs Google Chrome (amd64) or Chromium (arm64) as `x-www-browser` and as what `xdg-open` resolves to, so every tag with a desktop can open a link - whichever agent it carries.
 
-> **Community tier (`lxqt`, `openbox`).** Each of these desktops adds 24 tags that build and run locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build cc-openbox-kasm` first. Twenty-one of each 24 are community through the desktop; the other three are `gc-lxqt-*` and `gc-openbox-*`, deprecated through the agent. See [Support tiers](../CONTRIBUTING.md#support-tiers).
+> **Community tier (`lxqt`, `openbox`).** Every tag carrying one of these desktops builds and runs locally like any other, but CI never builds them and they are not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build cc-openbox-kasm` first. Most are community through the desktop; the `gc-lxqt-*` and `gc-openbox-*` ones are deprecated through the agent. See [Support tiers](../CONTRIBUTING.md#support-tiers).
 
 ### Connectors
 
@@ -55,12 +55,24 @@ How you connect to the running container.
 | `vnc` | TigerVNC + noVNC | Yes | `5901` (VNC), `6901` (noVNC HTTP) |
 | `ssh` | SSH only | No | `22` (mapped to host `2222`) |
 
+### Bases
+
+The operating system every layer above is built on. Each base plugin points at the shared `sandbox/Dockerfile.base` and differs only by its upstream image.
+
+| Slug | Name | Tier | Upstream (digest-pinned) |
+|:-----|:-----|:-----|:-------------------------|
+| `ubuntu` | Ubuntu 24.04 | official (default) | `ubuntu:24.04` |
+| `debian` | Debian 12 (bookworm) | community | `debian:12-slim` |
+
+> **Community tier (`debian`).** A tag's tier is the most restrictive tier among its four plugins, so every `-debian` tag is community or below (the `gc-*-debian` tags are deprecated through the agent): it builds and runs locally, but CI never builds it and it is not published to GHCR, so `pull` has nothing to fetch — run `./sanity-cli build cc-none-ssh-debian` first. See [Support tiers](../CONTRIBUTING.md#support-tiers).
+
 ## Constraint Rules
 
-Not all combinations are valid. Two rules are enforced:
+Not all combinations are valid. Three rules are enforced:
 
 1. **GUI connectors require a GUI desktop**: `kasm` and `vnc` can only pair with `xfce`, `lxqt` or `openbox` (not `none`).
 2. **GUI agents require a GUI desktop**: `ag` (Antigravity IDE) and `ocd` (OpenCode Desktop) can only pair with `xfce`, `lxqt` or `openbox` (not `none`).
+3. **Plugins must support the base**: a plugin that depends on the OS lists the bases it supports as `|` alternatives in its `requires` (`kasm` declares `ubuntu:noble|debian:bookworm`), and each base provides its own `{id}:{codename}` capability. A tag whose plugins do not cover its base is rejected when the tag is resolved, before any layer builds.
 
 These rules are enforced by `sanity-cli` at build time and run time.
 
@@ -150,6 +162,8 @@ Listed in the same order as `./sanity-cli list` (agents sorted alphabetically).
 | `ocd-xfce-vnc` * | OpenCode Desktop | XFCE | TigerVNC | OpenCode Desktop with legacy VNC |
 
 \* Community tier: build locally with `./sanity-cli build <tag>`; not published to GHCR, so `pull` has nothing to fetch.
+
+Every tag above also has a `-debian` variant (e.g. `cc-none-ssh-debian`), none of them official; `./sanity-cli list` prints the full list.
 
 ## Discovery Commands
 

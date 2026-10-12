@@ -24,6 +24,7 @@ from sanity_gravity.core.registry import (
     CONNECTORS,
     DESKTOPS,
     VALID_TAGS,
+    get_registry,
     resolve_tag,
 )
 from sanity_gravity.domain.layers import LayerRef
@@ -76,7 +77,7 @@ class TestDimensionConstraints:
         """ag (Antigravity IDE) requires a display, so every ag tag pairs
         it with a GUI desktop - three of them now, never the headless one."""
         ag_tags = [t for t in VALID_TAGS if resolve_tag(t).agent == "ag"]
-        assert len(ag_tags) == 9
+        assert len(ag_tags) == 9 * len(get_registry().base_images)
         for tag in ag_tags:
             assert DESKTOPS[resolve_tag(tag).desktop]["has_gui"]
 

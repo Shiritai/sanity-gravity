@@ -11,8 +11,9 @@
 # recipe lives here instead of once per desktop.
 set -eu
 
-# Chrome ships no arm64 Linux build, so Apple Silicon hosts get chromium
-# from the PPA that packages it for Ubuntu. xdg-utils carries xdg-open,
+# Chrome ships no arm64 Linux build, so Apple Silicon hosts get chromium:
+# Debian packages it in its own archive, Ubuntu only as a snap, so Ubuntu
+# takes it from the PPA that packages it as a deb. xdg-utils carries xdg-open,
 # where every "open this link" path ends up; Chrome's deb depends on it,
 # the chromium route does not, so both branches ask for it by name.
 arch=$(dpkg --print-architecture)
@@ -28,14 +29,18 @@ if [ "$arch" = "amd64" ]; then
     apt-get install -y --no-install-recommends google-chrome-stable
 else
     apt-get update
-    apt-get install -y --no-install-recommends software-properties-common xdg-utils
-    add-apt-repository -y ppa:xtradeb/apps
-    apt-get update
-    apt-get install -y --no-install-recommends chromium
-    # add-apt-repository was the only reason for it; it pulls in python3
-    # and half of dbus-glib, so it leaves with the repository added.
-    apt-get remove --purge -y software-properties-common
-    apt-get autoremove -y
+    if [ "$(. /etc/os-release && echo "$ID")" = "debian" ]; then
+        apt-get install -y --no-install-recommends chromium xdg-utils
+    else
+        apt-get install -y --no-install-recommends software-properties-common xdg-utils
+        add-apt-repository -y ppa:xtradeb/apps
+        apt-get update
+        apt-get install -y --no-install-recommends chromium
+        # add-apt-repository was the only reason for it; it pulls in python3
+        # and half of dbus-glib, so it leaves with the repository added.
+        apt-get remove --purge -y software-properties-common
+        apt-get autoremove -y
+    fi
 fi
 apt-get clean
 rm -rf /var/lib/apt/lists/*
@@ -81,7 +86,7 @@ done
 
 # The menu entry the desktop launches. Its file name belongs to whichever
 # package was installed - google-chrome.desktop on amd64,
-# chromium.desktop from the PPA on arm64 - so it is resolved by glob
+# chromium.desktop on arm64 - so it is resolved by glob
 # rather than named, and a build where the glob matches nothing fails
 # here instead of shipping an entry that starts an unwrapped browser.
 # Every Exec line is rewritten, including any Desktop Action's.

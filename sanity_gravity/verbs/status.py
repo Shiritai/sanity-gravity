@@ -137,9 +137,17 @@ def list_variants(args):
         )
         print_plain(f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = {info['name']}{gui_tag}")
 
+    print_plain(f"\n  {Colors.BOLD}Bases:{Colors.ENDC}")
+    for slug, m in get_registry().base_images.items():
+        default = f" {Colors.OKGREEN}(default){Colors.ENDC}" if m.is_default else ""
+        print_plain(
+            f"    {Colors.OKCYAN}{slug}{Colors.ENDC} = "
+            f"{m.name}{default}{_tier_marker(m.tier)}"
+        )
+
     print_plain(
         f"\n  {Colors.BOLD}Tag format:{Colors.ENDC} "
-        "{agent}-{desktop}-{connector}"
+        "{agent}-{desktop}-{connector}[-{base}] (the default base is left out)"
     )
     print_plain(f"  {Colors.BOLD}Default:{Colors.ENDC} {DEFAULT_TAG}")
 

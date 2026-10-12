@@ -90,7 +90,7 @@ AI agents run arbitrary code. One rogue `rm -rf /` and your host is toast. Sanit
 
 ## Choose Your Sandbox
 
-Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one that matches your use case:
+Every image is described by a tag: **`{agent}-{desktop}-{connector}[-{base}]`**, where the base is left out for the default `ubuntu` (e.g. `cc-none-ssh`, or `cc-none-ssh-debian` on Debian 12). Pick one that matches your use case:
 
 | I want to...                     | Tag              | Connect via                |
 | :------------------------------- | :--------------- | :------------------------- |
@@ -116,7 +116,7 @@ Every image is described by a tag: **`{agent}-{desktop}-{connector}`**. Pick one
 
 > **Heads-up:** `gc` (Gemini CLI) lost its free tier on 2026-06-18 and now requires a paid Gemini API key / Code Assist license. New users should prefer **`agy`** (Antigravity CLI), Google's official successor — already shipped here.
 
-There are **78 valid combinations** in total. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
+There are **78 valid combinations per base, 156 in total**. See [Modular Tag System](docs/tags.md) for the full matrix, dimension model, and constraint rules.
 
 Missing your favorite agent? Adding one takes a manifest plus a Dockerfile - see [Bring Your Own Agent](docs/bring-your-own-agent.md).
 
@@ -242,9 +242,10 @@ ssh -p 2222 $USER@localhost
 sanity-gravity/
 ├── sanity-cli                  # CLI entry point (Python 3, no external deps)
 ├── sandbox/
-│   ├── Dockerfile.base         # Base layer: Ubuntu 24.04 + SSH + supervisord
-│   └── rootfs/                 # Shared overlay (entrypoint, gravity-cli, supervisor configs)
+│   ├── Dockerfile.base         # Base layer shared by every base image: SSH + supervisord
+│   └── rootfs/                 # Shared overlay (entrypoint, supervisor configs)
 ├── plugins/                    # Manifest-driven plugins
+│   ├── base-images/            #   ubuntu, debian
 │   ├── desktops/               #   xfce, lxqt, openbox, none
 │   ├── agents/                 #   ag (Antigravity), agy (Antigravity CLI), gc (Gemini CLI), cc (Claude Code), cx (OpenAI Codex), oc (OpenCode), ocd (OpenCode Desktop), dsh (DeepSeek Harness)
 │   └── connectors/             #   kasm (KasmVNC), vnc (TigerVNC), ssh

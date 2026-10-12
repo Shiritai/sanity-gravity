@@ -214,6 +214,18 @@ class TestCliEnumeration:
         assert "deprecated" in out
         assert "community" in out
 
+    def test_list_human_output_names_the_bases(self, capsys):
+        """The matrix lists every base and the tag format shows where
+        it goes, so a ``-debian`` tag in the list below is explained."""
+        from sanity_gravity.verbs import status as status_mod
+
+        status_mod.list_variants(argparse.Namespace(json_output=False))
+        out = capsys.readouterr().out
+        assert "Bases:" in out
+        assert "{agent}-{desktop}-{connector}[-{base}]" in out
+        for m in status_mod.get_registry().base_images.values():
+            assert m.name in out
+
 
 # ---------------------------------------------------------------------------
 # Build enumeration: ``build all`` follows the official set.

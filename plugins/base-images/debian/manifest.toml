@@ -1,0 +1,17 @@
+[plugin]
+slug = "debian"
+name = "Debian 12 (bookworm)"
+kind = "base-image"
+api_version = "1"
+tier = "community"
+
+[capabilities]
+# The ${ID}:${VERSION_CODENAME} key the image reports.
+provides = ["debian:bookworm"]
+
+[build]
+# Same Dockerfile and context as the ubuntu base: the bases differ by the
+# pinned upstream image alone.
+dockerfile = "../../../sandbox/Dockerfile.base"
+context = "../../../sandbox"
+from = "debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587"

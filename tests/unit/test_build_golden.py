@@ -44,6 +44,13 @@ _INTERMEDIATE_IMAGES = frozenset(
 )
 _FINAL_IMAGES = frozenset(f"sanity-gravity:{t}" for t in OFFICIAL_TAGS)
 
+# Non-default bases are community tier, so OFFICIAL_TAGS never reaches
+# them: one headless and one desktop chain pin the debian build path. The
+# warm and hot sets hold no debian layer, so only the cold build is
+# recorded; the cache probe does not depend on the base and the official
+# cases cover it.
+_OTHER_BASE_TAGS = ("cc-none-ssh-debian", "cc-xfce-kasm-debian")
+
 CACHE_STATES: dict[str, frozenset[str]] = {
     "cold": frozenset(),
     "warm": _INTERMEDIATE_IMAGES,
@@ -54,6 +61,8 @@ CACHE_STATES: dict[str, frozenset[str]] = {
 def _cases():
     yield "all", dict(targets=["all"])
     for t in OFFICIAL_TAGS:
+        yield f"tag:{t}", dict(targets=[t])
+    for t in _OTHER_BASE_TAGS:
         yield f"tag:{t}", dict(targets=[t])
     # Two finals sharing agent+desktop: the closure dedups the common
     # ancestor chain (5 builds, not 2x4) - the multi-target contract.
@@ -118,7 +127,8 @@ def _record(case_kw: dict, cached: frozenset[str]) -> list[str]:
 def _render_all() -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for case_key, kw in _cases():
-        states = ("cold",) if kw.get("no_cache") else tuple(CACHE_STATES)
+        cold_only = kw.get("no_cache") or kw["targets"][0] in _OTHER_BASE_TAGS
+        states = ("cold",) if cold_only else tuple(CACHE_STATES)
         for state in states:
             out[f"{case_key}|{state}"] = _record(dict(kw), CACHE_STATES[state])
     # --list-intermediates is a user-visible string list; pin it too.

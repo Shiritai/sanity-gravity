@@ -40,6 +40,23 @@ def test_every_name_renders_exactly(method, args, expected):
     assert getattr(Naming(TAG, "proj"), method)(*args) == expected
 
 
+#: A non-default base reaches every name through ``str(tag)``, like the
+#: rows above; these pin where the trailing segment lands.
+OTHER_BASE_RENDERS = [
+    ("image", "sanity-gravity:cc-none-ssh-debian"),
+    ("env_var", "SANITY_IMAGE_CC_NONE_SSH_DEBIAN"),
+    ("volume", "sg_cc-none-ssh-debian"),
+    ("compose_file", "config/docker-compose.cc-none-ssh-debian.yml"),
+    ("container", "proj-cc-none-ssh-debian-1"),
+]
+
+
+@pytest.mark.parametrize("method,expected", OTHER_BASE_RENDERS, ids=[m for m, _ in OTHER_BASE_RENDERS])
+def test_a_non_default_base_is_the_last_segment_of_every_name(method, expected):
+    tag = Tag.parse("cc-none-ssh-debian")
+    assert getattr(Naming(tag, "proj"), method)() == expected
+
+
 @pytest.mark.parametrize("method,args", [
     ("container", ()), ("volume_external", ()), ("backup_image", ("t",)),
 ])

@@ -202,22 +202,43 @@ def _arch_branches() -> tuple[str, str]:
     return amd64, other
 
 
+def _arm64_branches() -> tuple[str, str]:
+    """The arm64 half split by distro: Debian, then Ubuntu."""
+    _, other = _arch_branches()
+    _, marker, rest = other.partition('= "debian" ]; then')
+    assert marker, "the arm64 branch no longer tells Debian apart"
+    debian, sep, ubuntu = rest.partition("\n    else\n")
+    assert sep, "the arm64 branch's distro test has no Ubuntu branch"
+    return debian, ubuntu
+
+
 def test_the_installer_covers_both_architectures():
     """amd64 gets Chrome from Google's repo; arm64 (Apple Silicon) has no
-    Chrome build at all, so it gets chromium from the PPA."""
-    amd64, other = _arch_branches()
+    Chrome build at all, so it gets chromium, on Ubuntu from the PPA."""
+    amd64, _ = _arch_branches()
     assert "dl.google.com" in amd64 and "google-chrome-stable" in amd64
-    assert "ppa:xtradeb/apps" in other and "chromium" in other
+    _, ubuntu = _arm64_branches()
+    assert "ppa:xtradeb/apps" in ubuntu and "chromium" in ubuntu
 
 
-def test_both_architectures_install_xdg_utils():
+def test_debian_takes_arm64_chromium_from_its_own_archive():
+    """Debian packages chromium for arm64; the PPA builds for Ubuntu
+    releases only, so adding it to a Debian base would fail the build.
+    The Debian branch therefore adds no repository at all."""
+    debian, _ = _arm64_branches()
+    assert "chromium" in debian
+    assert "add-apt-repository" not in debian
+
+
+def test_every_branch_installs_xdg_utils():
     """``xdg-open`` is what a link is handed to - by the desktop's file
     manager, by an agent, by ``dsh web``. Chrome's deb depends on
     xdg-utils and the chromium route does not, so the dependency is
-    spelled out on both branches rather than inherited on one."""
-    amd64, other = _arch_branches()
-    assert "xdg-utils" in amd64, "the amd64 branch installs no xdg-utils"
-    assert "xdg-utils" in other, "the arm64 branch installs no xdg-utils"
+    spelled out on every branch rather than inherited on one."""
+    amd64, _ = _arch_branches()
+    debian, ubuntu = _arm64_branches()
+    for name, branch in (("amd64", amd64), ("arm64 Debian", debian), ("arm64 Ubuntu", ubuntu)):
+        assert "xdg-utils" in branch, f"the {name} branch installs no xdg-utils"
 
 
 def test_the_installer_makes_the_browser_the_system_default():

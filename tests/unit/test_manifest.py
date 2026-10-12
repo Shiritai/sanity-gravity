@@ -95,7 +95,7 @@ def test_load_each_builtin_manifest(kind, slug, name):
 
 def test_ag_requires_display():
     m = load_manifest(PLUGINS_DIR / "agents" / "ag" / "manifest.toml")
-    assert m.requires == ("display",)
+    assert m.requires == ("display", "ubuntu:noble|debian:bookworm")
     assert m.provides == ("ide",)
 
 

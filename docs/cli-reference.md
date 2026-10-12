@@ -34,6 +34,8 @@ Build sandbox images. Defaults to building all 19 official tags.
 
 Print all valid tags and the dimension matrix.
 
+Tags on the default `ubuntu` base print in three segments (`cc-none-ssh`); tags on any other base carry it as a fourth, trailing segment (`cc-none-ssh-debian`).
+
 ```bash
 ./sanity-cli list               # Human-readable output
 ./sanity-cli list --json        # JSON array (for CI matrix)

@@ -93,7 +93,7 @@ def build_parser():
     p_build = subparsers.add_parser("build", help="Build sandbox images")
     p_build.add_argument(
         "variant", nargs="*",
-        help="Tag to build, e.g. ag-xfce-kasm (default: all)",
+        help="Tag to build, e.g. ag-xfce-kasm or cc-none-ssh-debian (default: all)",
         default=["all"],
     )
     p_build.add_argument("--no-cache", action="store_true",
