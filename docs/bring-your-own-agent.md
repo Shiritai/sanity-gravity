@@ -63,7 +63,7 @@ An optional `tier` in `[plugin]` controls how far the agent travels:
 | `community` | yes | no | Valid tag, never built by CI or published |
 | `deprecated` | warns, proceeds | no | Still parses; lifecycle keeps working |
 
-A tag's tier is the most restrictive tier among its three plugins.
+A tag's tier is the most restrictive tier among its four plugins: base, agent, desktop and connector.
 
 **Start third-party or newly contributed agents at `tier = "community"`.**
 Everything works locally, but the agent stays out of the CI build/verify and

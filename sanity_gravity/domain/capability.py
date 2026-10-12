@@ -1,8 +1,10 @@
 """Capability solver: tag validity from manifest-declared traits.
 
 Every plugin manifest carries ``provides`` / ``requires`` capability
-lists. A 3-tuple ``(agent, desktop, connector)`` is valid iff the union
-of all ``provides`` covers the union of all ``requires``.
+lists. A tag is valid iff the union of its four plugins' ``provides``
+(base, desktop, agent, connector) satisfies every entry in the union of
+their ``requires``. A requirement may list alternatives, ``a|b``, met when
+any one of them is provided (Debian's ``Depends: a | b``).
 
 This replaces the legacy hardcoded boolean rules
 (``connector.requires_gui`` ↔ ``desktop.has_gui``) with a pure set
@@ -30,9 +32,10 @@ class CapabilityConflictError(ValueError):
     Attributes
     ----------
     tag:
-        The 3-tuple under inspection.
+        The tag under inspection.
     missing:
-        Sorted set of capability strings required but not provided.
+        Requirements no plugin satisfies, each exactly as a manifest
+        spelled it (alternatives included).
     """
 
     tag: Tag
@@ -49,25 +52,33 @@ class CapabilityConflictError(ValueError):
         return self.args[0] if self.args else super().__str__()
 
 
+def _satisfied(requirement: str, provided: frozenset[str]) -> bool:
+    """Alternatives, not conjunction: ``a|b`` is met when ANY of them is
+    provided. This is how "runs on noble or bookworm" is stated as data
+    rather than as an ``if`` in the kernel."""
+    return any(alt in provided for alt in requirement.split("|"))
+
+
 def solve(tag: Tag, registry: PluginRegistry) -> Tag:
     """Validate ``tag`` against ``registry``; return the tag on success.
 
-    Resolves the three plugins, unions their ``provides`` and ``requires``,
+    Resolves the four plugins, unions their ``provides`` and ``requires``,
     and raises :class:`CapabilityConflictError` if any required capability
     is unprovided. Missing slugs surface as ``KeyError`` from the registry
     so they're distinguishable from capability conflicts.
     """
-    a = registry.get("agent", tag.agent)
-    d = registry.get("desktop", tag.desktop)
-    c = registry.get("connector", tag.connector)
+    plugins = (
+        registry.get("base-image", tag.base),
+        registry.get("agent", tag.agent),
+        registry.get("desktop", tag.desktop),
+        registry.get("connector", tag.connector),
+    )
+    provided = frozenset(p for plugin in plugins for p in plugin.provides)
+    required = {r for plugin in plugins for r in plugin.requires}
 
-    provided: set[str] = set()
-    required: set[str] = set()
-    for plugin in (a, d, c):
-        provided.update(plugin.provides)
-        required.update(plugin.requires)
-
-    missing = required - provided
+    # A miss is reported as the whole requirement the manifest wrote:
+    # naming one of its alternatives would read as that one being needed.
+    missing = frozenset(r for r in required if not _satisfied(r, provided))
     if missing:
-        raise CapabilityConflictError(tag=tag, missing=frozenset(missing))
+        raise CapabilityConflictError(tag=tag, missing=missing)
     return tag

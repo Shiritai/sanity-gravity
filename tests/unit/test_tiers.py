@@ -24,7 +24,7 @@ from unittest.mock import patch
 
 import pytest
 
-from sanity_gravity.domain.tags import Tag
+from sanity_gravity.domain.tags import DEFAULT_BASE, Tag
 from sanity_gravity.plugins.registry import PluginRegistry
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -52,9 +52,27 @@ def _write_manifest(
     (slug_dir / "Dockerfile").write_text("FROM scratch\n")
 
 
+def _write_base(plugins: Path, slug: str, tier: str = "official") -> None:
+    """A base-image plugin; the default base is the grammar's, so a
+    three-segment tag resolves against the tree."""
+    default = "default = true\n" if slug == DEFAULT_BASE else ""
+    slug_dir = plugins / "base-images" / slug
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "manifest.toml").write_text(
+        f'[plugin]\nslug = "{slug}"\nname = "{slug}"\nkind = "base-image"\n'
+        f'api_version = "1"\ntier = "{tier}"\n{default}'
+        f'[build]\ndockerfile = "Dockerfile"\n'
+        f'from = "{slug}:1@sha256:{"0" * 64}"\n'
+    )
+    (slug_dir / "Dockerfile").write_text("FROM scratch\n")
+
+
 @pytest.fixture
 def tiered_registry(tmp_path) -> PluginRegistry:
-    """Two agents (official + deprecated), one community connector."""
+    """Two agents (official + deprecated), one community connector, and
+    a community base beside the default one."""
+    _write_base(tmp_path, DEFAULT_BASE)
+    _write_base(tmp_path, "cb", tier="community")
     _write_manifest(tmp_path / "agents" / "aa", "aa", "agent")
     _write_manifest(tmp_path / "agents" / "dd", "dd", "agent", tier="deprecated")
     _write_manifest(tmp_path / "desktops" / "none", "none", "desktop")
@@ -81,8 +99,12 @@ class TestTagTier:
         assert tiered_registry.tag_tier(Tag("aa", "none", "co")) == "community"
 
     def test_deprecated_outranks_community(self, tiered_registry):
-        """The most restrictive tier across the three plugins wins."""
+        """The most restrictive tier across the plugins wins."""
         assert tiered_registry.tag_tier(Tag("dd", "none", "co")) == "deprecated"
+
+    def test_community_base_taints_the_tag(self, tiered_registry):
+        """The base is in every image, so it counts like any other plugin."""
+        assert tiered_registry.tag_tier(Tag("aa", "none", "ssh", "cb")) == "community"
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +119,15 @@ class TestValidTagsTierFilter:
         tags = tiered_registry.valid_tags()
         assert Tag("dd", "none", "ssh") in tags
         assert Tag("aa", "none", "co") in tags
+        assert Tag("aa", "none", "ssh", "cb") in tags
+
+    def test_the_default_base_tags_lead_as_one_block(self, tiered_registry):
+        """'cb' is listed before the default base, yet the default's tags
+        lead: adding a base never reorders the tags users already write."""
+        bases = [t.base for t in tiered_registry.valid_tags()]
+        n = bases.count(DEFAULT_BASE)
+        assert 0 < n < len(bases)
+        assert bases == [DEFAULT_BASE] * n + ["cb"] * (len(bases) - n)
 
     def test_official_filter_excludes_community_and_deprecated(
         self, tiered_registry
@@ -193,7 +224,7 @@ def _layer_name(node):
     """Rendered layer name of a PlanNode, via the one grammar owner."""
     from sanity_gravity.domain.naming import Naming
 
-    return Naming.layer(node.layer.kind, node.layer.detail)
+    return Naming.layer(node.layer)
 
 
 class TestBuildAllTierFilter:
@@ -227,7 +258,7 @@ class TestBuildAllTierFilter:
         # Finals restricted to the official set; intermediates follow.
         assert [n for n in planned if not n.startswith("_")] == ["cc-none-ssh"]
         assert set(n for n in planned if n.startswith("_")) == {
-            "_base", "_base-none", "_cc-none",
+            "_ubuntu", "_ubuntu-none", "_ubuntu-none-cc",
         }
 
     def test_build_all_finals_match_official_tags(self):

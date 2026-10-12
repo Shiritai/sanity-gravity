@@ -4,8 +4,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
-from sanity_gravity.domain.capability import CapabilityConflictError, solve
+from sanity_gravity.domain.capability import (
+    CapabilityConflictError,
+    _satisfied,
+    solve,
+)
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.plugins.registry import (
     PluginRegistry,
@@ -77,3 +83,59 @@ def test_unknown_slug_raises_keyerror(reg):
     """Unknown slugs are *not* capability conflicts; surface as KeyError."""
     with pytest.raises(KeyError):
         solve(Tag("nope", "xfce", "ssh"), reg)
+
+
+# ---------------------------------------------------------------------------
+# Requirement alternatives: ``a|b`` is met by any one of them.
+# ---------------------------------------------------------------------------
+
+caps = st.from_regex(r"\A[a-z][a-z0-9:]{0,6}\Z")
+provided_sets = st.frozensets(caps, max_size=5)
+
+
+@given(caps, provided_sets)
+def test_a_requirement_without_alternatives_is_plain_membership(req, provided):
+    """A requirement that lists no alternatives is plain membership."""
+    assert _satisfied(req, provided) is (req in provided)
+
+
+@given(st.lists(caps, min_size=1, max_size=4), caps, provided_sets)
+def test_an_extra_alternative_never_breaks_a_met_requirement(alts, extra, provided):
+    req = "|".join(alts)
+    if _satisfied(req, provided):
+        assert _satisfied(f"{req}|{extra}", provided)
+
+
+class _Manifest:
+    def __init__(self, provides=(), requires=()):
+        self.provides, self.requires = tuple(provides), tuple(requires)
+
+
+class _Registry:
+    """Just enough registry for solve: every slug of a kind not listed
+    resolves to a plugin that provides and requires nothing."""
+
+    def __init__(self, **by_kind):
+        self.by_kind = by_kind
+
+    def get(self, kind, slug):
+        return self.by_kind.get(kind, _Manifest())
+
+
+_DISTRO_REQ = "ubuntu:noble|debian:bookworm"
+
+
+@pytest.mark.parametrize("distro", ["ubuntu:noble", "debian:bookworm"])
+def test_any_one_alternative_satisfies_a_requirement(distro):
+    reg = _Registry(desktop=_Manifest(provides=[distro]),
+                    connector=_Manifest(requires=[_DISTRO_REQ]))
+    tag = Tag("aa", "dd", "cc")
+    assert solve(tag, reg) == tag
+
+
+def test_an_unmet_requirement_is_reported_as_written():
+    reg = _Registry(desktop=_Manifest(provides=["alpine:edge"]),
+                    connector=_Manifest(requires=[_DISTRO_REQ]))
+    with pytest.raises(CapabilityConflictError) as excinfo:
+        solve(Tag("aa", "dd", "cc"), reg)
+    assert excinfo.value.missing == frozenset({_DISTRO_REQ})

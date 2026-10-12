@@ -70,22 +70,21 @@ _TAG_HINT = "Run ./sanity-cli list to see the valid tag matrix."
 def resolve_tag(tag: str) -> Tag:
     """Parse + registry-validate a dimension tag; the Tag IS the result.
 
-    Validation goes through the manifest-driven registry: unknown slugs
-    raise :class:`TagError` with the legacy ``Unknown <kind>`` message,
-    and capability conflicts raise :class:`TagError` with a 'requires a
-    GUI desktop' phrasing kept for legacy tests / users (the underlying
-    solver is generic and supports arbitrary capabilities). TagError
-    subclasses ValueError, so existing except-ValueError callers are
-    unchanged.
+    The grammar is ``Tag.parse``'s alone; this adds the registry
+    questions. Unknown slugs raise :class:`TagError` with an ``Unknown
+    <kind>`` message, checked in segment order so the first bad segment
+    a reader meets is the one reported, and capability conflicts raise
+    :class:`TagError` with a 'requires a GUI desktop' phrasing kept for
+    legacy tests / users (the underlying solver is generic and supports
+    arbitrary capabilities). TagError subclasses ValueError, so existing
+    except-ValueError callers are unchanged.
     """
-    parts = tag.split("-")
-    if len(parts) != 3:
-        raise TagError(
-            f"Invalid tag format '{tag}'. Expected "
-            "{agent}-{desktop}-{connector} (e.g. ag-xfce-kasm)",
-            hint=_TAG_HINT,
-        )
-    agent, desktop, connector = parts
+    try:
+        parsed = Tag.parse(tag)
+    except TagError as exc:
+        # The domain grammar knows no CLI; the hint is this boundary's.
+        raise TagError(str(exc), hint=_TAG_HINT) from exc
+    agent, desktop, connector = parsed.agent, parsed.desktop, parsed.connector
     reg = get_registry()
     if agent not in reg.agents:
         raise TagError(
@@ -104,8 +103,13 @@ def resolve_tag(tag: str) -> Tag:
             f"Valid: {', '.join(reg.connectors.keys())}",
             hint=_TAG_HINT,
         )
+    if parsed.base not in reg.base_images:
+        raise TagError(
+            f"Unknown base '{parsed.base}'. "
+            f"Valid: {', '.join(reg.base_images.keys())}",
+            hint=_TAG_HINT,
+        )
 
-    parsed = Tag(agent=agent, desktop=desktop, connector=connector)
     try:
         _capability_solve(parsed, reg)
     except CapabilityConflictError as exc:
@@ -153,7 +157,7 @@ def tag_tier(tag: Tag) -> str:
     """Tier of a tag value.
 
     See :meth:`PluginRegistry.tag_tier` - the most restrictive tier
-    among the tag's three plugins wins. Takes the value rather than the
+    among the tag's four plugins wins. Takes the value rather than the
     string: splitting a rendered tag back into dimensions here made this
     a second, quieter copy of the tag grammar.
     """

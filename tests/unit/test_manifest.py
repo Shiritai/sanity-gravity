@@ -121,7 +121,7 @@ def test_none_desktop_no_capabilities():
 def test_kasm_ports_and_compose():
     m = load_manifest(PLUGINS_DIR / "connectors" / "kasm" / "manifest.toml")
     assert m.provides == ("remote-gui",)
-    assert m.requires == ("display",)
+    assert m.requires == ("display", "ubuntu:noble|debian:bookworm")
     by_label = m.ports_by_label()
     assert by_label["http"] == PortSpec(
         label="http", internal=8444, default=8444, env_var="KASM_PORT",
@@ -343,6 +343,22 @@ _REJECTIONS = [
     pytest.param(_MINIMAL + '[capabilities]\nrequires = "display"\n',
                  r"\[capabilities\]\.requires: expected list, got str",
                  id="requires-is-scalar"),
+    # -- capability names that could never match --------------------------
+    pytest.param(_MINIMAL + '[capabilities]\nprovides = ["a|b"]\n',
+                 r"provides\[0\] 'a\|b': '\|' alternatives belong in requires",
+                 id="provides-has-alternative"),
+    pytest.param(_MINIMAL + '[capabilities]\nrequires = ["a | b"]\n',
+                 r"requires\[0\] 'a \| b': capability names contain no whitespace",
+                 id="requires-whitespace"),
+    pytest.param(_MINIMAL + '[capabilities]\nrequires = ["display", "a|"]\n',
+                 r"requires\[1\] 'a\|': empty capability name",
+                 id="requires-empty-alternative"),
+    pytest.param(_MINIMAL + '[capabilities]\nprovides = [""]\n',
+                 r"provides\[0\] '': empty capability name",
+                 id="provides-empty"),
+    pytest.param(_MINIMAL + '[capabilities]\nrequires = ["a|b|a"]\n',
+                 r"requires\[0\] 'a\|b\|a': repeated alternative",
+                 id="requires-duplicate-alternative"),
     pytest.param(
         _MINIMAL + '[ports.web]\ninternal = "80"\ndefault = 8080\nenv_var = "W"\n',
         r"\.internal: expected int, got str", id="port-internal-is-str"),
@@ -364,8 +380,7 @@ _REJECTIONS = [
     pytest.param(_slug("9lives") + _BUILD, _SLUG_RULE, id="slug-leading-digit"),
     pytest.param(_slug("Xfce") + _BUILD, _SLUG_RULE, id="slug-uppercase"),
     pytest.param(_slug("") + _BUILD, _SLUG_RULE, id="slug-empty"),
-    # 'base' is reserved by the layer-name grammar: slug 'base' renders
-    # '_base-<desktop>', colliding with the desktop layer's own name.
+    # 'base' names a tag dimension, so no member may take it.
     # RESERVED_SLUGS is checked kind-independently, so one kind suffices.
     pytest.param(_slug("base") + _BUILD,
                  r"slug 'base' is reserved", id="slug-reserved"),

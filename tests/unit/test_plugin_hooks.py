@@ -23,6 +23,7 @@ from sanity_gravity.core.eventbus import (
     get_default_bus,
 )
 from sanity_gravity.domain.phase import Phase
+from sanity_gravity.domain.tags import DEFAULT_BASE
 from sanity_gravity.plugins.registry import (
     PluginRegistry,
     reset_default_registry,
@@ -40,6 +41,19 @@ def _write_manifest(slug_dir: Path, slug: str, kind: str, body_extra: str = "") 
         f'kind = "{kind}"\napi_version = "1"\n'
         f'[build]\ndockerfile = "Dockerfile"\n'
         f'{body_extra}'
+    )
+    (slug_dir / "Dockerfile").write_text("FROM scratch\n")
+
+
+def _write_default_base(root: Path) -> None:
+    """Every tag names a base, so a tree that resolves tags needs one."""
+    slug_dir = root / "base-images" / DEFAULT_BASE
+    slug_dir.mkdir(parents=True)
+    (slug_dir / "manifest.toml").write_text(
+        f'[plugin]\nslug = "{DEFAULT_BASE}"\nname = "base"\n'
+        f'kind = "base-image"\napi_version = "1"\ndefault = true\n'
+        f'[build]\ndockerfile = "Dockerfile"\n'
+        f'from = "ubuntu:24.04@sha256:{"0" * 64}"\n'
     )
     (slug_dir / "Dockerfile").write_text("FROM scratch\n")
 
@@ -195,7 +209,8 @@ def test_reset_default_registry_clears_hook_modules_and_bus():
 
 def test_agent_environment_merges_into_compose(monkeypatch, tmp_path):
     """An agent's [environment] flows into generate_compose_for_tag output."""
-    # Build a tiny synthetic plugin tree: ag-min-stub (3 plugins).
+    # Build a tiny synthetic plugin tree: ag-xfce-stub on the default base.
+    _write_default_base(tmp_path)
     _write_manifest(
         tmp_path / "agents" / "ag",
         "ag",
@@ -237,6 +252,7 @@ def test_agent_environment_merges_into_compose(monkeypatch, tmp_path):
 
 def test_desktop_compose_overrides_connector_last_write_wins(monkeypatch, tmp_path):
     """Desktop's [compose] field overrides connector's (last-write-wins)."""
+    _write_default_base(tmp_path)
     _write_manifest(tmp_path / "agents" / "ag", "ag", "agent",
                     '[capabilities]\nrequires = ["display"]\n')
     _write_manifest(

@@ -30,7 +30,11 @@ Schema (TOML)::
 
     [capabilities]                                      # optional
     provides = ["http-gui"]
-    requires = ["display"]
+    requires = ["display", "ubuntu:noble|debian:bookworm"]
+                             # a requirement may list alternatives with
+                             # '|', met by any one; a provide may not.
+                             # No whitespace, no empty or repeated
+                             # alternative.
 
     [build]                                             # required
     dockerfile = "Dockerfile"   # required. Relative to the manifest dir; may
@@ -123,7 +127,7 @@ KIND_DIRS: dict[str, str] = {
 _ROOT_KINDS = {"base-image"}
 
 # Support tiers, ordered least to most restrictive. A tag's tier is the
-# most restrictive tier among its three plugins. Only ``official``
+# most restrictive tier among its four plugins. Only ``official``
 # plugins enter the CI build/verify and release publish matrix;
 # ``community`` and ``deprecated`` stay locally buildable but leave the
 # matrix, and ``deprecated`` additionally warns on build/up.
@@ -323,6 +327,27 @@ def _str_list(value: Any, where: str) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _capabilities(value: Any, where: str, *, alternatives: bool) -> tuple[str, ...]:
+    """Capability names are an open vocabulary, so no charset is
+    imposed. Refused: what can never match, with nothing at solve time
+    to say why - whitespace, and '|' in a provide (a provide is a fact,
+    not a choice) - and what can only be a typo: an empty name or an
+    empty or repeated alternative."""
+    items = _str_list(value, where)
+    for i, item in enumerate(items):
+        at = f"{where}[{i}] {item!r}"
+        alts = item.split("|")
+        if any(c.isspace() for c in item):
+            raise ManifestError(f"{at}: capability names contain no whitespace")
+        if len(alts) > 1 and not alternatives:
+            raise ManifestError(f"{at}: '|' alternatives belong in requires")
+        if "" in alts:
+            raise ManifestError(f"{at}: empty capability name")
+        if len(set(alts)) != len(alts):
+            raise ManifestError(f"{at}: repeated alternative")
+    return items
+
+
 def _int(value: Any, where: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ManifestError(f"{where}: expected int, got {type(value).__name__}")
@@ -515,9 +540,8 @@ def load_manifest(
         )
     if slug in RESERVED_SLUGS:
         raise ManifestError(
-            f"{p}: [plugin].slug '{slug}' is reserved: the layer-name "
-            f"grammar renders desktop layers as '_base-<desktop>', so an "
-            f"agent named 'base' would make layer names ambiguous"
+            f"{p}: [plugin].slug '{slug}' is reserved: it names a tag "
+            f"dimension, so a member by that name reads as the dimension"
         )
 
     tier = "official"
@@ -537,9 +561,9 @@ def load_manifest(
             )
         is_default = plugin["default"]
         if is_default and tier != "official":
-            # tag_tier() rates a tag by the plugins its name spells out, yet
-            # the elided default is in every image built from it; an official
-            # default keeps that rating honest.
+            # tag_tier() counts the base: a community default would make
+            # every tag that elides it community and empty the official
+            # matrix.
             raise ManifestError(
                 f"{p}:[plugin].default: the default plugin of a dimension must be "
                 f'tier = "official", got "{tier}"'
@@ -565,11 +589,13 @@ def load_manifest(
         )
 
     capabilities = data.get("capabilities") or {}
-    provides = _str_list(
-        capabilities.get("provides", []), f"{p}:[capabilities].provides"
+    provides = _capabilities(
+        capabilities.get("provides", []), f"{p}:[capabilities].provides",
+        alternatives=False,
     )
-    requires = _str_list(
-        capabilities.get("requires", []), f"{p}:[capabilities].requires"
+    requires = _capabilities(
+        capabilities.get("requires", []), f"{p}:[capabilities].requires",
+        alternatives=True,
     )
 
     # One boundary for both [build] paths: a context may reach a sibling

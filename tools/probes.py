@@ -32,18 +32,21 @@ T = "tests/unit/"
 
 #: (file to mutate, test file that must go red) -> (probe id, old, new)...
 #:
-#: Grouped rather than flat 5-tuples: the file pair is what the 82
-#: entries repeat - two dozen probes hit manifest.py alone - and a typo
-#: there reads as "PATTERN MISSING" rather than as a wrong answer.
+#: Grouped rather than flat 5-tuples: the file pair is what the entries
+#: repeat - two dozen probes hit manifest.py alone - and a typo there
+#: reads as "PATTERN MISSING" rather than as a wrong answer.
 SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
     (S + "domain/tags.py", T + "test_tag_grammar.py"): (
-        ("T1-arity", "if len(parts) != 3:", "if len(parts) > 3:"),
-        ("T2-charset", "if not SLUG_RE.match(slug):",
-         "if False and not SLUG_RE.match(slug):"),
+        ("T1-arity", "if len(parts) not in (3, 4):", "if len(parts) < 3:"),
+        ("T2-charset", "if not SLUG_RE.fullmatch(slug):",
+         "if False and not SLUG_RE.fullmatch(slug):"),
+        ("T8-slug-trailing-newline", "SLUG_RE.fullmatch(slug)", "SLUG_RE.match(slug)"),
         ("T3-reserved", "if slug in RESERVED_SLUGS:", "if slug in ():"),
         ("T4-render-sep",
-         'return f"{self.agent}{SEP}{self.desktop}{SEP}{self.connector}"',
-         'return f"{self.agent}+{self.desktop}+{self.connector}"'),
+         'return f"{self.agent}{SEP}{self.desktop}{SEP}{self.connector}{base}"',
+         'return f"{self.agent}+{self.desktop}+{self.connector}{base}"'),
+        ("T7-default-base-spelled",
+         'base = "" if self.base == DEFAULT_BASE else', 'base = "" if False else'),
         ("T6-parse-canonicalizes", "parts = s.split(SEP)",
          "parts = s.strip().split(SEP)"),
         ("T5-parser-arg", "def parse(cls, s: str) -> Tag:",
@@ -59,18 +62,18 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
          "return self.image()"),
     ),
     (S + "domain/naming.py", T + "test_layer_grammar.py"): (
-        ("L1-base-literal", 'return "_base"', 'return "_bass"'),
-        ("L6-parse-arity",
-         "if len(parts) == 2:\n                    return LayerRef.of_desktop",
-         "if len(parts) >= 2:\n                    return LayerRef.of_desktop"),
+        ("L1-final-is-tag", "if ref.tag is not None:\n            return str(ref.tag)",
+         "if False:\n            return str(ref.tag)"),
     ),
     (S + "domain/layers.py", T + "test_layer_grammar.py"): (
-        ("L2-parent-rule",
-         "case LayerKind.DESKTOP:\n                return LayerRef.base()",
-         "case LayerKind.DESKTOP:\n                return None"),
-        ("L3-occupancy", 'for field in ("agent", "desktop", "connector"):',
-         "for field in ():"),
+        ("L2-parent-rule", "return LayerRef.from_bound(self.bound[:-1])",
+         "return LayerRef.from_bound(self.bound[:1])"),
+        ("L3-prefix-rule", "if depth == 0 or any(", "if False and any("),
+        ("L6-layer-slug", "if slug is not None and (", "if False and ("),
         ("L5-sort-depth", "            int(self.kind),", "            -int(self.kind),"),
+        ("L8-tag-agrees", "if t is not None and (t.base", "if False and (t.base"),
+        ("L9-intermediate-arity", "if not 1 <= len(parts) < len(_BUILD_ORDER):",
+         "if not 1 <= len(parts) <= len(_BUILD_ORDER):"),
     ),
     (S + "domain/errors.py", T + "test_errors.py"): (
         ("E1-default-exit", "exit_code: int = 1  # class-level default",
@@ -91,6 +94,12 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
         ("E7-unknown-msg",
          'f"Unknown agent \'{agent}\'. Valid: {\', \'.join(reg.agents.keys())}",',
          'f"Unmapped agent \'{agent}\'. Valid: {\', \'.join(reg.agents.keys())}",'),
+        ("E8-grammar-hint-dropped",
+         "boundary's.\n        raise TagError(str(exc), hint=_TAG_HINT) from exc",
+         "boundary's.\n        raise"),
+    ),
+    (S + "core/registry.py", T + "test_parse_tag_conflicts.py"): (
+        ("RT1-base-unchecked", "if parsed.base not in reg.base_images:", "if False:"),
     ),
     (S + "core/proc.py", T + "test_proc.py"): (
         ("P1-capture-collapse", ").raise_for_status(hint=hint).stdout", ").stdout"),
@@ -130,6 +139,8 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
          'cb.opt("--build-arg", f"BASE_IMAGE={parent_image}")', "pass"),
         ("G2-cachehit-text", 'f"  Cache hit: {Naming.layer_image(ref)}"',
          'f"  cache hit: {Naming.layer_image(ref)}"'),
+        ("G3-bind-own-slug", "_PLUGIN_KIND[ref.kind], ref.bound[-1]",
+         "_PLUGIN_KIND[ref.kind], ref.bound[0]"),
     ),
     (S + "compose/generators.py", T + "test_compose_golden.py"): (
         ("C1-image-expr", "image = naming.image_expr()", "image = naming.image()"),
@@ -170,8 +181,8 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
     ),
     (S + "plugins/manifest.py", T + "test_manifest.py"): (
         ("MA1-reserved-msg",
-         """f"{p}: [plugin].slug '{slug}' is reserved: the layer-name \"""",
-         """f"{p}: [plugin].slug '{slug}' is ZZZQQQ: the layer-name \""""),
+         """f"{p}: [plugin].slug '{slug}' is reserved: it names a tag \"""",
+         """f"{p}: [plugin].slug '{slug}' is ZZZQQQ: it names a tag \""""),
         ("MA2-api-version-msg",
          """f"{p}: [plugin].api_version '{api_version}' is not supported; \"""",
          """f"{p}: ZZZQQQ '{api_version}' is not supported; \""""),
@@ -211,12 +222,32 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
          "            pass"),
         ("MN10-api-version-hint", "if normalized in SUPPORTED_API_VERSIONS:",
          "if False:"),
+        ("MN11-capability-whitespace", "if any(c.isspace() for c in item):",
+         "if False:"),
+        ("MN12-provide-alternative", "if len(alts) > 1 and not alternatives:",
+         "if False:"),
+        ("MN13-capability-empty", 'if "" in alts:', "if False:"),
+        ("MN14-capability-repeated", "if len(set(alts)) != len(alts):", "if False:"),
         ("MC1-reserved-slug-off", "if slug in RESERVED_SLUGS:", "if slug in ():"),
         ("MC2-source-path-flip", "if self.source_path is None:",
          "if self.source_path is not None:"),
         ("MC3-toml-error-unwrapped",
          'raise ManifestError(f"{p}: TOML parse error: {exc}") from exc', "raise"),
         ("MC4-legacy-slug-ignored", 'if "legacy_slug" in sub:', "if False:"),
+    ),
+    (S + "domain/capability.py", T + "test_capability_solver.py"): (
+        ("CA1-alternatives-ignored",
+         'return any(alt in provided for alt in requirement.split("|"))',
+         "return requirement in provided"),
+        ("CA2-base-not-solved",
+         '        registry.get("base-image", tag.base),\n', ""),
+    ),
+    (S + "plugins/registry.py", T + "test_tiers.py"): (
+        ("TI1-base-tier-ignored", '            self.get("base-image", tag.base),\n', ""),
+        ("TI2-base-not-enumerated", "connector=c, base=b)", "connector=c)"),
+        ("TI3-default-base-not-first",
+         "sorted(self.base_images, key=lambda slug: slug != DEFAULT_BASE)",
+         "self.base_images"),
     ),
     (S + "plugins/manifest.py", T + "test_plugin_hooks.py"): (
         ("MC5-environment-dropped",
@@ -237,6 +268,7 @@ SPECS: dict[tuple[str, str], tuple[tuple[str, str, str], ...]] = {
          "            pass"),
         ("PR4-checkout-boundary", "checkout_root = r.resolve().parent",
          'checkout_root = Path("/")'),
+        ("PR5-default-not-grammar-default", "defaults != [expected]", "not defaults"),
     ),
     (S + "cli/io.py", T + "test_cli_io_validation.py"): (
         ("V1-username-none-guard", "if not name or not _USERNAME_RE.match(name):",

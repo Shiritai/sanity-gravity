@@ -40,7 +40,7 @@ from sanity_gravity.hooks.build import register_builtin_build_hooks
 def generate_intermediates():
     """Intermediate layer names of the official matrix (--list-intermediates)."""
     return [
-        Naming.layer(ref.kind, ref.detail)
+        Naming.layer(ref)
         for ref in official_layers(OFFICIAL_TAG_VALUES)
         if ref.kind is not LayerKind.CONNECTOR
     ]

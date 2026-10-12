@@ -36,8 +36,9 @@ from sanity_gravity.verbs.build import generate_intermediates
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE = _REPO_ROOT / "tests" / "fixtures" / "build_golden.txt"
 
-# Deliberately literal (not derived through the production naming code):
-# the fixture is an independent second witness of the naming grammar.
+# Derived through the production naming code, so these sets only choose
+# which images the fake probe reports as present. The independent witness
+# of the names is the checked-in fixture text.
 _INTERMEDIATE_IMAGES = frozenset(
     f"sanity-gravity:{name}" for name in generate_intermediates()
 )
