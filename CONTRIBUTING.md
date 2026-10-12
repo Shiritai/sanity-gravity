@@ -28,8 +28,8 @@ Repository layout:
 
 | Path | What lives there |
 |:-----|:-----------------|
-| `plugins/<kind>/<slug>/` | Every agent, desktop, and connector: `manifest.toml` + `Dockerfile` (+ optional `hooks.py`, `rootfs/`) |
-| `sandbox/` | The base image (`Dockerfile.base`) and the shared `rootfs/` overlay copied into every image |
+| `plugins/<kind>/<slug>/` | Every base, agent, desktop, and connector: `manifest.toml` + `Dockerfile` (+ optional `hooks.py`, `rootfs/`); a base under `base-images/` has only a manifest that points at `sandbox/` |
+| `sandbox/` | The shared base Dockerfile (`Dockerfile.base`) and `rootfs/` overlay that each base-image plugin points at |
 | `sanity_gravity/` | The CLI package - `domain/` (value objects: tags, naming, plans), `plugins/` (manifest + registry), `hooks/` (per-verb phase logic), `verbs/`, `cli/` |
 | `sanity-cli` | Entry point wrapper around `sanity_gravity.cli.main` |
 | `config/` | Generated compose files, one per tag (gitignored - never hand-edit) |
@@ -97,14 +97,11 @@ reference is the module docstring of `sanity_gravity/plugins/manifest.py`.
 
 Checklist for the common case:
 
-1. `mkdir -p plugins/<kind>/<slug>/` (`<kind>` is `agents`, `desktops`, or
-   `connectors`; `<slug>` must match `^[a-z][a-z0-9]*$` - `-` and `_` are
-   taken by the tag and layer-name grammars, and `base` is reserved).
+1. `mkdir -p plugins/<kind>/<slug>/` (`<kind>` is `agents`, `desktops`, `connectors`, or `base-images`; `<slug>` must match `^[a-z][a-z0-9]*$` - `-` and `_` are taken by the tag and layer-name grammars, and `base` is reserved for naming hygiene only: it names a tag dimension, so a member called `base` would read as the dimension).
 2. Write `manifest.toml` (`[plugin]`, `[capabilities]`, `[build]`, plus any of
    the optional `[ports.*]` / `[compose]` / `[environment]` / `[announce]` /
    `[ide]` sections).
-3. Write `Dockerfile`. It receives `--build-arg BASE_IMAGE=<parent layer>` from
-   the planner; pin any upstream package by digest or version.
+3. Write `Dockerfile`. It receives `--build-arg BASE_IMAGE=<parent layer>` from the planner; a root kind (a base) gets its `BASE_IMAGE` from its own manifest's `[build].from` instead. Pin any upstream package by digest or version.
 4. Start at `tier = "community"` (see "Support tiers").
 5. Verify: `./sanity-cli build <your tag>` then `./sanity-cli up -v <your tag>`.
 6. Add an integration smoke test with `@pytest.mark.requires_image("<tag>")`.
@@ -130,13 +127,8 @@ skipping it has produced a real defect before.
    `tests/unit/test_naming_guard.py`, and `layer`/`parse_layer` must stay
    mutually inverse (a Hypothesis round-trip property asserts exactly that).
 3. **Compatibility is data.** Express any cross-dimension constraint as `provides` / `requires` capability strings in the manifests. The solver is a pure set operation over the union of a tag's plugins (`sanity_gravity/domain/capability.py`) - it never learns member names. A requirement may list alternatives, `"ubuntu:noble|debian:bookworm"`, met when any one of them is provided (Debian's `Depends: a | b`). If you find yourself adding an `if` to the kernel to express "X only works on Y", you are writing a capability by hand: name it, declare it, delete the `if`.
-4. **Member differences go in the manifest.** Two plugins of the same kind that
-   differ only by a pinned upstream ref must share one Dockerfile and differ by
-   one manifest field (`[build].from`, digest-pinned, root kinds only - every
-   non-root layer gets its parent from the build plan). Two near-identical
-   Dockerfiles is the symptom of a missing manifest field - add the field
-   instead.
-5. **State the default twice, and pin the two together.** If the dimension is elidable from the tag string, the tag grammar states its default slug as a constant (`DEFAULT_BASE` in `sanity_gravity/domain/tags.py`), because `Tag.parse` and `str(tag)` must stay inverse without a registry lookup. The member with that slug declares `[plugin].default = true`, official tier only. The registry refuses to load a tree where the flag sits on any other member, on no member, or on a kind that is never elided.
+4. **Member differences go in the manifest.** Two plugins of the same kind that differ only by a pinned upstream ref must share one Dockerfile and differ by one manifest field (`[build].from`, digest-pinned, root kinds only - every non-root layer gets its parent from the build plan). Two near-identical Dockerfiles is the symptom of a missing manifest field - add the field instead. `plugins/base-images/` is the live example: `ubuntu` and `debian` share `sandbox/Dockerfile.base` and differ only by `[build].from`.
+5. **State the default twice, and pin the two together.** If the dimension is elidable from the tag string, its default is stated twice on purpose: as manifest data (`[plugin].default = true` on that member, official tier only) and as a grammar constant (`DEFAULT_BASE` in `sanity_gravity/domain/tags.py`), because `Tag.parse` and `str(tag)` must stay inverse without a registry lookup. The registry refuses to load a tree where the two differ: the flag on any other member, on no member, or on a kind that is never elided.
 6. **Budget the matrix.** A new dimension multiplies `OFFICIAL_TAGS`. Ship the
    new members at `tier = "community"` first; see "Matrix budget" before
    promoting anything.

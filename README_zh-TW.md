@@ -90,7 +90,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 
 ## 選擇你的沙箱
 
-每個映像檔由一個標籤描述：**`{agent}-{desktop}-{connector}`**。根據你的用途選擇：
+每個映像檔由一個標籤描述：**`{agent}-{desktop}-{connector}[-{base}]`**，base 為預設的 `ubuntu` 時省略（例如 `cc-none-ssh`；Debian 12 則是 `cc-none-ssh-debian`）。根據你的用途選擇：
 
 | 我想要...                       | 標籤             | 連線方式                   |
 | :------------------------------ | :--------------- | :------------------------- |
@@ -116,7 +116,7 @@ AI 代理會執行任意程式碼。一個意外的 `rm -rf /` 就足以讓你�
 
 > **注意：** `gc`（Gemini CLI）免費方案已於 2026-06-18 終止，現需付費 Gemini API key / Code Assist 授權。新使用者建議改用 **`agy`**（Antigravity CLI）—— Google 官方接替者，本專案已內建。
 
-共有 **78 個有效組合**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
+每個 base 有 **78 個有效組合，合計 156 個**。完整矩陣、維度模型與約束規則請參考 [模組化標籤系統](docs/tags.md)。
 
 想用的代理還沒內建？新增一個只需要 manifest 加 Dockerfile —— 請參考 [自帶 Agent 指南](docs/bring-your-own-agent.md)。
 
@@ -240,9 +240,10 @@ ssh -p 2222 $USER@localhost
 sanity-gravity/
 ├── sanity-cli                  # CLI 入口（Python 3，無外部相依）
 ├── sandbox/
-│   ├── Dockerfile.base         # 基底層：Ubuntu 24.04 + SSH + supervisord
-│   └── rootfs/                 # 共用覆疊層（entrypoint、gravity-cli、supervisor 設定）
+│   ├── Dockerfile.base         # 所有基底映像共用的基底層：SSH + supervisord
+│   └── rootfs/                 # 共用覆疊層（entrypoint、supervisor 設定）
 ├── plugins/                    # 清單驅動外掛
+│   ├── base-images/            #   ubuntu、debian
 │   ├── desktops/               #   xfce、lxqt、openbox、none
 │   ├── agents/                 #   ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）、ocd（OpenCode Desktop）、dsh（DeepSeek Harness）
 │   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh

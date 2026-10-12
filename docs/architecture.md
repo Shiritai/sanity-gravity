@@ -5,8 +5,8 @@
 Every Sanity-Gravity image is assembled through a **4-layer FROM chain**. Each layer is a standalone Dockerfile that accepts a `BASE_IMAGE` build argument, enabling composable stacking.
 
 ```
-ubuntu:24.04 (pinned SHA)
- └─ Dockerfile.base                      → sanity-gravity:_ubuntu
+plugins/base-images/ubuntu/ (ubuntu:24.04@sha256:…)
+ └─ sandbox/Dockerfile.base              → sanity-gravity:_ubuntu
      ├─ plugins/desktops/xfce/           → sanity-gravity:_ubuntu-xfce
      │   ├─ plugins/agents/ag/           → sanity-gravity:_ubuntu-xfce-ag → ag-xfce-{kasm,vnc,ssh}
      │   ├─ plugins/agents/agy/          → sanity-gravity:_ubuntu-xfce-agy → agy-xfce-{kasm,vnc,ssh}
@@ -45,20 +45,23 @@ ubuntu:24.04 (pinned SHA)
 
 (`ag` and `ocd` require a GUI desktop, so they have no headless `none` variant.)
 
-Each non-base layer lives under `plugins/<kind>/<slug>/` alongside a
-`manifest.toml` declaring its capabilities, ports, compose overlay, and
-(for connectors) announce template. The kernel reads manifests at startup
-via `lib/plugins.PluginRegistry`; adding a new agent/desktop/connector is
-**a directory + two files** — no Python edits required (see PR #6).
+The tree above is the default `ubuntu` base. Every other base grows the same tree from its own root layer, built from the same `sandbox/Dockerfile.base` on that base's pinned upstream image, and its final images carry the base as a trailing tag segment. One chain on `debian`:
+
+```
+plugins/base-images/debian/ (debian:12-slim@sha256:…)
+ └─ sandbox/Dockerfile.base → _debian → _debian-xfce → _debian-xfce-cc → cc-xfce-kasm-debian
+```
+
+Every layer, the base included, lives under `plugins/<kind>/<slug>/` (kinds: `base-images`, `desktops`, `agents`, `connectors`) alongside a `manifest.toml` declaring its capabilities, ports, compose overlay, and (for connectors) announce template. The kernel reads manifests at startup via `PluginRegistry` (`sanity_gravity/plugins/registry.py`); adding a new base/agent/desktop/connector is **a directory + a manifest** (plus a Dockerfile for every kind but a base, which points at the shared one) — no Python edits required (see PR #6).
 
 ## Naming Convention
 
-- **Intermediate images** are prefixed with `_` and named by their build path: the slugs bound so far, in build order (base, desktop, agent), so a layer's name is its parent's name plus one segment (e.g. `sanity-gravity:_ubuntu-xfce` -> `sanity-gravity:_ubuntu-xfce-ag`). They are local-only and never pushed to a registry.
-- **Final images** use the full tag (e.g. `sanity-gravity:ag-xfce-kasm`). These are what you run and what CI publishes.
+- **Intermediate images** are prefixed with `_` and named by their build path: the slugs bound so far, in build order (base, desktop, agent), so the segment count is the number of bound dimensions and a layer's name is its parent's name plus one segment (e.g. `sanity-gravity:_ubuntu-xfce` -> `sanity-gravity:_ubuntu-xfce-ag`). The base is always spelled out here, even the default one. They are local-only and never pushed to a registry.
+- **Final images** use the full tag (e.g. `sanity-gravity:ag-xfce-kasm`, `sanity-gravity:ag-xfce-kasm-debian`). These are what you run and what CI publishes (official tags only).
 
 ## How FROM Chaining Works
 
-Every layered Dockerfile follows the same pattern:
+Every plugin layer's Dockerfile follows the same pattern:
 
 ```dockerfile
 # Default is unused; always overridden by --build-arg. Set to suppress Docker warning.
@@ -76,10 +79,9 @@ docker build --build-arg BASE_IMAGE=sanity-gravity:_ubuntu-xfce-ag \
   -t sanity-gravity:ag-xfce-kasm plugins/connectors/kasm
 ```
 
-The base layer keeps `sandbox/` as its build context (so it can `COPY
-rootfs /`); plugin layers each use **their own directory** as the
-context, keeping the build hash deterministic and limiting each layer's
-visibility to its own files.
+The root layer's `BASE_IMAGE` is the digest-pinned upstream image in its base plugin's `[build].from` (e.g. `ubuntu:24.04@sha256:…`); every other layer gets its parent layer's image. `sandbox/Dockerfile.base` has no default for it, so a build without `--build-arg` fails instead of picking a distro.
+
+A base plugin's manifest points its build context at the shared `sandbox/` tree (so the Dockerfile can `COPY rootfs /`); the other plugin layers each use **their own directory** as the context, keeping the build hash deterministic and limiting each layer's visibility to its own files.
 
 ## Cache Behavior
 
@@ -89,14 +91,14 @@ visibility to its own files.
 
 ## Build Phases
 
-`./sanity-cli build` (with no arguments) builds all 19 **official** images in two phases; non-official tags (the deprecated `gc-*`, the community `ocd-*`, `dsh-*`, `*-lxqt-*` and `*-openbox-*`) build only when named explicitly:
+`./sanity-cli build` (with no arguments) builds all 19 **official** images in two phases; non-official tags (the deprecated `gc-*`, the community `ocd-*`, `dsh-*`, `*-lxqt-*`, `*-openbox-*` and `*-debian`) build only when named explicitly:
 
 1. **Phase 1: Intermediates** - builds the 12 shared intermediate images (`_ubuntu`, `_ubuntu-xfce`, `_ubuntu-none`, `_ubuntu-xfce-ag`, `_ubuntu-xfce-agy`, `_ubuntu-none-agy`, `_ubuntu-xfce-cc`, `_ubuntu-none-cc`, `_ubuntu-xfce-cx`, `_ubuntu-none-cx`, `_ubuntu-xfce-oc`, `_ubuntu-none-oc`).
 2. **Phase 2: Finals** - builds all 19 official final images on top of the intermediates.
 
 ## Entrypoint
 
-The base image (`Dockerfile.base`) installs `supervisord` as the process manager and `entrypoint.sh` as PID 1. At container start, the entrypoint:
+The base image (`sandbox/Dockerfile.base`) installs `supervisord` as the process manager and `entrypoint.sh` as PID 1. At container start, the entrypoint:
 
 1. Creates a user matching `HOST_UID` / `HOST_GID` / `HOST_USER`
 2. Sets the password from `HOST_PASSWORD`
@@ -134,11 +136,10 @@ The shipped `/etc/xdg/openbox/autostart` paints a solid background (a bare WM is
 
 ```
 sandbox/
-├── Dockerfile.base             # Layer 1: base (build context = sandbox/)
+├── Dockerfile.base             # Layer 1: shared by every base (build context = sandbox/)
 └── rootfs/                     # Overlay copied into base image
     ├── usr/local/bin/
-    │   ├── entrypoint.sh       # PID 1 init script
-    │   └── gravity-cli         # In-container IDE management tool
+    │   └── entrypoint.sh       # PID 1 init script
     ├── usr/local/lib/sanity-gravity/
     │   └── install-browser.sh  # Browser recipe the desktop layers run
     └── etc/supervisor/
@@ -146,6 +147,11 @@ sandbox/
         └── conf.d/ssh.conf     # sshd program definition
 
 plugins/                        # Manifest-driven extension point (PR #6)
+├── base-images/
+│   ├── ubuntu/                 # Layer 1: Ubuntu 24.04 (default)
+│   │   └── manifest.toml       #   [build].from = pinned ubuntu:24.04, provides=[ubuntu:noble]
+│   └── debian/                 # Layer 1: Debian 12 (bookworm)
+│       └── manifest.toml       #   [build].from = pinned debian:12-slim, provides=[debian:bookworm], tier=community
 ├── desktops/
 │   ├── xfce/                   # Layer 2: XFCE4 desktop
 │   │   ├── manifest.toml       #   provides=[display]

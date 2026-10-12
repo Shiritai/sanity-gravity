@@ -90,7 +90,7 @@ AI エージェントは任意のコードを実行します。たった一度�
 
 ## サンドボックスを選ぶ
 
-各イメージはタグで表されます: **`{agent}-{desktop}-{connector}`**。用途に合わせて選択してください:
+各イメージはタグで表されます: **`{agent}-{desktop}-{connector}[-{base}]`**。base がデフォルトの `ubuntu` のときは省略します（例: `cc-none-ssh`、Debian 12 なら `cc-none-ssh-debian`）。用途に合わせて選択してください:
 
 | やりたいこと                      | タグ             | 接続方法                   |
 | :-------------------------------- | :--------------- | :------------------------- |
@@ -116,7 +116,7 @@ AI エージェントは任意のコードを実行します。たった一度�
 
 > **注意:** `gc`（Gemini CLI）は 2026-06-18 に無料枠が終了し、有料の Gemini API キー / Code Assist ライセンスが必要になりました。新規ユーザーは Google 公式の後継である **`agy`**（Antigravity CLI、本プロジェクトに同梱済み）を推奨します。
 
-合計 **78 の有効な組み合わせ** があります。完全なマトリックス、次元モデル、制約ルールについては [モジュラータグシステム](docs/tags.md) をご参照ください。
+base ごとに **78、合計 156 の有効な組み合わせ** があります。完全なマトリックス、次元モデル、制約ルールについては [モジュラータグシステム](docs/tags.md) をご参照ください。
 
 使いたいエージェントが未搭載でも、manifest と Dockerfile の 2 ファイルで追加できます — [Bring Your Own Agent ガイド](docs/bring-your-own-agent.md) をご参照ください。
 
@@ -240,9 +240,10 @@ ssh -p 2222 $USER@localhost
 sanity-gravity/
 ├── sanity-cli                  # CLI エントリーポイント（Python 3、外部依存なし）
 ├── sandbox/
-│   ├── Dockerfile.base         # ベースレイヤー: Ubuntu 24.04 + SSH + supervisord
-│   └── rootfs/                 # 共有オーバーレイ（entrypoint、gravity-cli、supervisor 設定）
+│   ├── Dockerfile.base         # 全ベースイメージ共通のベースレイヤー: SSH + supervisord
+│   └── rootfs/                 # 共有オーバーレイ（entrypoint、supervisor 設定）
 ├── plugins/                    # マニフェスト駆動プラグイン
+│   ├── base-images/            #   ubuntu、debian
 │   ├── desktops/               #   xfce、lxqt、openbox、none
 │   ├── agents/                 #   ag（Antigravity）、agy（Antigravity CLI）、gc（Gemini CLI）、cc（Claude Code）、cx（OpenAI Codex）、oc（OpenCode）、ocd（OpenCode Desktop）、dsh（DeepSeek Harness）
 │   └── connectors/             #   kasm（KasmVNC）、vnc（TigerVNC）、ssh

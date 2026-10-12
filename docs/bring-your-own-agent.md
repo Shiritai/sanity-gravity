@@ -37,13 +37,8 @@ dockerfile = "Dockerfile"
 
 Field notes:
 
-- **slug** - short and unique; it becomes the first dimension of every tag
-  (`{agent}-{desktop}-{connector}`). Existing agents use 2-3 characters.
-- **capabilities** - a pure CLI agent leaves both lists empty; the registry
-  then emits every desktop/connector combination that satisfies the display
-  rule (four tags today: `<slug>-none-ssh` and `<slug>-xfce-{kasm,vnc,ssh}`).
-  An agent that needs a GUI declares `requires = ["display"]` (see
-  `plugins/agents/ag/`), which drops the headless variants.
+- **slug** - short and unique; it becomes the first dimension of every tag (`{agent}-{desktop}-{connector}[-{base}]`). Existing agents use 2-3 characters.
+- **capabilities** - a pure CLI agent leaves both lists empty; the registry then emits every desktop/connector/base combination that satisfies the display rule (`<slug>-none-ssh` plus `<slug>-<desktop>-{kasm,vnc,ssh}` for each GUI desktop, on every base). An agent that needs a GUI declares `requires = ["display"]` (see `plugins/agents/ag/`), which drops the headless variants.
 - **No host secrets** - agents declare no `[environment]` entries that leak
   host API keys into the sandbox. Authentication happens in-container (e.g.
   `opencode auth login`, `codex login`).
@@ -115,8 +110,7 @@ Conventions (all of `cc`, `cx`, and `oc` follow them):
   vendor's config file, seeded into the user's home by an
   `/etc/entrypoint.d` hook shipped via `COPY rootfs/ /` (see
   `plugins/agents/oc/rootfs/`).
-- The base layer already ships `curl`, `tar`, `ca-certificates`, and `git`;
-  only install extra runtimes (like Node.js) when the agent truly needs them.
+- Every base provides `curl`, `tar`, `ca-certificates`, and `git`; only install extra runtimes (like Node.js) when the agent truly needs them.
 - **Desktop menu entry** - ship a `.desktop` launcher under `rootfs/usr/share/applications/` (copied via `COPY rootfs/ /`) so the agent shows up in the desktop menu on GUI tags. CLI agents set `Terminal=true` (runs the TUI in the desktop's terminal); agents that `requires = ["display"]` should instead provide/patch the GUI launcher. The same image also serves the headless `none` variants, where the file is inert. See "Desktop Menu Entries" in `docs/architecture.md`.
 
 ## 4. Verify locally
