@@ -7,7 +7,8 @@ tier = "community"
 
 [capabilities]
 provides = []
-requires = ["display"]
+# The Dockerfile names libasound2 for exactly these distros.
+requires = ["display", "ubuntu:noble|debian:bookworm"]
 
 [build]
 dockerfile = "Dockerfile"

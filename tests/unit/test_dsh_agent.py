@@ -65,14 +65,15 @@ def _dsh_valid_tags(registry: PluginRegistry) -> list[Tag]:
     filtering, not just confirming a foregone conclusion.
     """
     tags = []
-    for d in registry.desktops:
-        for c in registry.connectors:
-            tag = Tag("dsh", d, c)
-            try:
-                solve(tag, registry)
-            except CapabilityConflictError:
-                continue
-            tags.append(tag)
+    for b in registry.base_images:
+        for d in registry.desktops:
+            for c in registry.connectors:
+                tag = Tag("dsh", d, c, b)
+                try:
+                    solve(tag, registry)
+                except CapabilityConflictError:
+                    continue
+                tags.append(tag)
     return tags
 
 
@@ -172,13 +173,14 @@ def test_dsh_valid_tags_count_matches_capability_shape(reg, dsh_valid_tags):
     a (desktop, connector) pair holds iff the desktop alone covers the
     connector's own `requires`: a GUI desktop covers every connector
     (kasm/vnc require display, ssh requires nothing); a headless one
-    only covers connectors that require no display."""
+    only covers connectors that require no display. Every base meets
+    kasm's distro requirement, so the shape repeats once per base."""
     gui = _gui_desktops(reg)
     headless = [d for d in reg.desktops if d not in gui]
     headless_ok_connectors = [
         c for c, m in reg.connectors.items() if "display" not in m.requires
     ]
-    expected = (
+    expected = len(reg.base_images) * (
         len(gui) * len(reg.connectors)
         + len(headless) * len(headless_ok_connectors)
     )

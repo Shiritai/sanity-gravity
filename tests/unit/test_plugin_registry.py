@@ -43,6 +43,7 @@ def test_registered_slugs(reg):
     assert {"ag", "gc", "cc", "ocd"}.issubset(set(reg.agents))
     assert set(reg.desktops) == {"xfce", "none", "lxqt", "openbox"}
     assert set(reg.connectors) == {"kasm", "vnc", "ssh"}
+    assert set(reg.base_images) == {"ubuntu", "debian"}
 
 
 def test_get_returns_manifest(reg):

@@ -111,10 +111,10 @@ def test_ag_manifest_identity(reg):
 
 def test_ag_is_a_gui_agent_that_provides_the_ide_capability(reg):
     """``provides = ["ide"]`` is what routes the ``ide`` verb here, and
-    ``requires = ["display"]`` is why no ag-none-* tag exists."""
+    requiring ``display`` is why no ag-none-* tag exists."""
     m = reg.agents["ag"]
     assert m.provides == ("ide",)
-    assert m.requires == ("display",)
+    assert m.requires == ("display", "ubuntu:noble")
 
 
 def test_ag_injects_no_host_env(reg):
