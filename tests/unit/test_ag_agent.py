@@ -114,7 +114,7 @@ def test_ag_is_a_gui_agent_that_provides_the_ide_capability(reg):
     requiring ``display`` is why no ag-none-* tag exists."""
     m = reg.agents["ag"]
     assert m.provides == ("ide",)
-    assert m.requires == ("display", "ubuntu:noble")
+    assert m.requires == ("display", "ubuntu:noble|debian:bookworm")
 
 
 def test_ag_injects_no_host_env(reg):

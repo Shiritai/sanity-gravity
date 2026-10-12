@@ -6,9 +6,9 @@ api_version = "1"
 
 [capabilities]
 provides = ["ide"]
-# The Dockerfile names the IDE's runtime libraries as Ubuntu 24.04 ships
-# them.
-requires = ["display", "ubuntu:noble"]
+# The Dockerfile names the IDE's runtime libraries for exactly these
+# distros.
+requires = ["display", "ubuntu:noble|debian:bookworm"]
 
 [build]
 dockerfile = "Dockerfile"
