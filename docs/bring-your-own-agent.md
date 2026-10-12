@@ -81,7 +81,9 @@ ARG BASE_IMAGE=ubuntu:24.04
 FROM ${BASE_IMAGE}
 
 ENV OPENCODE_DISABLE_AUTOUPDATE=true
-RUN curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path && \
+ARG OPENCODE_VERSION=1.19.0
+RUN curl -fsSL https://opencode.ai/install | \
+        bash -s -- --version "${OPENCODE_VERSION}" --no-modify-path && \
     test -f /root/.opencode/bin/opencode && \
     cp /root/.opencode/bin/opencode /usr/local/bin/opencode && \
     chmod 755 /usr/local/bin/opencode && \
