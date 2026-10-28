@@ -2,7 +2,7 @@
 
 ``validate_username`` and ``validate_project_name`` are the last line of
 defence between user input and shell / sed / docker-compose contexts.
-Each is a single anchored regex, so each gets a single table: the
+Each is a single fullmatch regex, so each gets a single table: the
 accepted set, the rejected set, and the non-string boundary.
 
 Merged from the former ``test_input_validation.py`` /
@@ -25,7 +25,7 @@ import pytest
 
 from sanity_gravity.cli.io import validate_project_name, validate_username
 
-# --- validate_username: ^[a-zA-Z_][a-zA-Z0-9_-]{0,31}$ -------------------
+# --- validate_username: fullmatch [a-zA-Z_][a-zA-Z0-9_-]{0,31} ---------
 
 USERNAME_VALID = [
     "developer",        # plain lowercase alpha
@@ -59,10 +59,10 @@ USERNAME_INVALID = [
     "unicodeé",    # body is ASCII-only, not \\w
     "A" * 33,           # one over the length boundary, upper
     "u" * 33,           # one over the length boundary, lower
-    "user\n",           # '$' matches before a final newline; fullmatch does not
+    "user\n",           # fullmatch refuses a trailing newline
 ]
 
-# --- validate_project_name: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$ ------------
+# --- validate_project_name: fullmatch [a-zA-Z0-9][a-zA-Z0-9_.-]{0,62} --
 
 PROJECT_VALID = [
     "sanity-gravity",   # '-' in the body
@@ -87,7 +87,7 @@ PROJECT_INVALID = [
     "my/project",       # '/' behind a valid head
     "my$project",       # shell expansion
     "a" * 64,           # one over the length boundary
-    "proj\n",           # '$' matches before a final newline; fullmatch does not
+    "proj\n",           # fullmatch refuses a trailing newline
 ]
 
 #: (validator, message prefix) - the two surfaces share every contract
@@ -126,14 +126,14 @@ class TestRejectionContract:
 
     ``None`` is the one input where the ``if not name`` guard is
     load-bearing rather than belt-and-braces. For ``""`` the guard is
-    redundant: both patterns are anchored and require a head character,
-    so ``match("")`` is already None -- delete the guard and the empty
+    redundant: both patterns require a head character, so
+    ``fullmatch("")`` is already None -- delete the guard and the empty
     string is still refused with the same ValueError. No test on ``""``
     can therefore witness the guard, and this file does not pretend
     otherwise; ``""`` lives in the tables above as a behaviour pin.
 
     For ``None`` the guard is the whole contract:
-    ``re.Pattern.match(None)`` raises ``TypeError``, so without the
+    ``re.Pattern.fullmatch(None)`` raises ``TypeError``, so without the
     guard the documented "raises ValueError" promise is simply false.
     Asserting the *exact* type is what makes that observable -- the
     predecessor of this test accepted ``(ValueError, TypeError)``, which

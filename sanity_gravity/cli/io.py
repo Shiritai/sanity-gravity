@@ -114,16 +114,16 @@ def print_plain(msg=""):
 
 # Username constraint for safe propagation into shell/sed/supervisord configs.
 # POSIX-ish: start with alpha/_, then alnum/_/-, up to 32 chars.
-_USERNAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]{0,31}$")
+_USERNAME_RE = re.compile(r"[a-zA-Z_][a-zA-Z0-9_-]{0,31}")
 # Project names map to docker compose project labels; restrict similarly.
-_PROJECT_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$")
+_PROJECT_NAME_RE = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}")
 
 
 def validate_username(name):
     """Raise ValueError if ``name`` is unsafe to interpolate into shell/sed contexts."""
     if not name or not _USERNAME_RE.fullmatch(name):
         raise ValueError(
-            f"Invalid username '{name}': must match {_USERNAME_RE.pattern} "
+            f"Invalid username '{name}': must fully match {_USERNAME_RE.pattern} "
             "(letters, digits, '_' and '-'; start with letter/underscore; "
             "max 32 chars)"
         )
@@ -134,7 +134,7 @@ def validate_project_name(name):
     """Raise ValueError if ``name`` is unsafe as a docker compose project name."""
     if not name or not _PROJECT_NAME_RE.fullmatch(name):
         raise ValueError(
-            f"Invalid project name '{name}': must match {_PROJECT_NAME_RE.pattern}"
+            f"Invalid project name '{name}': must fully match {_PROJECT_NAME_RE.pattern}"
         )
     return name
 
