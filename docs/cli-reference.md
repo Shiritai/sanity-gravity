@@ -154,11 +154,11 @@ Open the web desktop (KasmVNC/noVNC) URL in the default browser.
 Remotely manage the Antigravity IDE inside a running container.
 
 ```bash
-./sanity-cli ide update --name sanity-gravity     # Download, verify, install the current build
+./sanity-cli ide update --name sanity-gravity     # Download, verify, install the current IDE and agy builds
 ./sanity-cli ide reinstall --name sanity-gravity   # Same, plus an Electron cache clear-out
 ```
 
-These commands auto-inject the latest `gravity-cli` into the target container before execution, so a container built from an older checkout still runs the current installer. The tarball is checked against the sha256 Google publishes for that build before anything is replaced.
+These commands auto-inject the latest `gravity-cli` into the target container before execution, so a container built from an older checkout still runs the current installer. Each tarball is checked against the checksum Google publishes for that build (sha256 for the IDE, sha512 for agy) before anything is replaced; restart the IDE afterwards to run the new build.
 
 ### `proxy <action>`
 

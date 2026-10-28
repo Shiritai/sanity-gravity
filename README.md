@@ -82,7 +82,7 @@ AI agents run arbitrary code. One rogue `rm -rf /` and your host is toast. Sanit
 | **Seamless Disk I/O**          | Smart UID/GID mapping. No root-owned file disasters after host volume mounts.                                     |
 | **Multi-Instance**             | Parallel isolated sandboxes. Host ports are auto-allocated when unspecified (zero conflicts), or can be set manually. |
 | **Container Snapshots**        | Freeze your configured environment (installed software, active logins) into a new image branch.                   |
-| **Verified IDE Updates**       | `ide update` fetches the current Antigravity IDE build from Google and checks it against the checksum Google publishes before replacing the installed one. |
+| **Verified IDE Updates**       | `ide update` fetches the current Antigravity IDE and agy builds from Google and checks each against the checksum Google publishes before replacing the installed one. |
 | **SSH Agent Proxy**            | Use host SSH keys inside containers — no private key copying required.                                            |
 | **Multi-Arch**                 | All images support both `amd64` and `arm64`.                                                                      |
 
@@ -165,10 +165,10 @@ Full reference with all flags and environment variables: [CLI Reference](docs/cl
 
 ### IDE Management
 
-`ag` installs the Antigravity IDE from Google's official tarball, pinned by version and build id and verified against the sha256 Google publishes for it. Auto-update is off, so a sandbox stays on the build it was built with until you ask for another one. The IDE bundles a certificate its own agent backend pins, and the one in 2.5.5 expires on 2026-11-03, so the image build fails on purpose once that is 14 days away rather than shipping a silently dead Agent Manager ([#42](https://github.com/Shiritai/sanity-gravity/issues/42)).
+`ag` installs the Antigravity IDE from Google's official tarball, pinned by version and build id and verified against the sha256 Google publishes for it. Auto-update is off, so a sandbox stays on the build it was built with until you ask for another one. The Agent Manager's backend is agy, a separate CLI the IDE would otherwise download and update on its own; the image installs a pinned agy, verified against the sha512 Google publishes, and keeps the IDE from replacing it. `ide update` moves the IDE and agy together.
 
 - **Host side**: `sanity-cli` manages container lifecycles. Maintenance commands **auto-inject the latest `gravity-cli`** into the target container first, so a container built from an older checkout still runs the current installer.
-- **Container side**: `gravity-cli` asks Google's updater which build is current, downloads it, checks it against the sha256 Google publishes for that build, and swaps it in. It is the same script the image build runs, so the sandbox wrapper and the desktop entries have one source.
+- **Container side**: `gravity-cli` asks Google's updaters which IDE and agy builds are current, downloads them, checks each against the checksum Google publishes for that build, and swaps them in. It is the same script the image build runs, so the sandbox wrapper and the desktop entries have one source.
 
 #### From the Host
 
