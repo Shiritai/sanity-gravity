@@ -1,4 +1,5 @@
-"""``gravity-cli``: the container-side installer for the Antigravity IDE.
+"""``gravity-cli``: the container-side installer for the Antigravity IDE
+and agy, the CLI the IDE runs as its agent backend.
 
 The same script installs the IDE at build time (``ide install`` with the
 Dockerfile's pin) and replaces it inside a running sandbox (``ide
@@ -8,17 +9,19 @@ the text asserted here rather than a second copy of it - the old layout
 had the wrapper written twice, in the Dockerfile and here, and the two
 had already drifted apart.
 
-The download is the only thing faked: ``curl`` serves a fixture tarball
-laid out like the real one, and ``dpkg --print-architecture`` answers for
-whichever host runs the suite. Everything else runs - tar, jq, openssl,
-sha256sum, install - so what is under test is the real extraction, the
-real product.json patch and a real sha256 mismatch, not a mock of one.
+The download is the only thing faked: ``curl`` serves fixture tarballs
+laid out like the real ones, and ``dpkg --print-architecture`` answers for
+whichever host runs the suite. Everything else runs - tar, jq,
+sha256sum, sha512sum, install - so what is under test is the real
+extraction, the real JSON patches and a real checksum mismatch, not a
+mock of one.
 
 No image and no daemon: this reads the plugin's rootfs and runs bash.
 """
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import stat
@@ -40,9 +43,11 @@ GRAVITY_CLI_PATH = (
 
 #: The pin the fixture stands in for. Any version string will do: the
 #: installer is told the build directory, not asked to guess it.
-FIXTURE_VERSION = "2.5.5"
-FIXTURE_BUILD = "4923483625488384"
+FIXTURE_VERSION = "2.6.0"
+FIXTURE_BUILD = "5526304964083712"
 FIXTURE_BUILD_DIR = f"{FIXTURE_VERSION}-{FIXTURE_BUILD}"
+AGY_VERSION = "1.4.8"
+AGY_BUILD = "5447777392656384"
 
 #: Where the real artifact lives. The installer must build exactly this
 #: shape, or the pin points at nothing.
@@ -50,12 +55,20 @@ DOWNLOAD_BASE = "https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/st
 UPDATER_API = (
     "https://antigravity-ide-auto-updater-974169037036.us-central1.run.app"
 )
+AGY_DOWNLOAD_BASE = (
+    "https://storage.googleapis.com/antigravity-public/antigravity-cli"
+)
+AGY_UPDATER_API = (
+    "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app"
+)
+AGY_RELEASE_SETTING = "antigravity.releaseBaseUrl"
 
 #: Absolute paths the script writes to, each redirected into the test's
 #: own tree. Longest first is not required (none is a prefix of another),
 #: but the trailing slash on the last two is: ``/usr/bin`` must not catch
 #: ``/usr/local/bin/gravity-cli`` in the help text.
 _REDIRECTS = (
+    ("/usr/local/bin/agy", "local/bin/agy"),
     ("/usr/share/antigravity-ide", "share/antigravity-ide"),
     ("/usr/share/applications", "share/applications"),
     ("/usr/share/pixmaps", "share/pixmaps"),
@@ -63,27 +76,6 @@ _REDIRECTS = (
     ("/usr/bin/", "bin/"),
     ("/home/", "home/"),
 )
-
-_CERT_DAYS = 400
-
-
-def _self_signed_cert(path: Path) -> None:
-    """A certificate the installer's own expiry report can read.
-
-    Generated rather than committed: a fixture certificate would expire
-    on its own schedule and take this test with it, which is the very
-    failure this plugin now guards against.
-    """
-    subprocess.run(
-        [
-            "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-            "-keyout", os.devnull, "-out", str(path),
-            "-days", str(_CERT_DAYS),
-            "-subj", "/CN=localhost/O=ENABLES HTTP2/OU=bundled on purpose",
-        ],
-        check=True, capture_output=True,
-    )
-
 
 def _fixture_tarball(dest_dir: Path) -> tuple[Path, str]:
     """Build a tarball shaped like ``Antigravity IDE.tar.gz``.
@@ -97,8 +89,8 @@ def _fixture_tarball(dest_dir: Path) -> tuple[Path, str]:
     app = root / "resources" / "app"
     (app / "out").mkdir(parents=True)
     (app / "resources" / "linux").mkdir(parents=True)
-    ls_dir = app / "extensions" / "antigravity" / "dist" / "languageServer"
-    ls_dir.mkdir(parents=True)
+    ext = app / "extensions" / "agy"
+    ext.mkdir(parents=True)
     (root / "bin").mkdir()
 
     (root / "antigravity-ide").write_text("#!/bin/sh\necho electron \"$@\"\n")
@@ -118,12 +110,46 @@ def _fixture_tarball(dest_dir: Path) -> tuple[Path, str]:
         "backupUpdateUrl": "https://example.invalid",
         "quality": "stable",
     }, indent=2) + "\n")
-    _self_signed_cert(ls_dir / "cert.pem")
+    (ext / "package.json").write_text(json.dumps({
+        "name": "google-antigravity",
+        "contributes": {"configuration": {"properties": {
+            AGY_RELEASE_SETTING: {"type": "string", "default": ""},
+            "antigravity.channel": {"type": "string", "default": "production"},
+        }}},
+    }, indent=2) + "\n")
 
     tarball = dest_dir / "ide.tar.gz"
     with tarfile.open(tarball, "w:gz") as tf:
         tf.add(root, arcname="Antigravity IDE")
     return tarball, hashlib.sha256(tarball.read_bytes()).hexdigest()
+
+
+def _agy_tarball(dest_dir: Path, version: str = AGY_VERSION,
+                 body: str | None = None) -> Path:
+    """Shaped like ``cli_linux_x64.tar.gz``: one file, ``antigravity``,
+    that prints its version the way the real one does."""
+    binary = dest_dir / "antigravity"
+    binary.write_text(body if body is not None else f"#!/bin/sh\necho {version}\n")
+    binary.chmod(0o755)
+    tarball = dest_dir / "agy.tar.gz"
+    with tarfile.open(tarball, "w:gz") as tf:
+        tf.add(binary, arcname="antigravity")
+    binary.unlink()
+    return tarball
+
+
+def _sha512(path: Path) -> str:
+    return hashlib.sha512(path.read_bytes()).hexdigest()
+
+
+def _agy_manifest(sha512: str, version: str = AGY_VERSION,
+                  build: str = AGY_BUILD) -> str:
+    """The agy updater's answer, in its real shape."""
+    return json.dumps({
+        "version": version,
+        "url": f"{AGY_DOWNLOAD_BASE}/{version}-{build}/linux-x64/cli_linux_x64.tar.gz",
+        "sha512": sha512,
+    })
 
 
 def _mock(dir_path: Path, name: str, body: str) -> None:
@@ -159,13 +185,19 @@ def _sandboxed_cli(tmp_path: Path) -> Path:
     return out
 
 
-def _curl_mock(tarball: Path, api_json: str | None = None) -> str:
-    """A curl that answers the two requests the installer makes.
+def _curl_mock(tarball: Path, api_json: str | None = None,
+               agy_json: str | None = None) -> str:
+    """A curl that answers the four requests the installer makes.
 
-    ``-o <file>`` is the artifact download and gets the fixture bytes;
-    everything else is the updater API and goes to stdout.
+    ``-o <file>`` is a download and gets the IDE fixture, or the agy one
+    (``agy.tar.gz`` beside it) for an agy URL; everything else is one of
+    the two updaters and goes to stdout. The agy manifest defaults to
+    the truth about the agy fixture.
     """
+    agy = tarball.parent / "agy.tar.gz"
     api = api_json if api_json is not None else ""
+    if agy_json is None:
+        agy_json = _agy_manifest(_sha512(agy))
     return textwrap.dedent(f"""\
         #!/bin/bash
         dest=""
@@ -174,11 +206,18 @@ def _curl_mock(tarball: Path, api_json: str | None = None) -> str:
             if [ "$prev" = "-o" ]; then dest="$a"; fi
             prev="$a"
         done
+        url="${{@: -1}}"
         printf '%s\\n' "curl $*" >> {tarball.parent}/curl.log
         if [ -n "$dest" ]; then
-            cp {tarball} "$dest"
+            case "$url" in
+                *antigravity-cli*) cp {agy} "$dest" ;;
+                *) cp {tarball} "$dest" ;;
+            esac
         else
-            printf '%s' {api!r}
+            case "$url" in
+                *antigravity-cli-auto-updater*) printf '%s' {agy_json!r} ;;
+                *) printf '%s' {api!r} ;;
+            esac
         fi
         """)
 
@@ -189,6 +228,7 @@ def world(tmp_path):
     downloads = tmp_path / "downloads"
     downloads.mkdir()
     tarball, sha = _fixture_tarball(downloads)
+    _agy_tarball(downloads)
     cli = _sandboxed_cli(tmp_path)
     bin_dir = tmp_path / "mockbin"
     bin_dir.mkdir()
@@ -418,20 +458,53 @@ def test_an_existing_mimeapps_list_keeps_its_other_entries(world, tmp_path):
     assert "x-scheme-handler/antigravity-ide=antigravity-ide-url-handler.desktop" in text
 
 
-def test_the_install_reports_the_certificate_dates(world, tmp_path):
-    """The one fact a maintainer has to be able to read off a build log
-    (#42): when the bundled language-server certificate dies."""
+def test_the_install_points_agy_updates_at_nothing(world, tmp_path):
+    """The extension downloads and replaces agy on its own unless its
+    release URL leads nowhere. Loopback is the only plain-http host it
+    accepts and port 9 refuses at once, so the check fails fast and the
+    pinned binary stays. Only the default changes: the rest of the file
+    is upstream's, and a user setting still wins."""
     cli, tarball, sha, bin_dir, env = world
     _mock(bin_dir, "curl", _curl_mock(tarball))
 
     r = _run(cli, env, "ide", "install", FIXTURE_VERSION, FIXTURE_BUILD, sha)
-    assert "notAfter=" in r.stdout, r.stdout
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    pkg = json.loads((
+        _installed(tmp_path) / "resources" / "app" / "extensions" / "agy"
+        / "package.json"
+    ).read_text())
+    props = pkg["contributes"]["configuration"]["properties"]
+    assert props[AGY_RELEASE_SETTING]["default"] == "http://127.0.0.1:9"
+    assert props["antigravity.channel"]["default"] == "production"
+
+
+def test_an_extension_without_the_setting_fails_the_install(world, tmp_path):
+    """If upstream renames the setting, the patch would cut nothing and
+    agy would update itself again. That has to be a red build."""
+    cli, tarball, _sha, bin_dir, env = world
+    renamed = tarball.parent / "renamed.tar.gz"
+    with tarfile.open(tarball) as src, tarfile.open(renamed, "w:gz") as dst:
+        for member in src.getmembers():
+            data = src.extractfile(member) if member.isfile() else None
+            if member.name.endswith("extensions/agy/package.json"):
+                body = json.dumps({"contributes": {"configuration": {
+                    "properties": {"antigravity.cliBaseUrl": {"default": ""}},
+                }}}).encode()
+                member.size = len(body)
+                data = io.BytesIO(body)
+            dst.addfile(member, data)
+    sha = hashlib.sha256(renamed.read_bytes()).hexdigest()
+    _mock(bin_dir, "curl", _curl_mock(renamed))
+
+    r = _run(cli, env, "ide", "install", FIXTURE_VERSION, FIXTURE_BUILD, sha)
+    assert r.returncode != 0
+    assert AGY_RELEASE_SETTING in r.stdout + r.stderr
+    assert not _installed(tmp_path).exists()
 
 
 def test_a_missing_file_in_the_tarball_fails_the_install(world, tmp_path):
     """Upstream re-arranging the layout must be a red build, not a
-    sandbox whose IDE opens to nothing. cert.pem going away would even
-    be good news - and still has to be noticed."""
+    sandbox whose IDE opens to nothing."""
     cli, tarball, _sha, bin_dir, env = world
     stripped = tarball.parent / "stripped.tar.gz"
     with tarfile.open(tarball) as src, tarfile.open(stripped, "w:gz") as dst:
@@ -451,6 +524,140 @@ def test_a_missing_file_in_the_tarball_fails_the_install(world, tmp_path):
 def test_the_pinned_install_rejects_a_wrong_argument_count(world, tmp_path):
     cli, _tarball, _sha, _bin_dir, env = world
     r = _run(cli, env, "ide", "install", FIXTURE_VERSION)
+    assert r.returncode != 0
+    assert "usage" in (r.stdout + r.stderr).lower()
+
+
+# -- the pinned agy (the IDE's agent backend) --------------------------
+
+
+def _agy(tmp_path: Path) -> Path:
+    return tmp_path / "local" / "bin" / "agy"
+
+
+def test_the_pinned_agy_install_puts_the_binary_on_path(world, tmp_path):
+    cli, tarball, _sha, bin_dir, env = world
+    _mock(bin_dir, "curl", _curl_mock(tarball))
+    sha512 = _sha512(tarball.parent / "agy.tar.gz")
+
+    r = _run(cli, env, "agy", "install", AGY_VERSION, AGY_BUILD, sha512)
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert os.access(_agy(tmp_path), os.X_OK)
+    log = (tarball.parent / "curl.log").read_text()
+    assert (
+        f"{AGY_DOWNLOAD_BASE}/{AGY_VERSION}-{AGY_BUILD}/linux-x64/cli_linux_x64.tar.gz"
+        in log
+    ), log
+
+
+def test_the_agy_install_links_it_into_every_home(world, tmp_path):
+    """A sandbox whose image predates agy gets it from ``ide update``,
+    and its entrypoint does not know to link it: the IDE may not download
+    one, so without this link it would start with no backend."""
+    cli, tarball, _sha, bin_dir, env = world
+    _mock(bin_dir, "curl", _curl_mock(tarball))
+    home = tmp_path / "home" / "dev"
+    stale = home / ".gemini" / "bin" / "agy"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("an agy the IDE downloaded itself\n")
+    sha512 = _sha512(tarball.parent / "agy.tar.gz")
+
+    r = _run(cli, env, "agy", "install", AGY_VERSION, AGY_BUILD, sha512)
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert stale.is_symlink()
+    assert stale.resolve() == _agy(tmp_path)
+
+
+def test_an_agy_sha512_mismatch_installs_nothing(world, tmp_path):
+    cli, tarball, _sha, bin_dir, env = world
+    _mock(bin_dir, "curl", _curl_mock(tarball))
+
+    r = _run(cli, env, "agy", "install", AGY_VERSION, AGY_BUILD, "0" * 128)
+    assert r.returncode != 0
+    assert not _agy(tmp_path).exists()
+
+
+def test_an_agy_that_reports_another_version_is_refused(world, tmp_path):
+    """The binary has to run and has to be the build that was asked for:
+    this is the build-time proof that the backend the IDE will start is
+    the pinned one."""
+    cli, tarball, _sha, bin_dir, env = world
+    _agy_tarball(tarball.parent, version="9.9.9")
+    _mock(bin_dir, "curl", _curl_mock(tarball))
+    sha512 = _sha512(tarball.parent / "agy.tar.gz")
+
+    r = _run(cli, env, "agy", "install", AGY_VERSION, AGY_BUILD, sha512)
+    assert r.returncode != 0
+    assert "9.9.9" in r.stdout + r.stderr
+    assert not _agy(tmp_path).exists()
+    assert not _agy(tmp_path).with_suffix(".new").exists()
+
+
+def test_an_agy_that_fails_to_run_is_refused(world, tmp_path):
+    """A binary that cannot even report its version (wrong architecture,
+    missing loader) must stop the install with a message, and must not
+    be left where the IDE would start it."""
+    cli, tarball, _sha, bin_dir, env = world
+    _agy_tarball(tarball.parent, body="#!/bin/sh\necho 'exec format error' >&2\nexit 126\n")
+    _mock(bin_dir, "curl", _curl_mock(tarball))
+    sha512 = _sha512(tarball.parent / "agy.tar.gz")
+
+    r = _run(cli, env, "agy", "install", AGY_VERSION, AGY_BUILD, sha512)
+    assert r.returncode != 0
+    assert "exec format error" in r.stdout + r.stderr
+    assert not _agy(tmp_path).exists()
+    assert not _agy(tmp_path).with_suffix(".new").exists()
+
+
+@pytest.mark.parametrize("version, build", [
+    ("1.4.8/../../other-bucket/x", AGY_BUILD),
+    (AGY_VERSION, "1/../../x"),
+])
+def test_an_agy_version_or_build_with_a_path_in_it_is_refused(
+    version, build, world, tmp_path,
+):
+    """Both land in the download URL; a '/' in either would point it
+    outside the immutable path, with nothing fetched yet to check."""
+    cli, tarball, _sha, bin_dir, env = world
+    _mock(bin_dir, "curl", _curl_mock(tarball))
+
+    r = _run(cli, env, "agy", "install", version, build, "0" * 128)
+    assert r.returncode != 0
+    assert not (tarball.parent / "curl.log").exists()
+
+
+def test_arm64_spells_both_downloads_the_way_google_does(world, tmp_path):
+    """The download paths say linux-arm, the IDE updater linux-arm64,
+    agy's file and manifest linux_arm64."""
+    cli, tarball, sha, bin_dir, env = world
+    _mock(bin_dir, "dpkg", '#!/bin/bash\necho arm64\n')
+    sha512 = _sha512(tarball.parent / "agy.tar.gz")
+    api = json.dumps({
+        "sha256hash": sha,
+        "url": f"{DOWNLOAD_BASE}/{FIXTURE_BUILD_DIR}/linux-arm/Antigravity IDE.tar.gz",
+    })
+    manifest = json.dumps({
+        "version": AGY_VERSION,
+        "url": f"{AGY_DOWNLOAD_BASE}/{AGY_VERSION}-{AGY_BUILD}/linux-arm/cli_linux_arm64.tar.gz",
+        "sha512": sha512,
+    })
+    _mock(bin_dir, "curl", _curl_mock(tarball, api, manifest))
+
+    r = _run(cli, env, "ide", "update")
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    log = (tarball.parent / "curl.log").read_text()
+    for url in (
+        f"{UPDATER_API}/api/update/linux-arm64/stable/latest",
+        f"{DOWNLOAD_BASE}/{FIXTURE_BUILD_DIR}/linux-arm/Antigravity%20IDE.tar.gz",
+        f"{AGY_UPDATER_API}/manifests/linux_arm64.json",
+        f"{AGY_DOWNLOAD_BASE}/{AGY_VERSION}-{AGY_BUILD}/linux-arm/cli_linux_arm64.tar.gz",
+    ):
+        assert url in log, f"{url}\n{log}"
+
+
+def test_the_pinned_agy_install_rejects_a_wrong_argument_count(world):
+    cli, _tarball, _sha, _bin_dir, env = world
+    r = _run(cli, env, "agy", "install", AGY_VERSION)
     assert r.returncode != 0
     assert "usage" in (r.stdout + r.stderr).lower()
 
@@ -482,6 +689,65 @@ def test_update_installs_the_build_the_updater_api_names(world, tmp_path):
     log = (tarball.parent / "curl.log").read_text()
     assert f"{UPDATER_API}/api/update/linux-x64/stable/latest" in log, log
     assert (_installed(tmp_path) / "antigravity-ide-bin").is_file()
+
+
+def test_update_installs_the_agy_the_manifest_names(world, tmp_path):
+    """The IDE cannot fetch agy itself any more, so an update has to move
+    both: an IDE whose minimum agy is newer than the pinned one would
+    otherwise start with no backend."""
+    cli, tarball, sha, bin_dir, env = world
+    _mock(bin_dir, "curl", _curl_mock(tarball, _api_payload(sha)))
+
+    r = _run(cli, env, "ide", "update")
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    log = (tarball.parent / "curl.log").read_text()
+    assert f"{AGY_UPDATER_API}/manifests/linux_amd64.json" in log, log
+    assert f"{AGY_DOWNLOAD_BASE}/{AGY_VERSION}-{AGY_BUILD}/" in log, log
+    assert os.access(_agy(tmp_path), os.X_OK)
+
+
+def test_a_failed_agy_download_leaves_the_ide_alone(world, tmp_path):
+    """agy goes in first. The IDE an update brings may not download agy
+    itself, so swapping it in ahead of a failed agy install would leave
+    a sandbox whose Agent Manager has no backend."""
+    cli, tarball, sha, bin_dir, env = world
+    _mock(bin_dir, "curl", _curl_mock(
+        tarball, _api_payload(sha), _agy_manifest("0" * 128),
+    ))
+
+    r = _run(cli, env, "ide", "update")
+    assert r.returncode != 0
+    assert not _installed(tmp_path).exists()
+    assert not _agy(tmp_path).exists()
+
+
+def test_update_refuses_an_agy_url_off_the_official_path(world, tmp_path):
+    """Checked before anything is replaced, so a bad agy manifest leaves
+    the IDE that is there alone."""
+    cli, tarball, sha, bin_dir, env = world
+    bad = json.dumps({
+        "version": AGY_VERSION,
+        "url": "https://example.invalid/cli_linux_x64.tar.gz",
+        "sha512": "0" * 128,
+    })
+    _mock(bin_dir, "curl", _curl_mock(tarball, _api_payload(sha), bad))
+
+    r = _run(cli, env, "ide", "update")
+    assert r.returncode != 0
+    assert "unexpected agy download URL" in r.stdout + r.stderr
+    assert not _installed(tmp_path).exists()
+
+
+def test_update_refuses_an_agy_manifest_with_no_usable_sha512(world, tmp_path):
+    cli, tarball, sha, bin_dir, env = world
+    _mock(bin_dir, "curl", _curl_mock(
+        tarball, _api_payload(sha), _agy_manifest("not-a-hash"),
+    ))
+
+    r = _run(cli, env, "ide", "update")
+    assert r.returncode != 0
+    assert "sha512" in (r.stdout + r.stderr).lower()
+    assert not _installed(tmp_path).exists()
 
 
 def test_update_refuses_a_download_url_off_the_official_path(world, tmp_path):

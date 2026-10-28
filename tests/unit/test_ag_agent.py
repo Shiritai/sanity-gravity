@@ -12,11 +12,11 @@ Two halves, both cheap enough to run without Docker:
 
 * the manifest half, in the shape of ``test_ocd_agent.py`` - identity,
   ``requires = ["display"]``, tier, capability solving;
-* the install half - the tarball pin, the certificate gate, and the
-  absence of the apt/dpkg-divert machinery the 1.x install needed. The
-  pin is read out of the Dockerfile rather than restated here, so a bump
-  is one edit; what is asserted is that the pin has a shape upstream
-  cannot silently re-point, and that the docs name the same version.
+* the install half - the tarball pin, the agy pin, and the absence of
+  the apt/dpkg-divert machinery the 1.x install needed. The pins are
+  read out of the Dockerfile rather than restated here, so a bump is one
+  edit; what is asserted is that each pin has a shape upstream cannot
+  silently re-point, and that the docs name the same versions.
 """
 from __future__ import annotations
 
@@ -58,10 +58,9 @@ IMMUTABLE_URL_PATH = "release2/j0qc3/antigravity/stable"
 #: against ourselves: Google publishes it per platform.
 UPDATER_API_HOST = "antigravity-ide-auto-updater-974169037036.us-central1.run.app"
 
-#: 14 days. The certificate the extension pins as its only CA is the
-#: single point of failure #42 is about, so the build has to go red while
-#: there is still time to re-pin - not on the morning it expires.
-CERT_GRACE_SECONDS = "1209600"
+#: agy's immutable download path and the manifest its sha512 comes from.
+AGY_DOWNLOAD_BASE = "storage.googleapis.com/antigravity-public/antigravity-cli"
+AGY_UPDATER_HOST = "antigravity-cli-auto-updater-974169037036.us-central1.run.app"
 
 
 @pytest.fixture(scope="module")
@@ -223,42 +222,53 @@ def test_the_pinned_version_is_the_one_the_docs_name(dockerfile):
     )
 
 
-def test_the_app_directory_is_spelled_once(dockerfile, gravity_cli):
-    """The Dockerfile's certificate gate and the installer both address
-    the install directory; two spellings is one rename away from a gate
-    that checks a path nothing installs to."""
-    app_dir = _args(dockerfile)["ANTIGRAVITY_DIR"]
-    assert re.search(rf"^AG_DIR={re.escape(app_dir)}$", gravity_cli, re.MULTILINE), (
-        f"the Dockerfile installs to {app_dir} but gravity-cli's AG_DIR "
-        "names something else"
+# -- the agy pin -------------------------------------------------------
+
+
+def test_agy_is_pinned_by_version_and_build_id(dockerfile):
+    """From 2.6.0 the Agent Manager's backend is agy, which the IDE would
+    otherwise download on first use and replace in the background. Pinned
+    the same way as the IDE: a version and the build id that names it."""
+    args = _args(dockerfile)
+    assert re.fullmatch(r"\d+\.\d+\.\d+", args.get("AGY_VERSION", "")), (
+        f"AGY_VERSION={args.get('AGY_VERSION')!r} is not a version"
+    )
+    assert re.fullmatch(r"\d{10,}", args.get("AGY_BUILD", "")), (
+        f"AGY_BUILD={args.get('AGY_BUILD')!r} is not a build id"
+    )
+    assert "gravity-cli agy install" in dockerfile
+
+
+def test_agy_carries_one_sha512_per_architecture(dockerfile):
+    """The agy manifest publishes sha512, not sha256, so these are the
+    sums the pin can be cross-checked against."""
+    sums = re.findall(r"\b[0-9a-f]{128}\b", dockerfile)
+    assert len(sums) == 2 and len(set(sums)) == 2, (
+        f"expected two distinct 128-hex sha512 sums, found {sums}"
     )
 
 
-# -- the certificate gate ----------------------------------------------
+def test_the_agy_download_is_checked_against_a_sha512(gravity_cli):
+    assert "sha512sum -c" in gravity_cli
+    assert AGY_DOWNLOAD_BASE in gravity_cli
+    assert AGY_UPDATER_HOST in gravity_cli, (
+        "nothing cross-checks the agy pin against the sha512 Google publishes"
+    )
 
 
-def test_the_build_fails_on_a_certificate_about_to_expire(dockerfile):
-    """The reason this whole migration exists. The IDE hands the bundled
-    cert.pem to its own language-server connection as the only CA, so an
-    expired one fails every agent call in the TLS handshake and the Agent
-    Manager goes silent. A build must not be able to ship that."""
-    assert "openssl x509" in dockerfile and "-checkend" in dockerfile, (
-        "no build-time certificate check: an expired bundled certificate "
-        "would ship a dead Agent Manager again (#42)"
+def test_the_agy_update_url_is_pointed_at_nothing(gravity_cli):
+    """The extension's own downloader is pointed at a loopback port that
+    refuses, so its update check fails at once and it keeps the binary
+    it found - the pinned one."""
+    assert "antigravity.releaseBaseUrl" in gravity_cli
+    assert "http://127.0.0.1:9" in gravity_cli
+
+
+def test_the_pinned_agy_version_is_the_one_the_docs_name(dockerfile):
+    version = _args(dockerfile)["AGY_VERSION"]
+    assert f"agy {version}" in _TAGS_DOC.read_text(encoding="utf-8"), (
+        f"docs/tags.md does not name the pinned agy version {version}"
     )
-    assert f"-checkend {CERT_GRACE_SECONDS}" in dockerfile, (
-        f"the certificate check must use a {CERT_GRACE_SECONDS}s (14 day) "
-        "grace window, so the build goes red while re-pinning is still "
-        "possible"
-    )
-    assert "languageServer/cert.pem" in dockerfile, (
-        "the check no longer names the certificate the extension pins"
-    )
-    assert "#42" in dockerfile, (
-        "the failure message must point at the issue that explains it; a "
-        "bare 'certificate expired' sends the reader nowhere"
-    )
-    assert "exit 1" in dockerfile, "the certificate check does not fail the build"
 
 
 # -- what the 1.x install left behind ----------------------------------

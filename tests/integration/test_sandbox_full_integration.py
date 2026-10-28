@@ -91,14 +91,20 @@ class TestSandboxFullIntegration:
             pytest.fail(f"xdg-open returned 0, but no browser process (chrome/chromium) detected after 40s.\nProcess List:\n{ps_all}\nXsession Errors:\n{xdg_log}")
 
     def test_antigravity_chat_capability(self, test_kasm_container, docker_cli, host_env):
-        """Verify that Antigravity can use chat functionality (Language Server stability)."""
+        """Verify that Antigravity can use chat functionality (its agy backend stays up)."""
         user = host_env["HOST_USER"]
         
         # Start the IDE first
         docker_cli.exec(test_kasm_container, f"su - {user} -c 'mkdir -p ~/test_ws && cd ~/test_ws && git config --global user.email \"test@test.com\" && git config --global user.name \"Test\" && git init && git commit --allow-empty -m init'")
+        # 2.6 starts agy only once the agent panel shows, which a folder
+        # still waiting on the workspace-trust prompt never does. Nobody
+        # can click that prompt here, so trust is switched off.
+        docker_cli.exec(test_kasm_container, f"su - {user} -c 'cd ~/.config/Antigravity\\ IDE/User && jq --arg k security.workspace.trust.enabled \".[\\$k] = false\" settings.json > s.tmp && mv s.tmp settings.json'")
         docker_cli.exec(test_kasm_container, f"su - {user} -c 'DISPLAY=:1 antigravity ~/test_ws > /tmp/ag.log 2>&1 &'")
-        
-        # Wait a bit longer to ensure Language Server would crash if Emulation failed it
+
+        # Wait a bit longer to ensure the backend would crash if Emulation failed it
         time.sleep(10)
-        res_ls = docker_cli.exec(test_kasm_container, f"su - {user} -c 'pgrep -f language_server'")
-        assert res_ls.returncode == 0, "Antigravity Language Server (Chat backend) crashed or is not running"
+        # [a]: su's own command line carries this pattern, and a plain
+        # "agy --hub" would match su itself while the backend is down.
+        res_ls = docker_cli.exec(test_kasm_container, f"su - {user} -c 'pgrep -f \"[a]gy --hub\"'")
+        assert res_ls.returncode == 0, "Antigravity's agy backend (Chat backend) crashed or is not running"

@@ -60,3 +60,13 @@ if command -v xdg-mime >/dev/null 2>&1; then
             "/home/$USER_NAME/.config" "/home/$USER_NAME/.local" 2>/dev/null || true
     fi
 fi
+
+# The IDE runs agy from ~/.gemini/bin, which lives on the home volume:
+# a home from an older image, or one where the IDE downloaded its own
+# agy, would otherwise keep that binary. Re-linked on every start so the
+# backend is always the one this image pinned (gravity-cli installs it).
+AGY_LINK="/home/$USER_NAME/.gemini/bin/agy"
+mkdir -p "$(dirname "$AGY_LINK")"
+ln -sfn /usr/local/bin/agy "$AGY_LINK"
+chown -h "$HOST_UID":"$HOST_GID" "/home/$USER_NAME/.gemini" \
+    "/home/$USER_NAME/.gemini/bin" "$AGY_LINK" || true

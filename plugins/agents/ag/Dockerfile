@@ -37,9 +37,19 @@ FROM ${BASE_IMAGE}
 # The download path spells this architecture linux-arm where that API
 # spells it linux-arm64; the tarball behind the first name is genuine
 # aarch64.
-ARG ANTIGRAVITY_IDE_VERSION=2.5.5
-ARG ANTIGRAVITY_IDE_BUILD=4923483625488384
-ARG ANTIGRAVITY_DIR=/usr/share/antigravity-ide
+ARG ANTIGRAVITY_IDE_VERSION=2.6.0
+ARG ANTIGRAVITY_IDE_BUILD=5526304964083712
+
+# agy, the CLI the 2.6 IDE runs as its Agent Manager backend. Left to
+# itself the IDE downloads it on first use and replaces it in the
+# background, so the image would pin the editor and not the agent.
+# Bump it with the IDE, from the manifest the IDE itself reads:
+#   <agy updater>/manifests/<linux_amd64|linux_arm64>.json
+#                       -> .version, the build id in .url, .sha512
+# where <agy updater> is
+#   https://antigravity-cli-auto-updater-974169037036.us-central1.run.app
+ARG AGY_VERSION=1.4.8
+ARG AGY_BUILD=5447777392656384
 
 COPY rootfs/ /
 
@@ -49,8 +59,8 @@ COPY rootfs/ /
 # not depend on another layer's transitive dependencies. Ubuntu 24.04
 # renamed eight of them with a t64 suffix that Debian 12 does not have,
 # so the suffix is set per distro. Then the tools the install itself
-# needs: jq patches product.json, desktop-file-utils registers the URL
-# handler, openssl runs the certificate gate below.
+# needs: jq patches product.json and the agy extension's settings,
+# desktop-file-utils registers the URL handler.
 #
 # gravity-cli does the install so there is one copy of it: the same
 # script runs `ide update` inside a live sandbox, and the wrapper and
@@ -59,7 +69,7 @@ COPY rootfs/ /
 # twice - here and there - and the two had already drifted apart.
 RUN t64=t64; if [ "$(. /etc/os-release && echo "$ID")" = "debian" ]; then t64=; fi \
     && apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates desktop-file-utils jq openssl xdg-utils \
+        ca-certificates desktop-file-utils jq xdg-utils \
         libasound2${t64} libatk-bridge2.0-0${t64} libatk1.0-0${t64} \
         libatspi2.0-0${t64} libcairo2 libcups2${t64} libcurl4${t64} libdbus-1-3 \
         libexpat1 libgbm1 libglib2.0-0${t64} libgtk-3-0${t64} libnspr4 \
@@ -69,30 +79,13 @@ RUN t64=t64; if [ "$(. /etc/os-release && echo "$ID")" = "debian" ]; then t64=; 
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && arch="$(dpkg --print-architecture)" \
     && case "$arch" in \
-        amd64) sha="0c5233b297d2b3aebb61af49f8944012c2953d361a5ebb16978490636917f831" ;; \
-        arm64) sha="88c167108980c33a223a8d7f0aa6aaf4dec61f0cc3950235a2698e9ffc38a49e" ;; \
+        amd64) sha="b060a7c7679103b2b619752f8ee7a3088dd241a7d207d4311974b56ea6f94356" \
+               agy_sha="b23683771438e72bffe0a2231168f65a16a0d73ed2c7a8460b311dc5fe0c3c9d9dfc6cbfb7d8755173340071aa4cc5c7a552fb5d1be3fdd31c2b7559d67e404a" ;; \
+        arm64) sha="4953ccb52bf909582a1711a3dd26d640efb45fe555a17ebeff8bc7e2eaa052de" \
+               agy_sha="783ee9edd0f73e853af977e2848294ffb97b67b31ee19dccafb001f03f34b033371a2bb3371b61b78843c61bd4817ef1d2863a2d371b26513ea17d921c584bee" ;; \
         *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
        esac \
     && /usr/local/bin/gravity-cli ide install \
-        "${ANTIGRAVITY_IDE_VERSION}" "${ANTIGRAVITY_IDE_BUILD}" "${sha}"
-
-# A dead Agent Manager must never ship in silence again (#42).
-#
-# The extension hands this file to connect-node as the only CA for its own
-# connection to the language server, so an expired certificate is not a
-# warning anywhere - it is every agent call failing in the handshake while
-# the UI keeps accepting messages. The one in IDE 2.5.5 runs to
-# 2026-11-03, so this gate is also the schedule: 1209600 seconds is 14
-# days, and the build goes red while re-pinning is still possible instead
-# of on the morning the Agent Manager dies.
-#
-# A run inside the sandbox warns instead of failing (gravity-cli):
-# refusing to finish an update would leave a running container with no
-# IDE at all.
-RUN cert="${ANTIGRAVITY_DIR}/resources/app/extensions/antigravity/dist/languageServer/cert.pem" \
-    && openssl x509 -in "$cert" -noout -subject -dates \
-    && if ! openssl x509 -in "$cert" -noout -checkend 1209600; then \
-        echo "FATAL: the language-server certificate bundled with Antigravity IDE ${ANTIGRAVITY_IDE_VERSION} is expired or expires within 14 days." >&2; \
-        echo "Shipping it would ship a silently dead Agent Manager. Re-pin to a newer IDE build - see issue #42." >&2; \
-        exit 1; \
-    fi
+        "${ANTIGRAVITY_IDE_VERSION}" "${ANTIGRAVITY_IDE_BUILD}" "${sha}" \
+    && /usr/local/bin/gravity-cli agy install \
+        "${AGY_VERSION}" "${AGY_BUILD}" "${agy_sha}"
