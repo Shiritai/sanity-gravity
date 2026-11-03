@@ -135,8 +135,16 @@ def run_shell(
 ) -> None:
     """Run a genuine shell script (pipes / redirects). One caller today:
     the tar-pipe in verbs/sync.py. Every argument interpolated into
-    ``script`` must already be shlex.quote()d by the caller."""
+    ``script`` must already be shlex.quote()d by the caller.
+
+    bash with pipefail rather than /bin/sh: a pipe's status is otherwise
+    its last stage's, so a producer tar that skipped an unreadable file
+    (exit 2) under a consumer that extracted the rest (exit 0) read as
+    success. dash, /bin/sh on Debian and Ubuntu, has no pipefail."""
     _echo(script)
-    rc = subprocess.call(script, shell=True, cwd=cwd, env=_merged_env(env))
+    rc = subprocess.call(
+        ("bash", "-o", "pipefail", "-c", script),
+        cwd=cwd, env=_merged_env(env),
+    )
     if rc != 0:
         raise CommandError(script, rc, hint=hint)

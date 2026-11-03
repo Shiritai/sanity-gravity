@@ -96,6 +96,13 @@ class TestRunShell:
             proc.run_shell("exit 5")
         assert ei.value.returncode == 5
 
+    def test_a_failed_stage_is_not_masked_by_the_last(self):
+        # The sync tar pipe's shape: the producer fails, the consumer
+        # exits 0. Without pipefail the pipe reports 0.
+        with pytest.raises(CommandError) as ei:
+            proc.run_shell("exit 2 | true")
+        assert ei.value.returncode == 2
+
 
 def test_the_boundary_surface_is_exactly_three_functions():
     """Two fossils stay dead: run_command (the shell-inferring,
