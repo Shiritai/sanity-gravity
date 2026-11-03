@@ -1,4 +1,4 @@
-"""Test preconditions: one declaration, two policies.
+"""Test preconditions: declared by marker, enforced at run time.
 
 A test that needs the outside world declares it with one of
 
@@ -10,7 +10,10 @@ and never shells out to ``docker image inspect`` itself.
 ``requires_image`` adds ``requires_docker`` at collection, so
 ``-m "not requires_docker"`` selects every test that needs no daemon.
 
-``@pytest.mark.no_image`` states "needs nothing" explicitly.
+A test with none of the three is hermetic, and tests/hermetic.py fails
+it if it runs docker or systemctl or writes outside pytest's temp dirs.
+``@pytest.mark.no_image`` states "needs nothing" explicitly and is
+hermetic too.
 
 Locally a missing precondition is a skip carrying the exact build
 command; in CI (``SANITY_REQUIRE_IMAGES=1``) a missing official image
@@ -40,6 +43,8 @@ from sanity_gravity.domain.errors import CommandError
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.tags import Tag
 
+pytest_plugins = ["tests.hermetic"]
+
 _STRICT_ENV = "SANITY_REQUIRE_IMAGES"
 _DISPOSABLE_ENV = "SANITY_DISPOSABLE_HOST"
 
@@ -64,7 +69,7 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "no_image: needs neither docker nor an image; declared "
+        "no_image: needs neither docker nor an image (hermetic); declared "
         "explicitly so 'no precondition' is distinguishable from 'forgot "
         "the precondition'",
     )
