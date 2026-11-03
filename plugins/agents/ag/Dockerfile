@@ -5,12 +5,11 @@ FROM ${BASE_IMAGE}
 # so there is always one): Chrome/chromium, the --no-sandbox wrapper and
 # the x-www-browser registration are installed once per desktop rather
 # than once per agent. The IDE's own browser integration finds it as
-# /usr/bin/google-chrome, and the arm64 path the IDE hard-codes
-# (/opt/google/chrome/google-chrome) is linked at container start by
-# rootfs/etc/entrypoint.d/10-ag-startup.sh. The browser has to be in the
-# container for another reason now: 2.x sign-in ends in an
-# antigravity-ide:// deep link back to the IDE, which only resolves for a
-# browser running beside it.
+# /usr/bin/google-chrome, the first path its launcher probes, which the
+# desktop layer points at the wrapper on both architectures. The browser
+# has to be in the container for another reason now: 2.x sign-in ends in
+# an antigravity-ide:// deep link back to the IDE, which only resolves for
+# a browser running beside it.
 
 # The standalone Antigravity IDE, from the official tarball, pinned by
 # version + build id and verified against the sha256 Google publishes for

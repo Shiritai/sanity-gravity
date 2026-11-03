@@ -13,12 +13,6 @@ find "/home/$USER_NAME/.config/Antigravity IDE" -name "Singleton*" -delete 2>/de
 find "/home/$USER_NAME/.config/Antigravity" -maxdepth 1 -name "Singleton*" -delete 2>/dev/null || true
 find "/home/$USER_NAME/.gemini/antigravity-browser-profile" -name "Singleton*" -delete 2>/dev/null || true
 
-# Fix Chrome symlink for ARM64 (Chromium compatibility)
-if [ ! -f "/opt/google/chrome/google-chrome" ]; then
-    mkdir -p /opt/google/chrome
-    ln -sf /usr/bin/google-chrome /opt/google/chrome/google-chrome
-fi
-
 # Keep the IDE from replacing itself. product.json has already lost its
 # update URL at build time, which the user cannot undo; this is the
 # documented switch on top of it (upstream's releases page names
