@@ -49,7 +49,7 @@ RUN arch="$(dpkg --print-architecture)" && \
         -o /tmp/opencode.deb && \
     echo "${sha}  /tmp/opencode.deb" | sha256sum -c - && \
     apt-get update && \
-    if grep -q "ID=debian" /etc/os-release; then ALSA_PKG="libasound2"; else ALSA_PKG="libasound2t64"; fi && \
+    if [ "$(. /etc/os-release && echo "$ID")" = "debian" ]; then ALSA_PKG="libasound2"; else ALSA_PKG="libasound2t64"; fi && \
     apt-get install -y --no-install-recommends "${ALSA_PKG}" /tmp/opencode.deb && \
     rm /tmp/opencode.deb && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
