@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 import pytest
@@ -8,23 +9,28 @@ class TestCLI:
     
     @pytest.fixture
     def cli(self):
-        def _run(args):
+        def _run(args, home=None):
             # Run against the local sanity-cli script
             cmd = f"./sanity-cli {args}"
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            # Every invocation records a run dir under $HOME/.cache, so
+            # tests that need no docker pass a scratch HOME. The docker
+            # ones keep the real one: docker's client config and the
+            # ssh-agent proxy unit live there.
+            env = None if home is None else {**os.environ, "HOME": str(home)}
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
             return result
         return _run
 
     @pytest.mark.no_image
-    def test_cli_help(self, cli):
-        res = cli("--help")
+    def test_cli_help(self, cli, tmp_path):
+        res = cli("--help", home=tmp_path)
         assert res.returncode == 0
         assert "Antigravity Sandbox" in res.stdout
         assert "CLI" in res.stdout
 
     @pytest.mark.no_image
-    def test_cli_list(self, cli):
-        res = cli("list")
+    def test_cli_list(self, cli, tmp_path):
+        res = cli("list", home=tmp_path)
         assert res.returncode == 0
         assert "ag-xfce-kasm" in res.stdout
         assert "Dimension Matrix" in res.stdout

@@ -291,7 +291,7 @@ class TestBuildAllTierFilter:
 
 class TestDeprecationWarnings:
     def test_build_explicit_deprecated_target_warns_but_proceeds(
-        self, monkeypatch
+        self, tmp_path, monkeypatch
     ):
         monkeypatch.chdir(_REPO_ROOT)
         from sanity_gravity.core.reporter import Reporter
@@ -303,7 +303,10 @@ class TestDeprecationWarnings:
             variant=["cc-none-ssh"],
             dry_run=True,
             json_output=False,
-            reporter=Reporter(sinks=[], run_id="test"),
+            # The executor appends every planned action to
+            # <base_dir>/<run_id>/actions.jsonl even in dry-run; the
+            # default base is the developer's ~/.cache.
+            reporter=Reporter(sinks=[], run_id="test", base_dir=tmp_path / "runs"),
         )
         with patch("sanity_gravity.core.registry.tag_tier",
                    return_value="deprecated"), \

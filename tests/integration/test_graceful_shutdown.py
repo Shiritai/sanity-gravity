@@ -48,6 +48,9 @@ CONTAINER_STARTUP_TIMEOUT = 30  # seconds to wait for kasm + X session
 
 
 def _load_compose_for_tag(tag):
+    """Render and parse a tag's compose file. The generator writes
+    ``./config/`` under the cwd, so callers chdir to a scratch dir first
+    or the file lands in the checkout."""
     cli = _load_sanity_cli()
     compose_path, _ = cli.generate_compose_for_tag(tag)
     with open(compose_path) as f:
@@ -79,13 +82,15 @@ def _docker_exec(container, cmd, user=None):
 class TestGracefulShutdownConfig:
     """Verify static configuration for graceful shutdown."""
 
-    def test_stop_grace_period_kasm(self):
+    def test_stop_grace_period_kasm(self, tmp_path, monkeypatch):
         """Dynamic compose for kasm connector includes stop_grace_period."""
+        monkeypatch.chdir(tmp_path)
         compose = _load_compose_for_tag("ag-xfce-kasm")
         assert compose["services"]["ag-xfce-kasm"]["stop_grace_period"] == "30s"
 
-    def test_stop_grace_period_vnc(self):
+    def test_stop_grace_period_vnc(self, tmp_path, monkeypatch):
         """Dynamic compose for vnc connector includes stop_grace_period."""
+        monkeypatch.chdir(tmp_path)
         compose = _load_compose_for_tag("ag-xfce-vnc")
         assert compose["services"]["ag-xfce-vnc"]["stop_grace_period"] == "30s"
 

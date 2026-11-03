@@ -463,7 +463,7 @@ class TestRunResourceArgs:
     @patch("sanity_gravity.verbs.up.generate_resource_compose")
     @patch("sanity_gravity.compose.generators.ProxyManager")
     def test_run_with_resources(self, mock_pm, mock_gen_res, mock_user,
-                                fake_proc):
+                                fake_proc, tmp_path):
         mock_instance = mock_pm.return_value
         mock_instance.is_enabled.return_value = False
         mock_gen_res.return_value = "config/docker-compose.resources.yml"
@@ -483,7 +483,10 @@ class TestRunResourceArgs:
             password="pass",
             image=None,
             dry_run=True,
-            reporter=Reporter(sinks=[], run_id="t"),
+            # The executor appends every planned action to
+            # <base_dir>/<run_id>/actions.jsonl even in dry-run; the
+            # default base is the developer's ~/.cache.
+            reporter=Reporter(sinks=[], run_id="t", base_dir=tmp_path / "runs"),
         )
 
         from sanity_gravity.effects.executor import Executor as _Exec

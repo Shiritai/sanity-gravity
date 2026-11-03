@@ -209,7 +209,7 @@ def test_dry_run_executor_jsonl_routes_to_stderr(tmp_path, capsys):
     assert "WouldExecute" in types
 
 
-def test_cli_list_visual_parity_only_recording_banner():
+def test_cli_list_visual_parity_only_recording_banner(tmp_path):
     """Legacy ``list`` output must be byte-identical except for the new
     ``Recording to …/runs/<id>/`` banner emitted at startup."""
     repo = _REPO_ROOT
@@ -218,7 +218,9 @@ def test_cli_list_visual_parity_only_recording_banner():
         cwd=str(repo),
         capture_output=True,
         text=True,
-        env={**os.environ, "HOME": os.environ.get("HOME", "/tmp")},
+        # Every invocation records a run dir under ~/.cache; a scratch
+        # HOME keeps it out of the developer's.
+        env={**os.environ, "HOME": str(tmp_path)},
     )
     assert res.returncode == 0
     lines = res.stdout.splitlines()
