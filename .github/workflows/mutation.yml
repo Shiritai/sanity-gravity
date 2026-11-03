@@ -1,9 +1,10 @@
 name: Mutation Testing
 
-# Observational only - never wired into PR checks. First-pass policy is
-# artifact-only; if this ever becomes a gate it will be a frozen
-# survivor allowlist that may only shrink (same shape as the repo's
-# other ratchets), never a floating score threshold.
+# Observational only - never wired into PR checks. Surviving mutants
+# never fail the job (the results artifact is the signal); a run that
+# could not check any mutant does. If survivors ever become a gate it
+# will be a frozen survivor allowlist that may only shrink (same shape
+# as the repo's other ratchets), never a floating score threshold.
 on:
   workflow_dispatch:
   schedule:
@@ -32,9 +33,10 @@ jobs:
           pip install -e ".[mutation]"
 
       - name: Run mutation testing
-        # Surviving mutants are the expected steady state of an
-        # observational run; the results artifact is the signal.
-        continue-on-error: true
+        # mutmut exits 0 whether or not mutants survive and nonzero
+        # only when it cannot test them (stats or clean run failing,
+        # forced-fail check passing, a crash), so a red step means the
+        # run is broken, never that mutants survived.
         run: mutmut run
 
       - name: Collect results

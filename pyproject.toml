@@ -33,8 +33,10 @@ lint = [
 ]
 # Mutation testing is neither a test nor a lint dependency: only the
 # scheduled mutation workflow installs it (alongside ".[test]").
+# Pinned: the [tool.mutmut] keys and the exit codes mutation.yml relies
+# on are version-specific; re-check both in the new source to bump.
 mutation = [
-    "mutmut",
+    "mutmut==3.8.1",
 ]
 
 [project.scripts]
@@ -43,34 +45,40 @@ sanity-gravity = "sanity_gravity.cli.main:main"
 [tool.setuptools.packages.find]
 include = ["sanity_gravity*"]
 
-# Mutation testing (mutmut 3.x; keys verified against 3.7: the 2.x
+# Mutation testing (keys verified against the pinned 3.8.1: the 2.x
 # names paths_to_mutate/tests_dir/runner are deprecated or gone).
-# Scope, first pass: the code the new guards claim to protect - domain/
-# is the identity grammar; core/registry.py owns tag parsing + the tier
-# filter that feeds every CI matrix. plugins/ joins on a later pass.
-# The whole package is copied (imports must resolve inside mutants/)
-# but only the scoped files grow mutants.
+# Scope: domain/ is the identity grammar; core/registry.py owns tag
+# parsing + the tier filter that feeds every CI matrix;
+# plugins/manifest.py is the schema gate every plugin manifest passes
+# through. The whole package is copied (imports must resolve inside
+# mutants/) but only the scoped files grow mutants. Patterns are
+# fnmatch'ed against repo-relative paths, so "*" also crosses "/".
 [tool.mutmut]
 source_paths = ["sanity_gravity"]
 only_mutate = [
     "sanity_gravity/domain/*",
     "sanity_gravity/core/registry.py",
+    "sanity_gravity/plugins/manifest.py",
 ]
 # Never the integration suite: a docker-bound run turns minutes into an
 # overnight job and imports flakiness as "survived".
 pytest_add_cli_args_test_selection = ["tests/unit"]
-# mutmut copies tests/ and pyproject.toml on its own; everything else
-# the unit suite reads from the repo root must tag along or the mutant
-# runs diverge from the real suite: pytest.ini (suite config), plugins/
-# (manifests the registry discovers), sandbox/ (layer Dockerfiles the
-# planner stats), .github/ (workflow files the matrix/packaging guards
-# parse), CONTRIBUTING.md and the READMEs (docs contract), sanity-cli
-# (the launcher the reporter parity test execs).
+# mutmut copies source_paths, tests/ and pyproject.toml on its own;
+# everything else the unit suite reads from the repo root must tag
+# along, or the clean run fails on the missing file and no mutant is
+# checked: pytest.ini (suite config), plugins/ (manifests the registry
+# discovers), sandbox/ (layer Dockerfiles the planner stats), .github/
+# (workflow files the matrix/packaging guards parse), docs/ (tags.md,
+# which the ag pin tests check), CONTRIBUTING.md and the READMEs (docs
+# contract), sanity-cli (the launcher the reporter parity test execs).
+# Entries are literal paths, not globs: a new README*.md must be added
+# here or the docs contract silently checks one file fewer.
 also_copy = [
     "pytest.ini",
     "plugins/",
     "sandbox/",
     ".github/",
+    "docs/",
     "CONTRIBUTING.md",
     "README.md",
     "README_ja.md",
