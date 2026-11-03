@@ -35,7 +35,7 @@ def test_pyproject_declares_test_extra():
 
 
 def test_pyproject_declares_lint_extra():
-    """The lint job installs through this extra; a tool leaving it
+    """The hermetic job installs through this extra; a tool leaving it
     would turn its CI lint step into a no-op crash, not a soft skip."""
     extra = _extras()["lint"]
     assert any(dep.startswith("ruff") for dep in extra)

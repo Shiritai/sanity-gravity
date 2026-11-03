@@ -1,6 +1,6 @@
 """Executable architecture: the import contracts in pyproject.toml.
 
-Runs import-linter's CLI - the same entry point CI's lint job uses -
+Runs import-linter's CLI - the same entry point CI's hermetic job uses -
 and fails with the linter's own report pasted into the assertion.
 
 Deliberately no skip-if-not-installed: a missing lint-imports binary

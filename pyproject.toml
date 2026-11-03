@@ -21,12 +21,13 @@ test = [
     "urllib3",
     "import-linter",  # test_architecture.py shells out to lint-imports
 ]
-# Lint tooling is not a test dependency: CI installs it in a separate
-# job via `pip install -e ".[lint]"` (see test_packaging_contract.py).
-# import-linter appears in both extras on purpose: the lint job runs it
-# as a first-class linter, while tests/unit/test_architecture.py embeds
-# it in the suite (no skip-if-not-installed), so every environment that
-# runs the unit suite must be able to execute lint-imports.
+# Lint tooling is not a test dependency: CI's hermetic job installs it
+# next to the test extra via `pip install -e ".[lint]"` (see
+# test_packaging_contract.py). import-linter appears in both extras on
+# purpose: the hermetic job runs it as a first-class linter, while
+# tests/unit/test_architecture.py embeds it in the suite (no
+# skip-if-not-installed), so every environment that runs the unit suite
+# must be able to execute lint-imports.
 lint = [
     "ruff",
     "import-linter",
@@ -86,7 +87,7 @@ also_copy = [
     "sanity-cli",
 ]
 
-# Architecture contracts, executable via lint-imports (CI lint job) and
+# Architecture contracts, executable via lint-imports (CI hermetic job) and
 # embedded in the unit suite (tests/unit/test_architecture.py). Config
 # lives here rather than in a separate .importlinter INI: pyproject is
 # already the single config surface (ruff, mutmut), the packaging

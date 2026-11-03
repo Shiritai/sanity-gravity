@@ -12,6 +12,7 @@ Sanity-Gravity uses a **dual-path CI architecture** to keep PRs clean and releas
 
 ```
 .github/workflows/
+├── hermetic.yml            ← Every PR + every push to main: lint + hermetic tests
 ├── ci-pr.yml               ← PR entry point (no registry push)
 ├── ci-release.yml          ← Release entry point (push + publish)
 ├── _build-and-verify.yml   ← Reusable: build + test + scan on same runner
@@ -21,26 +22,41 @@ Sanity-Gravity uses a **dual-path CI architecture** to keep PRs clean and releas
 └── _publish.yml            ← Reusable: multi-arch manifest assembly
 ```
 
+## Required Checks
+
+Branch protection on `main` requires three checks: `hermetic`, `verify-x64 / build-and-verify`, and `verify-arm64 / build-and-verify`. GitHub names a check after its job (`<caller job> / <called job>` for a reusable workflow), so renaming these jobs means changing the branch protection setting too; `tests/unit/test_ci_checks.py` pins the names.
+
+No workflow that produces a required check filters its trigger by path: a workflow skipped that way reports nothing and leaves the check Pending, while a job skipped by `if:` reports Success.
+
+## Hermetic (`hermetic.yml`)
+
+Triggers on every pull request and every push to `main`, docs-only ones included (the tests read `docs/`, `CONTRIBUTING.md`, and the READMEs).
+
+The `hermetic` job runs `ruff check .`, `lint-imports`, and `pytest -m "not requires_docker"` with `HOME` pointed at an empty temp directory, then fails if the tests left anything in that `HOME` or in the checkout beyond the tool caches, `__pycache__/`, and `sanity_gravity.egg-info/`.
+
 ## PR Pipeline (`ci-pr.yml`)
 
-Triggers on pull requests to `main`, `feat/*`, `fix/*` (ignoring docs-only changes).
+Triggers on pull requests to `main`, `feat/*`, `fix/*`.
 
 ```
-setup (discover valid tags via ./sanity-cli list --json)
+setup (discover valid tags via ./sanity-cli list --json;
+       decide needs_images from the PR's changed paths)
   ├── verify-x64   (_build-and-verify.yml, amd64)
   └── verify-arm64  (_build-and-verify.yml, arm64)
 ```
 
+`needs_images` is false only when every changed path is docs-only (`sanity_gravity/core/changes.py`); then `build-and-verify` is skipped and both verify checks report as skipped, which counts as passing.
+
 Each `_build-and-verify.yml` run:
 1. Builds all images locally on a single runner
-2. Runs `pytest` integration tests
+2. Runs `pytest` integration tests (`SANITY_DISPOSABLE_HOST=1`: the runner is a fresh VM, so host-changing tests run)
 3. Runs Trivy security scans on all images
 
 **No images are pushed.** The single-runner approach avoids needing to push intermediate images across jobs.
 
 ## Release Pipeline (`ci-release.yml`)
 
-Triggers on push to `main`, version tags (`v*`), or published GitHub releases.
+Triggers on push to `main` (ignoring docs-only changes), version tags (`v*`), or published GitHub releases.
 
 ```
 setup (discover tags + generate SHA-based transient tag)

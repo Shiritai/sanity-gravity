@@ -40,9 +40,9 @@ Repository layout:
 
 ```bash
 python -m pytest tests/unit                 # fast, hermetic, no Docker
-python -m pytest -m "not requires_docker"   # all tests that need no daemon
+python -m pytest -m "not requires_docker"   # all tests that need no daemon (CI's hermetic job)
 python -m pytest tests/integration          # needs Docker and built images
-./sanity-cli test                           # the whole suite, as CI runs it
+./sanity-cli test                           # the whole suite, as CI's image jobs run it
 ```
 
 A test says what it needs from the host with one of three markers:
@@ -69,7 +69,9 @@ list. Fake the boundary instead: the `fake_proc` fixture for commands, a fake
 a plugin tree builds one under `tmp_path` and loads it with
 `PluginRegistry.from_dir(...)` rather than reaching for the real `plugins/`
 directory. Hermetic tests do not use the network either; that one is not
-checked.
+checked. CI's `hermetic` job also runs them with `HOME` set to an empty
+directory and fails if the run leaves anything in that `HOME` or in the
+checkout besides tool caches.
 
 **`mutates_host` tests** change the machine they run on: the SSH agent proxy
 round trip rewrites and restarts the `sanity-gravity-proxy` systemd user unit.
@@ -207,7 +209,8 @@ Two related guards live in the same file and follow the same "may only shrink" d
 - **Python**: PEP 8, 4-space indent, `from __future__ import annotations`,
   type hints on public functions. Modules carry a docstring explaining *why*
   the module exists, not a restatement of its name. `ruff check .` must pass
-  (the config lives in `pyproject.toml`; CI runs it on every PR).
+  (the config lives in `pyproject.toml`; CI's `hermetic` job runs it on every
+  PR and every push to `main`).
 - **Errors**: raise; do not `sys.exit` outside `sanity_gravity/cli/`. Library
   code that fails must raise an exception carrying an actionable hint; the CLI
   entry point is the only place that renders an error and picks an exit code.
@@ -250,6 +253,11 @@ never as an open chain.
 5. In the PR description: what changed, why, how you verified it, and - if you
    touched the matrix, the tag grammar, or CI - what the budget impact is.
 6. Include screenshots for changes to the desktop or IDE experience.
+
+Every PR must pass three checks: `hermetic`, `verify-x64 / build-and-verify`
+and `verify-arm64 / build-and-verify`. A PR that only touches `README*.md`,
+`CONTRIBUTING.md`, `LICENSE`, `SECURITY.md`, `assets/` or `docs/` builds no
+images; both verify checks then report as skipped, which counts as passing.
 
 By contributing you agree that your contributions are licensed under the
 repository's Apache-2.0 license.

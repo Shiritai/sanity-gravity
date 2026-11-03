@@ -11,12 +11,21 @@ on:
         description: "JSON array of final image tags"
         required: true
         type: string
+      needs_images:
+        description: "false skips the job, for a change no image reads (docs-only)"
+        required: true
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
+  # "<caller job> / build-and-verify" is a required status check on main.
+  # The skip sits on this job, not on the caller: a job skipped by if:
+  # reports Success under its name, while a skipped caller never expands
+  # this workflow, so the check would stay Pending.
   build-and-verify:
+    if: inputs.needs_images
     runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 60
     steps:

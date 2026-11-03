@@ -1,52 +1,28 @@
 name: PR Pipeline
 
+# No paths-ignore: a workflow skipped by a trigger filter reports none of
+# its checks, and the verify checks are required on main. Docs-only PRs
+# run this pipeline too; the setup job decides that they need no images.
 on:
   pull_request:
     branches: [ main, feat/*, fix/* ]
-    paths-ignore:
-      - 'README.md'
-      - 'README_*.md'
-      - 'CONTRIBUTING.md'
-      - 'LICENSE'
-      - 'SECURITY.md'
-      - 'assets/**'
-      - 'docs/**'
 
 permissions:
   contents: read
 
 jobs:
-  # One runner, once per PR - lint never joins the per-tag/per-arch
-  # fan-out, and a red here fails fast without blocking tag discovery.
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: Install Lint Tooling
-        run: pip install -e ".[lint]"
-
-      - name: Ruff
-        run: ruff check .
-
-      # Also embedded in the unit suite (test_architecture.py); this
-      # step is the fast PR-time red for the same contracts.
-      - name: Import Linter
-        run: lint-imports
-
   setup:
     runs-on: ubuntu-latest
     outputs:
       tags_json: ${{ steps.meta.outputs.tags_json }}
+      needs_images: ${{ steps.changes.outputs.needs_images }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
+        with:
+          # Full history: the three-dot diff below needs the merge base
+          # of the PR's base and head.
+          fetch-depth: 0
 
       - name: Discover valid tags from sanity-cli
         id: meta
@@ -54,12 +30,28 @@ jobs:
           chmod +x ./sanity-cli
           echo "tags_json=$(./sanity-cli list --json)" >> $GITHUB_OUTPUT
 
+      # --no-renames lists both sides of a rename, so moving a file out
+      # of plugins/ into docs/ still counts as a plugin change. Only an
+      # explicit "false" skips the build (see the != 'false' below), so a
+      # missing output errs toward building.
+      - name: Decide whether the change needs images
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA")
+          printf '%s\n' "$changed"
+          needs_images=$(printf '%s\n' "$changed" | python3 -m sanity_gravity.core.changes)
+          echo "needs_images=$needs_images" | tee -a "$GITHUB_OUTPUT"
+
   verify-x64:
     needs: [setup]
     uses: ./.github/workflows/_build-and-verify.yml
     with:
       arch: amd64
       tags: ${{ needs.setup.outputs.tags_json }}
+      needs_images: ${{ needs.setup.outputs.needs_images != 'false' }}
 
   verify-arm64:
     needs: [setup]
@@ -67,3 +59,4 @@ jobs:
     with:
       arch: arm64
       tags: ${{ needs.setup.outputs.tags_json }}
+      needs_images: ${{ needs.setup.outputs.needs_images != 'false' }}

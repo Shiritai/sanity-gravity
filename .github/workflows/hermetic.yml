@@ -1,0 +1,73 @@
+name: Hermetic
+
+# Every PR and every push to main, docs-only ones included: the hermetic
+# suite reads docs/, CONTRIBUTING.md and the READMEs, and a trigger path
+# filter would leave this required check Pending instead of skipped.
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  # The job id is the required status check "hermetic" on main. A name:,
+  # a matrix or a reusable-workflow call would rename the check, which is
+  # why this is a workflow of its own (test_ci_checks.py pins the shape).
+  hermetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: |
+          pip install -e ".[test]"
+          pip install -e ".[lint]"
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Import Linter
+        run: lint-imports
+
+      # An empty HOME makes a test that writes into the real one visible
+      # to the check below instead of landing in the runner's profile.
+      - name: Hermetic tests
+        env:
+          HOME: ${{ runner.temp }}/home
+        run: |
+          mkdir "$HOME"
+          python -m pytest -m "not requires_docker"
+
+      # The suite's isolation is checked from outside the suite: a test
+      # that writes into HOME or the checkout passes here and then
+      # litters every developer machine it runs on.
+      - name: Check the tests left no files behind
+        env:
+          TEST_HOME: ${{ runner.temp }}/home
+        run: |
+          status=0
+          if [ -n "$(ls -A "$TEST_HOME")" ]; then
+            echo "::error::the hermetic tests wrote into HOME:"
+            find "$TEST_HOME" -mindepth 1
+            status=1
+          fi
+          # Expected leftovers: the tool caches (each ships its own
+          # .gitignore) and the editable install's metadata. Anything
+          # else, tracked or not, was written by a test.
+          allowed='^!! ((\.pytest_cache|\.hypothesis|\.ruff_cache|\.import_linter_cache|sanity_gravity\.egg-info)/|(.+/)?__pycache__/)$'
+          leftovers=$(git status --porcelain --ignored | grep -Ev "$allowed" || true)
+          if [ -n "$leftovers" ]; then
+            echo "::error::the hermetic tests changed the checkout:"
+            echo "$leftovers"
+            status=1
+          fi
+          exit $status
