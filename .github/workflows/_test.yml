@@ -65,6 +65,7 @@ jobs:
       - name: Run Integration Tests
         env:
           SANITY_REQUIRE_IMAGES: "1" # catches a silently-failed pull/tag loop
+          SANITY_DISPOSABLE_HOST: "1" # a GitHub-hosted runner is a fresh VM per job
         run: |
           chmod +x ./sanity-cli
           ./sanity-cli test

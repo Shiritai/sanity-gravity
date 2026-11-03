@@ -39,6 +39,7 @@ jobs:
       - name: Run integration tests
         env:
           SANITY_REQUIRE_IMAGES: "1" # a skipped image test here means `build all` produced nothing
+          SANITY_DISPOSABLE_HOST: "1" # a GitHub-hosted runner is a fresh VM per job
         run: ./sanity-cli test
 
       - name: Install Trivy CLI

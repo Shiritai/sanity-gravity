@@ -3,9 +3,13 @@
 Runtime deps live in [project.dependencies]; tool deps live in extras
 ("test" for the suite, "lint" for ruff). CI must install through the
 package (-e ".[<extra>]") so a dependency added to pyproject.toml
-reaches CI without editing YAML.
+reaches CI without editing YAML. The workflow steps that run the
+integration suite are pinned here too: their environment is what makes
+the suite's skips and opt-ins mean what they say.
 """
 import tomllib
+
+import yaml
 
 from tests.support import REPO_ROOT
 
@@ -57,16 +61,44 @@ def test_workflows_install_via_declared_extras():
     )
 
 
+def _suite_steps() -> list[tuple[str, dict]]:
+    """``(workflow: step name, effective env)`` for every step that runs
+    ./sanity-cli test, env merged the way Actions does: workflow, then
+    job, then step."""
+    found = []
+    for wf in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        data = yaml.safe_load(wf.read_text())
+        for job in data["jobs"].values():
+            for step in job.get("steps", []):
+                if "sanity-cli test" in step.get("run", ""):
+                    env = {**data.get("env", {}), **job.get("env", {}), **step.get("env", {})}
+                    found.append((f"{wf.name}: {step.get('name', '<unnamed>')}", env))
+    assert found, "no workflow step runs ./sanity-cli test - the guards below went blind"
+    return found
+
+
 def test_workflows_running_the_suite_require_images():
     """Any workflow step that runs ./sanity-cli test must set
     SANITY_REQUIRE_IMAGES: a suite that may skip is a suite that may lie
     (a mistyped build/pull loop would otherwise read as all-green)."""
-    offenders = []
-    for wf in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
-        text = wf.read_text()
-        if "sanity-cli test" in text and "SANITY_REQUIRE_IMAGES" not in text:
-            offenders.append(wf.name)
+    offenders = [
+        step for step, env in _suite_steps() if env.get("SANITY_REQUIRE_IMAGES") != "1"
+    ]
     assert not offenders, (
-        "workflows run the integration suite without SANITY_REQUIRE_IMAGES=1: "
+        "steps run the integration suite without SANITY_REQUIRE_IMAGES=1: "
+        + ", ".join(offenders)
+    )
+
+
+def test_workflows_running_the_suite_declare_a_disposable_host():
+    """Any workflow step that runs ./sanity-cli test must set
+    SANITY_DISPOSABLE_HOST: a GitHub-hosted runner is a fresh VM per job,
+    the one place the mutates_host tests may change the machine, and
+    without the variable they skip there too and never run anywhere."""
+    offenders = [
+        step for step, env in _suite_steps() if env.get("SANITY_DISPOSABLE_HOST") != "1"
+    ]
+    assert not offenders, (
+        "steps run the integration suite without SANITY_DISPOSABLE_HOST=1: "
         + ", ".join(offenders)
     )
