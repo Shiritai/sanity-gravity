@@ -38,29 +38,48 @@ Repository layout:
 
 ## Running tests
 
-Two layers, with different prerequisites:
-
 ```bash
-python -m pytest tests/unit          # fast, hermetic, no Docker required
-python -m pytest tests/integration   # boots real containers; needs built images
-./sanity-cli test                    # the whole suite, the way CI runs it
+python -m pytest tests/unit                 # fast, hermetic, no Docker
+python -m pytest -m "not requires_docker"   # all tests that need no daemon
+python -m pytest tests/integration          # needs Docker and built images
+./sanity-cli test                           # the whole suite, as CI runs it
 ```
 
-**Unit tests** must stay hermetic: no Docker, no network, no writes outside
-`tmp_path`. A unit test that needs a plugin tree builds one under `tmp_path` and
-loads it with `PluginRegistry.from_dir(...)` rather than reaching for the real
-`plugins/` directory.
-
-**Integration tests** run against locally built images. Every file under
-`tests/integration/` declares its precondition with exactly one of three
-markers (a meta-test enforces this - "forgot the guard" must be
-distinguishable from "needs nothing"):
+A test says what it needs from the host with one of three markers:
 
 ```python
 @pytest.mark.requires_image("cx-none-ssh")   # needs a built image (implies docker)
-@pytest.mark.requires_docker                 # needs the daemon only
-@pytest.mark.no_image                        # needs neither, and says so
+@pytest.mark.requires_docker                 # needs the Docker daemon only
+@pytest.mark.mutates_host                    # changes host state
 ```
+
+`requires_image` adds `requires_docker` when tests are collected, so
+`-m "not requires_docker"` leaves out every test that needs the daemon.
+
+**Hermetic tests.** A test with none of the three markers is hermetic: it does
+not run `docker` or `systemctl`, and it writes only under pytest's temp
+directories (`tmp_path`, and `tempfile`, which points there during the test),
+the tool caches (`.pytest_cache`, `.hypothesis`, `.import_linter_cache`,
+`__pycache__`) and `/dev/null`. This is checked on every run:
+`tests/hermetic.py` records each `docker` or `systemctl` call (in the test
+process, and in child processes through stub commands put first on `PATH`) and
+each write outside those directories, and the test fails at teardown with the
+list. Fake the boundary instead: the `fake_proc` fixture for commands, a fake
+`HOME` under `tmp_path` for files in the home directory. A unit test that needs
+a plugin tree builds one under `tmp_path` and loads it with
+`PluginRegistry.from_dir(...)` rather than reaching for the real `plugins/`
+directory. Hermetic tests do not use the network either; that one is not
+checked.
+
+**`mutates_host` tests** change the machine they run on: the SSH agent proxy
+round trip rewrites and restarts the `sanity-gravity-proxy` systemd user unit.
+They run only with `SANITY_DISPOSABLE_HOST=1` and are skipped everywhere else.
+Set it only on a machine you can throw away: CI sets it; locally, use a VM.
+
+**Integration tests** run against locally built images. Every file under
+`tests/integration/` declares one of the three markers, or
+`@pytest.mark.no_image` for a hermetic test that says so (a meta-test enforces
+this - "forgot the marker" must be distinguishable from "needs nothing").
 
 `requires_image` marker semantics:
 
