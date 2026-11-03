@@ -88,3 +88,13 @@ def test_present_image_runs_normally(pytester, monkeypatch):
     monkeypatch.delenv("SANITY_REQUIRE_IMAGES", raising=False)
     _project(pytester, _OFFICIAL_TAG_TEST, images=("sanity-gravity:ag-xfce-kasm",))
     pytester.runpytest().assert_outcomes(passed=1)
+
+
+def test_requires_image_implies_requires_docker_for_selection(pytester, monkeypatch):
+    """``-m "not requires_docker"`` is the no-daemon selection, so an
+    image test must drop out of it without spelling both markers."""
+    monkeypatch.delenv("SANITY_REQUIRE_IMAGES", raising=False)
+    _project(pytester, _OFFICIAL_TAG_TEST + "\n\ndef test_hermetic():\n    pass\n")
+    result = pytester.runpytest("-m", "not requires_docker", "-v")
+    result.assert_outcomes(passed=1, deselected=1)
+    result.stdout.fnmatch_lines(["*::test_hermetic PASSED*"])

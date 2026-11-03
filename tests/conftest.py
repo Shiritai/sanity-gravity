@@ -1,18 +1,25 @@
-"""Integration preconditions: one declaration, two policies.
+"""Test preconditions: one declaration, two policies.
 
-A test that needs the outside world declares it with exactly one of
+A test that needs the outside world declares it with one of
 
     @pytest.mark.requires_image("cx-none-ssh")   # needs a built image
     @pytest.mark.requires_docker                 # needs the daemon only
-    @pytest.mark.no_image                        # needs nothing (pure python)
+    @pytest.mark.mutates_host                    # changes host state
 
-and never shells out to ``docker image inspect`` itself. Locally a
-missing precondition is a skip carrying the exact build command; in CI
-(``SANITY_REQUIRE_IMAGES=1``) a missing official image is a failure,
-because a skip there means the build step produced nothing and a green
-suite would be a lie. Non-official tags (community/deprecated) stay
-skips even under the strict env: CI's ``build all`` never promises
-them, so their absence is truthful.
+and never shells out to ``docker image inspect`` itself.
+``requires_image`` adds ``requires_docker`` at collection, so
+``-m "not requires_docker"`` selects every test that needs no daemon.
+
+``@pytest.mark.no_image`` states "needs nothing" explicitly.
+
+Locally a missing precondition is a skip carrying the exact build
+command; in CI (``SANITY_REQUIRE_IMAGES=1``) a missing official image
+is a failure, because a skip there means the build step produced
+nothing and a green suite would be a lie. Non-official tags
+(community/deprecated) stay skips even under the strict env: CI's
+``build all`` never promises them, so their absence is truthful.
+``mutates_host`` tests run only with ``SANITY_DISPOSABLE_HOST=1``, set
+by CI and on throwaway VMs, and skip everywhere else.
 """
 import contextlib
 import dataclasses
@@ -34,6 +41,7 @@ from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.tags import Tag
 
 _STRICT_ENV = "SANITY_REQUIRE_IMAGES"
+_DISPOSABLE_ENV = "SANITY_DISPOSABLE_HOST"
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -51,9 +59,22 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "no_image: needs neither docker nor an image; declared explicitly so "
-        "'no precondition' is distinguishable from 'forgot the precondition'",
+        "mutates_host: changes host state (systemd units, sockets); runs "
+        f"only with {_DISPOSABLE_ENV}=1",
     )
+    config.addinivalue_line(
+        "markers",
+        "no_image: needs neither docker nor an image; declared "
+        "explicitly so 'no precondition' is distinguishable from 'forgot "
+        "the precondition'",
+    )
+
+
+def pytest_itemcollected(item: pytest.Item) -> None:
+    # Before -m deselection, which runs in pytest_collection_modifyitems.
+    if (item.get_closest_marker("requires_image") is not None
+            and item.get_closest_marker("requires_docker") is None):
+        item.add_marker("requires_docker")
 
 
 def _image_ref(tag: str) -> str:
@@ -118,6 +139,15 @@ def _strict() -> bool:
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
     """Enforce the declared precondition, at setup time (not at import)."""
+    # An explicit opt-in, never inferred from CI=true: these tests
+    # rewrite and restart the developer's own services.
+    if (item.get_closest_marker("mutates_host") is not None
+            and os.environ.get(_DISPOSABLE_ENV) != "1"):
+        pytest.skip(
+            f"changes host state; runs only with {_DISPOSABLE_ENV}=1 "
+            "(CI, or a throwaway VM)"
+        )
+
     tags = _declared_tags(item)
     needs_docker = tags or item.get_closest_marker("requires_docker") is not None
     if not needs_docker:

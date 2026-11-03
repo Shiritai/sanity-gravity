@@ -28,7 +28,9 @@ from tests.support import REPO_ROOT, py_files, walk
 
 _TESTS_DIR = REPO_ROOT / "tests"
 _INTEGRATION_DIR = _TESTS_DIR / "integration"
-_PRECONDITION_MARKS = frozenset({"requires_image", "requires_docker", "no_image"})
+_PRECONDITION_MARKS = frozenset(
+    {"requires_image", "requires_docker", "mutates_host", "no_image"}
+)
 
 # Raising this ceiling is a CI budget review, not a formality: build all
 # runs the whole matrix serially on one runner per arch under
