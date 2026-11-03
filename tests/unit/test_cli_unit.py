@@ -326,6 +326,45 @@ class TestConfigSync:
         pipe = fake_proc.assert_ran("tar -cf -").text
         assert "tar -cf - -C '/tmp/my configs; touch pwned'" in pipe
 
+    def test_excludes_keep_runtime_state_out_and_config_in(self, tmp_path):
+        """Real tar over a copy of a host's whole ~/.gemini, with the
+        flags the pipe uses: the browser profile and the IDE's agy stay
+        behind, while config, agent data and other bin dirs (a plugin's,
+        agy's own helpers) still travel. Patterns are matched by tar,
+        not by Python, so only running tar can show what they catch."""
+        src = tmp_path / "gemini"
+        for rel in (
+            "GEMINI.md",
+            "antigravity-browser-profile/SingletonLock",
+            "bin/agy",
+            "bin/agy.version.json",
+            "antigravity/brain/note.md",
+            "antigravity/bin/webm_encoder",
+            "config/plugins/p/bin/tool",
+        ):
+            (src / rel).parent.mkdir(parents=True, exist_ok=True)
+            (src / rel).write_text("x")
+        archive = tmp_path / "sync.tar"
+        subprocess.run(
+            ["tar", "-cf", str(archive), "-C", str(src),
+             *sync_mod.SYNC_EXCLUDES, "."],
+            check=True,
+        )
+        listing = subprocess.run(
+            ["tar", "-tf", str(archive)],
+            check=True, capture_output=True, text=True,
+        ).stdout
+        members = {m.removeprefix("./") for m in listing.split()}
+
+        assert not any(m.startswith("antigravity-browser-profile")
+                       for m in members)
+        assert "bin/agy" not in members
+        assert "bin/agy.version.json" not in members
+        for kept in ("GEMINI.md", "antigravity/brain/note.md",
+                     "antigravity/bin/webm_encoder",
+                     "config/plugins/p/bin/tool"):
+            assert kept in members
+
     def test_sync_config_safe_simulation(self, mock_env):
         """Test sync_config with a custom source directory (simulation)."""
         mock_exists, _, _, fake_proc = mock_env

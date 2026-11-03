@@ -25,6 +25,18 @@ from sanity_gravity.core.colors import Colors
 from sanity_gravity.core.proc import run_shell, try_run
 from sanity_gravity.domain.errors import SanityError
 
+#: tar --exclude flags for ``./config`` -> ``~/.gemini``: machine-local
+#: state that a copy of a host's whole ~/.gemini would otherwise carry in.
+#: - antigravity-browser-profile: the IDE's Chrome profile; its Singleton
+#:   lock names the host, and Chrome refuses a profile locked elsewhere.
+#: - bin/agy*: the agy the IDE runs; the entrypoint links it to the
+#:   image's pinned build, and a host copy (another build, maybe another
+#:   OS) would replace that link until the next restart.
+SYNC_EXCLUDES = (
+    "--exclude=antigravity-browser-profile",
+    "--exclude=bin/agy*",
+)
+
 
 def sync_config(project_name, container_name, username, config_source="config"):
     """Sync Antigravity configuration to the container."""
@@ -111,10 +123,9 @@ def sync_config(project_name, container_name, username, config_source="config"):
         print_info("Transferring files (excluding runtime state)...")
         # Genuine shell requirement: this is a pipe between two processes.
         # All interpolated values are quoted with shlex.quote as defence-in-depth.
+        excludes = " ".join(shlex.quote(e) for e in SYNC_EXCLUDES)
         tar_cmd = (
-            f"tar -cf - -C {shlex.quote(config_dir)} "
-            f"--exclude='antigravity/daemon' "
-            f"--exclude='antigravity-browser-profile' . "
+            f"tar -cf - -C {shlex.quote(config_dir)} {excludes} . "
             f"| docker exec -i {shlex.quote(container_name)} "
             f"tar -xf - -C {shlex.quote(target_dir)}"
         )
