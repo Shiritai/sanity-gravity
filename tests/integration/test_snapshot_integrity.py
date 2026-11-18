@@ -17,7 +17,7 @@ from tests.utils import wait_for_log
 
 pytestmark = pytest.mark.requires_image("ag-xfce-kasm")
 
-#: Antigravity IDE 2.6.0 starts the agent's browser with
+#: Antigravity IDE 2.7.0 starts the agent's browser with
 #: ``--user-data-dir`` here unless the user set another path.
 AGENT_PROFILE = ".gemini/antigravity-browser-profile"
 LOCKS = ("SingletonLock", "SingletonSocket", "SingletonCookie")

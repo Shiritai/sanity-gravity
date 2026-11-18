@@ -43,11 +43,11 @@ GRAVITY_CLI_PATH = (
 
 #: The pin the fixture stands in for. Any version string will do: the
 #: installer is told the build directory, not asked to guess it.
-FIXTURE_VERSION = "2.6.0"
-FIXTURE_BUILD = "5526304964083712"
+FIXTURE_VERSION = "2.8.0"
+FIXTURE_BUILD = "6733682917113856"
 FIXTURE_BUILD_DIR = f"{FIXTURE_VERSION}-{FIXTURE_BUILD}"
-AGY_VERSION = "1.4.8"
-AGY_BUILD = "5447777392656384"
+AGY_VERSION = "1.5.13"
+AGY_BUILD = "5999302598852608"
 
 #: Where the real artifact lives. The installer must build exactly this
 #: shape, or the pin points at nothing.
@@ -610,7 +610,7 @@ def test_an_agy_that_fails_to_run_is_refused(world, tmp_path):
 
 
 @pytest.mark.parametrize("version, build", [
-    ("1.4.8/../../other-bucket/x", AGY_BUILD),
+    ("1.5.13/../../other-bucket/x", AGY_BUILD),
     (AGY_VERSION, "1/../../x"),
 ])
 def test_an_agy_version_or_build_with_a_path_in_it_is_refused(
