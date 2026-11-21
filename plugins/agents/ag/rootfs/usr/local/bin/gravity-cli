@@ -19,8 +19,16 @@
 # updating in the background. This script installs a pinned agy beside
 # the IDE and points the IDE's downloader at nothing, so the backend is
 # part of the pin too.
+#
+# Every name Google defines (URLs, platform spellings, file names, the
+# paths the IDE writes in a home) comes from antigravity.conf, which says
+# which IDE versions each one holds for.
 
 set -e
+
+AG_CONF=/usr/local/etc/antigravity.conf
+# shellcheck source=../etc/antigravity.conf
+. "$AG_CONF"
 
 # ANSI Colors
 RED='\033[0;31m'
@@ -39,18 +47,12 @@ print_warning() { echo -e "${YELLOW}${BOLD}[WARNING]${NC} $1"; }
 # (bin/antigravity-ide uses it when it cannot resolve its own path)
 # lands where the app actually is.
 AG_DIR=/usr/share/antigravity-ide
-AG_WRAPPER="$AG_DIR/antigravity-ide"
-AG_VENDOR_BIN="$AG_DIR/antigravity-ide-bin"
-# The setting of the agy extension that names where agy updates come
-# from.
-AGY_RELEASE_SETTING=antigravity.releaseBaseUrl
-# The extension accepts plain http only for loopback, and port 9
-# (discard) refuses at once, so its update check fails in milliseconds
-# and it keeps the binary it found.
-AGY_RELEASE_OFF=http://127.0.0.1:9
-# The build this sandbox is running. Neither product.json nor the updater
-# API carries the 2.x version (both report 1.107.0, the VS Code base the
-# IDE forks), so the installer is the only thing that can record it.
+AG_WRAPPER="$AG_DIR/$AG_BINARY"
+AG_VENDOR_BIN="$AG_DIR/$AG_BINARY-bin"
+# The build this sandbox is running. product.json carries the 2.x version
+# (ideVersion) but no build id, and the updater API reports neither (it
+# says 1.107.0, the VS Code base the IDE forks), so the installer is the
+# only thing that can record which build is installed.
 AG_BUILD_STAMP="$AG_DIR/.antigravity-build"
 
 APPLICATIONS=/usr/share/applications
@@ -58,25 +60,12 @@ PIXMAPS=/usr/share/pixmaps
 # The image-wide default-application list. XDG reads /etc/xdg before
 # /usr/share, and after the per-user file the entrypoint hook seeds.
 MIMEAPPS=/etc/xdg/mimeapps.list
-URL_SCHEME=x-scheme-handler/antigravity-ide
+URL_SCHEME="x-scheme-handler/$AG_URL_SCHEME"
 URL_HANDLER=antigravity-ide-url-handler.desktop
 
-# Versioned and immutable: <version>-<build id> names one build for good
-# (the objects are write-once, every build mints a fresh id, and no
-# floating "latest" path exists). dl.google.com serves the same bytes
-# under the same path.
-DOWNLOAD_BASE=https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable
-# Google publishes a sha256 per platform here, so the pin can be checked
-# against upstream and not only against ourselves.
-UPDATER_API=https://antigravity-ide-auto-updater-974169037036.us-central1.run.app
-
 # The image-wide agy. The entrypoint links the path the IDE looks in
-# (~/.gemini/bin/agy) to it on every start, since the home is a volume.
+# (AGY_HOME_BIN) to it on every start, since the home is a volume.
 AGY_BIN=/usr/local/bin/agy
-# Same shape as the IDE's: <version>-<build id> names one build.
-AGY_DOWNLOAD_BASE=https://storage.googleapis.com/antigravity-public/antigravity-cli
-# What the IDE itself asks: one manifest per platform, with a sha512.
-AGY_UPDATER_API=https://antigravity-cli-auto-updater-974169037036.us-central1.run.app
 
 # Must be run as root
 if [ "$EUID" -ne 0 ]; then
@@ -106,24 +95,27 @@ show_help() {
     echo "                 build runs; it verifies against the sha256 given."
     echo "  agy install <version> <build-id> <sha512>"
     echo "                 Install one pinned agy, the IDE's agent backend."
+    echo "  agy link       Point every home's agy at the pinned one and drop"
+    echo "                 any agy the IDE staged. The entrypoint runs it."
     echo "  help           Show this help message."
     echo ""
     echo "Note: This tool is meant to be run INSIDE the Sanity-Gravity container."
 }
 
-# Google spells this architecture several ways: the download paths say
-# "linux-arm" where the IDE's updater API says "linux-arm64" and agy's
-# file and manifest say "linux_arm64". All of them are aarch64.
+# Google spells each architecture several ways; antigravity.conf holds
+# one variable per spelling, suffixed with the dpkg architecture.
 resolve_platform() {
-    local arch
+    local arch path api file manifest
     arch="$(dpkg --print-architecture)"
-    case "$arch" in
-        amd64) PLATFORM_PATH=linux-x64; PLATFORM_API=linux-x64
-               AGY_FILE=cli_linux_x64.tar.gz; AGY_MANIFEST=linux_amd64 ;;
-        arm64) PLATFORM_PATH=linux-arm; PLATFORM_API=linux-arm64
-               AGY_FILE=cli_linux_arm64.tar.gz; AGY_MANIFEST=linux_arm64 ;;
-        *) print_error "unsupported architecture: $arch"; exit 1 ;;
-    esac
+    path="AG_PLATFORM_PATH_$arch" api="AG_PLATFORM_API_$arch"
+    file="AGY_FILE_$arch" manifest="AGY_MANIFEST_$arch"
+    PLATFORM_PATH="${!path:-}" PLATFORM_API="${!api:-}"
+    AGY_FILE="${!file:-}" AGY_MANIFEST="${!manifest:-}"
+    if [ -z "$PLATFORM_PATH" ] || [ -z "$PLATFORM_API" ] \
+            || [ -z "$AGY_FILE" ] || [ -z "$AGY_MANIFEST" ]; then
+        print_error "unsupported architecture: $arch"
+        exit 1
+    fi
 }
 
 # The three branches a wrapper in the binary's own path has to serve.
@@ -140,6 +132,9 @@ install_wrapper() {
 
 # 1. Environment Fix for Electron Children
 export ELECTRON_DISABLE_SANDBOX=1
+# Every IDE process starts here, so the agy extension always sees this:
+# its updates go to a port that refuses, and the pinned agy stays.
+export $AGY_RELEASE_ENV=$AGY_RELEASE_OFF
 
 # 2. Process Type Detection
 IS_GUI_CHILD=0
@@ -176,7 +171,7 @@ EOF
     # docs, scripts and habits still spell; nothing in the image depends
     # on it. Drop it before ever installing the separate "Antigravity
     # 2.0" app - antigravity is the program upstream gave that name to.
-    ln -sf "$AG_DIR/bin/antigravity-ide" /usr/bin/antigravity-ide
+    ln -sf "$AG_DIR/$AG_CLI_SHIM" /usr/bin/antigravity-ide
     ln -sf antigravity-ide /usr/bin/antigravity
 }
 
@@ -201,7 +196,7 @@ register_url_scheme() {
 install_desktop_entries() {
     print_info "Installing the desktop entries and the URL handler..."
     mkdir -p "$APPLICATIONS"
-    install -Dm644 "$AG_DIR/resources/app/resources/linux/code.png" \
+    install -Dm644 "$AG_DIR/$AG_ICON" \
         "$PIXMAPS/antigravity-ide.png"
 
     # Exec names the wrapper, not the PATH command. /usr/bin/antigravity-ide
@@ -243,7 +238,7 @@ Terminal=false
 NoDisplay=true
 StartupNotify=true
 Categories=Development;IDE;TextEditor;
-MimeType=x-scheme-handler/antigravity-ide;
+MimeType=$URL_SCHEME;
 EOF
 
     if command -v update-desktop-database >/dev/null 2>&1; then
@@ -261,12 +256,12 @@ clear_caches() {
     local home
     for home in /home/*; do
         [ -d "$home" ] || continue
-        rm -rf "$home/.config/Antigravity IDE/GPUCache" \
-               "$home/.config/Antigravity IDE/Default/GPUCache"
+        rm -rf "$home/$AG_USER_DATA/GPUCache" \
+               "$home/$AG_USER_DATA/Default/GPUCache"
         if [ -n "$deep" ]; then
-            rm -rf "$home/.config/Antigravity IDE/CachedData" \
-                   "$home/.config/Antigravity IDE/Code Cache" \
-                   "$home/.config/Antigravity IDE/logs"
+            rm -rf "$home/$AG_USER_DATA/CachedData" \
+                   "$home/$AG_USER_DATA/Code Cache" \
+                   "$home/$AG_USER_DATA/logs"
         fi
     done
 }
@@ -280,7 +275,7 @@ install_ide() {
     AG_TMP="$(mktemp -d)"
     local tarball="$AG_TMP/ide.tar.gz"
     local staged="$AG_TMP/app"
-    local url="$DOWNLOAD_BASE/$build_dir/$PLATFORM_PATH/Antigravity%20IDE.tar.gz"
+    local url="$AG_DOWNLOAD_BASE/$build_dir/$PLATFORM_PATH/${AG_TARBALL// /%20}"
 
     print_info "Downloading Antigravity IDE $build_dir ($PLATFORM_PATH)..."
     curl -fsSL -o "$tarball" "$url"
@@ -302,25 +297,20 @@ install_ide() {
     # mechanism.) Upstream's releases page is explicit that these builds
     # auto-update by default, and the update that fires is the one that
     # moves the install off the IDE and onto that other app.
-    jq 'del(.updateUrl, .backupUpdateUrl)' "$staged/resources/app/product.json" \
-        > "$AG_TMP/product.json"
-    mv "$AG_TMP/product.json" "$staged/resources/app/product.json"
+    jq --arg keys "$AG_UPDATE_KEYS" 'delpaths([$keys | splits(" +") | [.]])' \
+        "$staged/$AG_PRODUCT_JSON" > "$AG_TMP/product.json"
+    mv "$AG_TMP/product.json" "$staged/$AG_PRODUCT_JSON"
 
-    # The same cut for agy: the setting's default, so a user who wants
-    # the extension's own updates back sets it and gets them. A rename
-    # upstream has to be a red build, not an agy that updates itself.
-    local ext_pkg="$staged/resources/app/extensions/agy/package.json"
-    if ! jq -e --arg k "$AGY_RELEASE_SETTING" \
-            '.contributes.configuration.properties[$k]' "$ext_pkg" >/dev/null; then
-        print_error "the agy extension no longer declares $AGY_RELEASE_SETTING"
+    # The same cut for agy is the wrapper's AGY_RELEASE_ENV. An extension
+    # that stopped reading it would download agy again with nothing to
+    # say so, so it fails the build here - and fails `ide update` before
+    # the swap, which keeps the IDE that is installed now.
+    if ! grep -qF "$AGY_RELEASE_ENV" "$staged/$AGY_EXTENSION_MAIN"; then
+        print_error "the agy extension no longer reads $AGY_RELEASE_ENV"
         exit 1
     fi
-    jq --arg k "$AGY_RELEASE_SETTING" --arg v "$AGY_RELEASE_OFF" \
-        '.contributes.configuration.properties[$k].default = $v' "$ext_pkg" \
-        > "$AG_TMP/package.json"
-    mv "$AG_TMP/package.json" "$ext_pkg"
 
-    mv "$staged/antigravity-ide" "$staged/antigravity-ide-bin"
+    mv "$staged/$AG_BINARY" "$staged/$AG_BINARY-bin"
 
     # chrome-sandbox arrives setuid root in the tarball. The wrapper's
     # --no-sandbox means nothing ever calls it, and an unused setuid root
@@ -330,9 +320,7 @@ install_ide() {
     # Layout check: an upstream re-arrangement has to be a red build, not
     # a sandbox whose IDE opens to nothing.
     local f
-    for f in antigravity-ide-bin bin/antigravity-ide \
-             resources/app/out/cli.js \
-             resources/app/resources/linux/code.png; do
+    for f in "$AG_BINARY-bin" "$AG_CLI_SHIM" "$AG_CLI_JS" "$AG_ICON"; do
         if [ ! -e "$staged/$f" ]; then
             print_error "missing from the tarball: $f"
             exit 1
@@ -373,35 +361,41 @@ install_agy() {
     curl -fsSL -o "$tarball" "$url"
     echo "$sha  $tarball" | sha512sum -c -
 
-    # The tarball holds one file, named antigravity; the IDE installs it
-    # as agy, and so does this.
-    tar -xzf "$tarball" -C "$AG_TMP" antigravity
+    # The IDE installs the tarball's one file as agy, and so does this.
+    tar -xzf "$tarball" -C "$AG_TMP" "$AGY_TARBALL_MEMBER"
+    local binary="$AG_TMP/$AGY_TARBALL_MEMBER"
     # Run from the temp dir, so a binary that fails here never reaches
     # the path the IDE starts.
     local reported
-    reported="$("$AG_TMP/antigravity" --version 2>&1)" || true
+    reported="$("$binary" --version 2>&1)" || true
     if [ "$reported" != "$version" ]; then
         print_error "agy $version reports its version as '$reported'"
         exit 1
     fi
-    install -m 0755 "$AG_TMP/antigravity" "$AGY_BIN.new"
+    install -m 0755 "$binary" "$AGY_BIN.new"
     mv "$AGY_BIN.new" "$AGY_BIN"
-    link_agy_for_users
+    link_agy
     print_info "agy $reported installed to $AGY_BIN."
 }
 
-# The IDE runs agy from ~/.gemini/bin and is not allowed to download one,
-# so every home needs the link. The entrypoint makes it on each start;
-# this covers a live sandbox whose image predates agy, where `ide update`
-# is the first thing to install it. No home exists at image build time.
-link_agy_for_users() {
-    local home
+# The IDE runs agy from AGY_HOME_BIN on the home volume and is not
+# allowed to download one, so every home needs the link: a home from an
+# older image, or one where the IDE downloaded its own agy, would keep
+# that binary. A download the IDE staged before it was cut off would be
+# swapped in on its next start, so it goes too. The entrypoint runs this
+# on each start; `ide update` runs it for a sandbox whose image predates
+# agy. mkdir -p runs as root, so every directory it may have made is
+# handed to the home's owner, or agy cannot write its own state there.
+link_agy() {
+    local home link
     for home in /home/*; do
         [ -d "$home" ] || continue
-        mkdir -p "$home/.gemini/bin"
-        ln -sfn "$AGY_BIN" "$home/.gemini/bin/agy"
-        chown -h --reference="$home" "$home/.gemini" "$home/.gemini/bin" \
-            "$home/.gemini/bin/agy"
+        link="$home/$AGY_HOME_BIN"
+        mkdir -p "$(dirname "$link")"
+        ln -sfn "$AGY_BIN" "$link"
+        rm -f "$home/$AGY_STAGED_NEXT"
+        chown -h --reference="$home" "$home/${AGY_HOME_BIN%%/*}" \
+            "$(dirname "$link")" "$link"
     done
 }
 
@@ -412,7 +406,7 @@ resolve_latest() {
     resolve_platform
     print_info "Asking the updater API for the current build..."
     local meta url
-    meta="$(curl -fsSL "$UPDATER_API/api/update/$PLATFORM_API/stable/latest")"
+    meta="$(curl -fsSL "$AG_UPDATER_API/api/update/$PLATFORM_API/stable/latest")"
     LATEST_SHA="$(printf '%s' "$meta" | jq -r '.sha256hash')"
     url="$(printf '%s' "$meta" | jq -r '.url')"
 
@@ -420,7 +414,7 @@ resolve_latest() {
     # verification circular. Only the immutable path on the official host
     # is accepted, and only for this architecture.
     case "$url" in
-        "$DOWNLOAD_BASE"/*/"$PLATFORM_PATH/Antigravity IDE.tar.gz") ;;
+        "$AG_DOWNLOAD_BASE"/*/"$PLATFORM_PATH/$AG_TARBALL") ;;
         *) print_error "unexpected download URL from the updater API: $url"; exit 1 ;;
     esac
     if ! printf '%s' "$LATEST_SHA" | grep -Eq '^[0-9a-f]{64}$'; then
@@ -428,7 +422,7 @@ resolve_latest() {
         exit 1
     fi
 
-    LATEST_BUILD="${url#"$DOWNLOAD_BASE"/}"
+    LATEST_BUILD="${url#"$AG_DOWNLOAD_BASE"/}"
     LATEST_BUILD="${LATEST_BUILD%%/*}"
     # The case above lets '*' span a '/', so the one segment it stands
     # for is checked on its own.
@@ -500,6 +494,8 @@ update_ide() {
     clear_caches
     print_success "IDE update completed successfully."
     print_info "Restart the IDE to run the new build and agy."
+    print_info "This lasts until the container is recreated (down, then up);"
+    print_info "a newer image is the lasting upgrade."
 }
 
 reinstall_ide() {
@@ -514,6 +510,8 @@ reinstall_ide() {
     clear_caches deep
     print_success "IDE Reinstallation completed successfully."
     print_info "Restart the IDE to run the new build and agy."
+    print_info "This lasts until the container is recreated (down, then up);"
+    print_info "a newer image is the lasting upgrade."
 }
 
 # Main Command Router
@@ -547,6 +545,9 @@ case "$1" in
             install)
                 shift 2
                 install_agy_pinned "$@"
+                ;;
+            link)
+                link_agy
                 ;;
             *)
                 print_error "Unknown agy command: ${2:-}"

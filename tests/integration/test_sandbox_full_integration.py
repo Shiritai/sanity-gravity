@@ -102,9 +102,29 @@ class TestSandboxFullIntegration:
         docker_cli.exec(test_kasm_container, f"su - {user} -c 'cd ~/.config/Antigravity\\ IDE/User && jq --arg k security.workspace.trust.enabled \".[\\$k] = false\" settings.json > s.tmp && mv s.tmp settings.json'")
         docker_cli.exec(test_kasm_container, f"su - {user} -c 'DISPLAY=:1 antigravity ~/test_ws > /tmp/ag.log 2>&1 &'")
 
-        # Wait a bit longer to ensure the backend would crash if Emulation failed it
-        time.sleep(10)
         # [a]: su's own command line carries this pattern, and a plain
         # "agy --hub" would match su itself while the backend is down.
-        res_ls = docker_cli.exec(test_kasm_container, f"su - {user} -c 'pgrep -f \"[a]gy --hub\"'")
+        hub = f"su - {user} -c 'pgrep -f \"[a]gy --hub\"'"
+        # The backend shows up about 13 s after launch on an arm64 host and
+        # sooner on amd64, so wait for it rather than for a fixed time.
+        deadline = time.monotonic() + 60
+        while docker_cli.run(f"docker exec {test_kasm_container} {hub}", check=False).returncode != 0:
+            assert time.monotonic() < deadline, "Antigravity's agy backend never started"
+            time.sleep(2)
+        # Then give it time to crash, which is what this test guards.
+        time.sleep(10)
+        res_ls = docker_cli.exec(test_kasm_container, hub)
         assert res_ls.returncode == 0, "Antigravity's agy backend (Chat backend) crashed or is not running"
+
+        # The backend is a child of the extension host, so it carries the
+        # environment the extension decides agy updates by. Without the
+        # wrapper's value the extension asks Google and swaps agy. Read as
+        # the process's own user: root here has no CAP_SYS_PTRACE, which
+        # another user's environ needs.
+        for pid in res_ls.stdout.split():
+            environ = docker_cli.exec(
+                test_kasm_container, f"su - {user} -c 'cat /proc/{pid}/environ'",
+            ).stdout
+            assert "AGY_RELEASE_BASE_URL=http://127.0.0.1:9" in environ.split("\0"), (
+                f"agy backend {pid} runs without the wrapper's AGY_RELEASE_BASE_URL"
+            )

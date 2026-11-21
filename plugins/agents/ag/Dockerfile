@@ -36,10 +36,10 @@ FROM ${BASE_IMAGE}
 # The download path spells this architecture linux-arm where that API
 # spells it linux-arm64; the tarball behind the first name is genuine
 # aarch64.
-ARG ANTIGRAVITY_IDE_VERSION=2.6.0
-ARG ANTIGRAVITY_IDE_BUILD=5526304964083712
+ARG ANTIGRAVITY_IDE_VERSION=2.8.0
+ARG ANTIGRAVITY_IDE_BUILD=6733682917113856
 
-# agy, the CLI the 2.6 IDE runs as its Agent Manager backend. Left to
+# agy, the CLI the 2.6+ IDE runs as its Agent Manager backend. Left to
 # itself the IDE downloads it on first use and replaces it in the
 # background, so the image would pin the editor and not the agent.
 # Bump it with the IDE, from the manifest the IDE itself reads:
@@ -47,8 +47,8 @@ ARG ANTIGRAVITY_IDE_BUILD=5526304964083712
 #                       -> .version, the build id in .url, .sha512
 # where <agy updater> is
 #   https://antigravity-cli-auto-updater-974169037036.us-central1.run.app
-ARG AGY_VERSION=1.4.8
-ARG AGY_BUILD=5447777392656384
+ARG AGY_VERSION=1.5.13
+ARG AGY_BUILD=5999302598852608
 
 COPY rootfs/ /
 
@@ -78,10 +78,10 @@ RUN t64=t64; if [ "$(. /etc/os-release && echo "$ID")" = "debian" ]; then t64=; 
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && arch="$(dpkg --print-architecture)" \
     && case "$arch" in \
-        amd64) sha="b060a7c7679103b2b619752f8ee7a3088dd241a7d207d4311974b56ea6f94356" \
-               agy_sha="b23683771438e72bffe0a2231168f65a16a0d73ed2c7a8460b311dc5fe0c3c9d9dfc6cbfb7d8755173340071aa4cc5c7a552fb5d1be3fdd31c2b7559d67e404a" ;; \
-        arm64) sha="4953ccb52bf909582a1711a3dd26d640efb45fe555a17ebeff8bc7e2eaa052de" \
-               agy_sha="783ee9edd0f73e853af977e2848294ffb97b67b31ee19dccafb001f03f34b033371a2bb3371b61b78843c61bd4817ef1d2863a2d371b26513ea17d921c584bee" ;; \
+        amd64) sha="7baa36baab285cb46101af958b8f7be6305458db9a44d8b3d0938d61f38597d7" \
+               agy_sha="014b37387703acab1f47cd532c8bb60167a6a3537b0f9891de03f1b1ffa9614307bc83c4b2f7551273b0877d722716b0cd9e26782f6b2a50705db4f05e18c68f" ;; \
+        arm64) sha="d8f85ce40306587a80a7478af4de85cb10b83cf26dd9179b902afa9933fcf9f2" \
+               agy_sha="dccea2eb455099f5175f0c87cc47b38fcefe4cb0cb44dea3927469bb4bbf68ac3c0b30fc04affb24c17e90959386a93c3785e8e4b8b1a3338ca4e4d57b80057b" ;; \
         *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
        esac \
     && /usr/local/bin/gravity-cli ide install \

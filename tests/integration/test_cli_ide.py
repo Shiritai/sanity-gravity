@@ -31,12 +31,17 @@ def _expected_calls(cname: str, subcommand: str):
     cleanup_src = os.path.join(
         _REPO, "plugins", "agents", "ag", "rootfs", "usr", "local", "bin", "chrome-cleanup.sh"
     )
+    conf_src = os.path.join(
+        _REPO, "plugins", "agents", "ag", "rootfs", "usr", "local", "etc", "antigravity.conf"
+    )
     devnull = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     return [
         ((("docker", "cp", cli_src, f"{cname}:/usr/local/bin/gravity-cli"),), devnull),
         ((("docker", "cp", cleanup_src, f"{cname}:/usr/local/bin/chrome-cleanup.sh"),), devnull),
+        ((("docker", "cp", conf_src, f"{cname}:/usr/local/etc/antigravity.conf"),), devnull),
         ((("docker", "exec", "-u", "root", cname,
-           "chmod", "+x", "/usr/local/bin/gravity-cli", "/usr/local/bin/chrome-cleanup.sh"),), devnull),
+           "chmod", "+x", "/usr/local/bin/gravity-cli", "/usr/local/bin/chrome-cleanup.sh",
+           "/usr/local/etc/antigravity.conf"),), devnull),
         ((("docker", "exec", "-it", "-u", "root", cname,
            "/usr/local/bin/gravity-cli", "ide", subcommand),), {}),
     ]

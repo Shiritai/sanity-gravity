@@ -36,18 +36,18 @@ from tests.support import REPO_ROOT
 
 pytestmark = pytest.mark.no_image
 
-GRAVITY_CLI_PATH = (
-    REPO_ROOT / "plugins" / "agents" / "ag" / "rootfs"
-    / "usr" / "local" / "bin" / "gravity-cli"
-)
+_ROOTFS = REPO_ROOT / "plugins" / "agents" / "ag" / "rootfs"
+GRAVITY_CLI_PATH = _ROOTFS / "usr" / "local" / "bin" / "gravity-cli"
+#: Read, not written: the redirect points at a copy of the shipped file.
+AG_CONF = "/usr/local/etc/antigravity.conf"
 
 #: The pin the fixture stands in for. Any version string will do: the
 #: installer is told the build directory, not asked to guess it.
-FIXTURE_VERSION = "2.6.0"
-FIXTURE_BUILD = "5526304964083712"
+FIXTURE_VERSION = "2.8.0"
+FIXTURE_BUILD = "6733682917113856"
 FIXTURE_BUILD_DIR = f"{FIXTURE_VERSION}-{FIXTURE_BUILD}"
-AGY_VERSION = "1.4.8"
-AGY_BUILD = "5447777392656384"
+AGY_VERSION = "1.5.13"
+AGY_BUILD = "5999302598852608"
 
 #: Where the real artifact lives. The installer must build exactly this
 #: shape, or the pin points at nothing.
@@ -61,7 +61,8 @@ AGY_DOWNLOAD_BASE = (
 AGY_UPDATER_API = (
     "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app"
 )
-AGY_RELEASE_SETTING = "antigravity.releaseBaseUrl"
+AGY_RELEASE_ENV = "AGY_RELEASE_BASE_URL"
+AGY_RELEASE_OFF = "http://127.0.0.1:9"
 
 #: Absolute paths the script writes to, each redirected into the test's
 #: own tree. Longest first is not required (none is a prefix of another),
@@ -89,7 +90,7 @@ def _fixture_tarball(dest_dir: Path) -> tuple[Path, str]:
     app = root / "resources" / "app"
     (app / "out").mkdir(parents=True)
     (app / "resources" / "linux").mkdir(parents=True)
-    ext = app / "extensions" / "agy"
+    ext = app / "extensions" / "agy" / "vscode"
     ext.mkdir(parents=True)
     (root / "bin").mkdir()
 
@@ -110,13 +111,10 @@ def _fixture_tarball(dest_dir: Path) -> tuple[Path, str]:
         "backupUpdateUrl": "https://example.invalid",
         "quality": "stable",
     }, indent=2) + "\n")
-    (ext / "package.json").write_text(json.dumps({
-        "name": "google-antigravity",
-        "contributes": {"configuration": {"properties": {
-            AGY_RELEASE_SETTING: {"type": "string", "default": ""},
-            "antigravity.channel": {"type": "string", "default": "production"},
-        }}},
-    }, indent=2) + "\n")
+    # The one line of the real extension the installer depends on.
+    (ext / "extension.js").write_text(
+        f"var c=process.env.{AGY_RELEASE_ENV};\n"
+    )
 
     tarball = dest_dir / "ide.tar.gz"
     with tarfile.open(tarball, "w:gz") as tf:
@@ -168,6 +166,9 @@ def _sandboxed_cli(tmp_path: Path) -> Path:
     content = GRAVITY_CLI_PATH.read_text(encoding="utf-8")
     # The root check is the one thing the test cannot satisfy.
     content = content.replace('[ "$EUID" -ne 0 ]', "false")
+    conf = tmp_path / "antigravity.conf"
+    conf.write_text((_ROOTFS / AG_CONF.lstrip("/")).read_text(encoding="utf-8"))
+    content = content.replace(AG_CONF, str(conf))
     for absolute, relative in _REDIRECTS:
         target = tmp_path / relative
         if absolute.endswith("/"):
@@ -295,8 +296,8 @@ def test_a_sha256_mismatch_installs_nothing(world, tmp_path):
 
 
 def test_the_installed_build_is_recorded(world, tmp_path):
-    """Neither product.json nor the updater API carries the 2.x version
-    (both say 1.107.0, the VS Code base), so the build the sandbox is
+    """product.json carries the version but no build id, and the updater
+    API says 1.107.0 (the VS Code base), so the build the sandbox is
     running is only knowable if the installer writes it down."""
     cli, tarball, sha, bin_dir, env = world
     _mock(bin_dir, "curl", _curl_mock(tarball))
@@ -347,6 +348,9 @@ def test_the_wrapper_is_written_verbatim(world, tmp_path):
 
         # 1. Environment Fix for Electron Children
         export ELECTRON_DISABLE_SANDBOX=1
+        # Every IDE process starts here, so the agy extension always sees this:
+        # its updates go to a port that refuses, and the pinned agy stays.
+        export {AGY_RELEASE_ENV}={AGY_RELEASE_OFF}
 
         # 2. Process Type Detection
         IS_GUI_CHILD=0
@@ -458,48 +462,75 @@ def test_an_existing_mimeapps_list_keeps_its_other_entries(world, tmp_path):
     assert "x-scheme-handler/antigravity-ide=antigravity-ide-url-handler.desktop" in text
 
 
-def test_the_install_points_agy_updates_at_nothing(world, tmp_path):
-    """The extension downloads and replaces agy on its own unless its
-    release URL leads nowhere. Loopback is the only plain-http host it
-    accepts and port 9 refuses at once, so the check fails fast and the
-    pinned binary stays. Only the default changes: the rest of the file
-    is upstream's, and a user setting still wins."""
+def test_every_ide_process_points_agy_updates_at_nothing(world, tmp_path):
+    """From 2.8.0 the agy extension ignores the setting's default and
+    reads only this variable or the user's own settings; without it, it
+    downloads and swaps agy in the background. The wrapper is the path
+    every Electron process re-execs, so setting it there reaches the
+    extension host, and it wins over whatever the caller's env says."""
     cli, tarball, sha, bin_dir, env = world
     _mock(bin_dir, "curl", _curl_mock(tarball))
+    assert _run(cli, env, "ide", "install", FIXTURE_VERSION, FIXTURE_BUILD,
+                sha).returncode == 0
+    app = _installed(tmp_path)
+    _mock(app, "antigravity-ide-bin",
+          f'#!/bin/sh\nprintf %s "${AGY_RELEASE_ENV}"\n')
 
-    r = _run(cli, env, "ide", "install", FIXTURE_VERSION, FIXTURE_BUILD, sha)
-    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
-    pkg = json.loads((
-        _installed(tmp_path) / "resources" / "app" / "extensions" / "agy"
-        / "package.json"
-    ).read_text())
-    props = pkg["contributes"]["configuration"]["properties"]
-    assert props[AGY_RELEASE_SETTING]["default"] == "http://127.0.0.1:9"
-    assert props["antigravity.channel"]["default"] == "production"
+    for given in ({}, {AGY_RELEASE_ENV: "https://example.invalid"}):
+        r = subprocess.run(
+            [str(app / "antigravity-ide"), "--type=utility"],
+            env=dict(env, **given), capture_output=True, text=True,
+        )
+        assert r.stdout == AGY_RELEASE_OFF, (given, r.stdout, r.stderr)
 
 
-def test_an_extension_without_the_setting_fails_the_install(world, tmp_path):
-    """If upstream renames the setting, the patch would cut nothing and
-    agy would update itself again. That has to be a red build."""
-    cli, tarball, _sha, bin_dir, env = world
-    renamed = tarball.parent / "renamed.tar.gz"
-    with tarfile.open(tarball) as src, tarfile.open(renamed, "w:gz") as dst:
+def _rewritten(tarball: Path, name: str, member_suffix: str,
+               body: bytes) -> tuple[Path, str]:
+    """A copy of the fixture tarball with one member's content replaced."""
+    out = tarball.parent / name
+    with tarfile.open(tarball) as src, tarfile.open(out, "w:gz") as dst:
         for member in src.getmembers():
             data = src.extractfile(member) if member.isfile() else None
-            if member.name.endswith("extensions/agy/package.json"):
-                body = json.dumps({"contributes": {"configuration": {
-                    "properties": {"antigravity.cliBaseUrl": {"default": ""}},
-                }}}).encode()
+            if member.name.endswith(member_suffix):
                 member.size = len(body)
                 data = io.BytesIO(body)
             dst.addfile(member, data)
-    sha = hashlib.sha256(renamed.read_bytes()).hexdigest()
+    return out, hashlib.sha256(out.read_bytes()).hexdigest()
+
+
+def test_an_extension_that_ignores_the_variable_fails_the_install(world, tmp_path):
+    """If upstream stops reading the variable, the wrapper cuts nothing
+    and agy updates itself again. That has to be a red build."""
+    cli, tarball, _sha, bin_dir, env = world
+    renamed, sha = _rewritten(tarball, "renamed.tar.gz",
+                              "extensions/agy/vscode/extension.js",
+                              b"var c=process.env.AGY_CLI_RELEASE_URL;\n")
     _mock(bin_dir, "curl", _curl_mock(renamed))
 
     r = _run(cli, env, "ide", "install", FIXTURE_VERSION, FIXTURE_BUILD, sha)
     assert r.returncode != 0
-    assert AGY_RELEASE_SETTING in r.stdout + r.stderr
+    assert AGY_RELEASE_ENV in r.stdout + r.stderr
     assert not _installed(tmp_path).exists()
+
+
+def test_an_update_to_such_an_extension_keeps_the_installed_ide(world, tmp_path):
+    """The same check inside a running sandbox: ``ide update`` stops
+    before the swap, so the IDE that holds the pin stays."""
+    cli, tarball, sha, bin_dir, env = world
+    _mock(bin_dir, "curl", _curl_mock(tarball))
+    assert _run(cli, env, "ide", "install", FIXTURE_VERSION, FIXTURE_BUILD,
+                sha).returncode == 0
+    renamed, new_sha = _rewritten(tarball, "renamed.tar.gz",
+                                  "extensions/agy/vscode/extension.js",
+                                  b"var c=1;\n")
+    _mock(bin_dir, "curl", _curl_mock(
+        renamed, _api_payload(new_sha, f"{FIXTURE_VERSION}-1"),
+    ))
+
+    r = _run(cli, env, "ide", "update")
+    assert r.returncode != 0
+    stamp = (_installed(tmp_path) / ".antigravity-build").read_text().strip()
+    assert stamp == FIXTURE_BUILD_DIR
 
 
 def test_a_missing_file_in_the_tarball_fails_the_install(world, tmp_path):
@@ -550,22 +581,61 @@ def test_the_pinned_agy_install_puts_the_binary_on_path(world, tmp_path):
     ), log
 
 
+def _home_with_a_downloaded_agy(tmp_path: Path) -> tuple[Path, Path]:
+    """A home where the IDE fetched agy itself and staged a newer one."""
+    bin_dir = tmp_path / "home" / "dev" / ".gemini" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "agy").write_text("an agy the IDE downloaded itself\n")
+    (bin_dir / "agy.next").write_text("a newer one it staged\n")
+    return bin_dir / "agy", bin_dir / "agy.next"
+
+
 def test_the_agy_install_links_it_into_every_home(world, tmp_path):
     """A sandbox whose image predates agy gets it from ``ide update``,
     and its entrypoint does not know to link it: the IDE may not download
     one, so without this link it would start with no backend."""
     cli, tarball, _sha, bin_dir, env = world
     _mock(bin_dir, "curl", _curl_mock(tarball))
-    home = tmp_path / "home" / "dev"
-    stale = home / ".gemini" / "bin" / "agy"
-    stale.parent.mkdir(parents=True)
-    stale.write_text("an agy the IDE downloaded itself\n")
+    stale, staged = _home_with_a_downloaded_agy(tmp_path)
     sha512 = _sha512(tarball.parent / "agy.tar.gz")
 
     r = _run(cli, env, "agy", "install", AGY_VERSION, AGY_BUILD, sha512)
     assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
     assert stale.is_symlink()
     assert stale.resolve() == _agy(tmp_path)
+    assert not staged.exists()
+
+
+def test_agy_link_relinks_and_drops_a_staged_download(world, tmp_path):
+    """What the entrypoint runs on every start. The 2.8 extension swaps
+    a staged agy.next in on its next start, so one staged before the cut
+    would replace the pin once; it goes with the relink."""
+    cli, _tarball, _sha, _bin_dir, env = world
+    stale, staged = _home_with_a_downloaded_agy(tmp_path)
+
+    r = _run(cli, env, "agy", "link")
+    assert r.returncode == 0, f"{r.stdout}\n{r.stderr}"
+    assert stale.is_symlink()
+    assert os.readlink(stale) == str(_agy(tmp_path))
+    assert not staged.exists()
+
+
+def test_agy_link_hands_every_directory_it_made_to_the_user(world, tmp_path):
+    """The entrypoint runs this as root on a home with no ~/.gemini yet,
+    so mkdir -p creates both levels as root. agy writes its own state
+    beside ~/.gemini/bin and fails to start when the parent stays root's.
+    The test runs unprivileged, so chown is observed rather than felt."""
+    cli, _tarball, _sha, bin_dir, env = world
+    home = tmp_path / "home" / "dev"
+    home.mkdir(parents=True)
+    log = tmp_path / "chown.log"
+    _mock(bin_dir, "chown", f'#!/bin/sh\nprintf "%s\\n" "$@" >> {log}\n')
+
+    assert _run(cli, env, "agy", "link").returncode == 0
+    targets = log.read_text().splitlines()
+    for path in (home / ".gemini", home / ".gemini" / "bin",
+                 home / ".gemini" / "bin" / "agy"):
+        assert str(path) in targets, (path, targets)
 
 
 def test_an_agy_sha512_mismatch_installs_nothing(world, tmp_path):
@@ -610,7 +680,7 @@ def test_an_agy_that_fails_to_run_is_refused(world, tmp_path):
 
 
 @pytest.mark.parametrize("version, build", [
-    ("1.4.8/../../other-bucket/x", AGY_BUILD),
+    ("1.5.13/../../other-bucket/x", AGY_BUILD),
     (AGY_VERSION, "1/../../x"),
 ])
 def test_an_agy_version_or_build_with_a_path_in_it_is_refused(

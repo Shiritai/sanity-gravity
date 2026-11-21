@@ -22,4 +22,5 @@ command = ["/usr/local/bin/gravity-cli", "ide"]
 inject = [
   "usr/local/bin/gravity-cli",
   "usr/local/bin/chrome-cleanup.sh",
+  "usr/local/etc/antigravity.conf",
 ]
