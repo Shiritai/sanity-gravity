@@ -93,13 +93,6 @@ class CommandIssued(Event):
 
 
 @dataclass(frozen=True)
-class CacheHit(Event):
-    """A build layer was found cached and skipped."""
-
-    image: str = ""
-
-
-@dataclass(frozen=True)
 class LayerBuilding(Event):
     """A build layer is about to be built; replaces the
     ``[i/n] Building ...`` info line."""

@@ -2,13 +2,12 @@
 
 Every test runs the real BUILD phase loop with the builtin hooks; the
 executor is stubbed so no ``docker build`` ever fires. ``_run_build``
-owns the ceremony (bus, hooks, context, orchestrator, optional docker
-probe fake); each test states only its request and its assertion.
+owns the ceremony (bus, hooks, context, orchestrator); each test states
+only its request and its assertion.
 """
 from __future__ import annotations
 
-from contextlib import nullcontext
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -36,9 +35,8 @@ class _Capture:
         self.actions.extend(actions)
 
 
-def _run_build(targets=(), *, executor=None, image_exists=None, **ctx_kw):
-    """BUILD phases end to end. ``image_exists`` fakes the docker probe
-    (None leaves it untouched; dry-run default keeps docker out anyway)."""
+def _run_build(targets=(), *, executor=None, **ctx_kw):
+    """BUILD phases end to end."""
     bus = EventBus()
     register_builtin_build_hooks(bus)
     ctx_kw.setdefault("dry_run", True)
@@ -46,12 +44,7 @@ def _run_build(targets=(), *, executor=None, image_exists=None, **ctx_kw):
         targets=list(targets), reporter=Reporter(sinks=[], run_id="test"),
         **ctx_kw,
     )
-    probe = (
-        patch("sanity_gravity.hooks.build._image_exists", side_effect=image_exists)
-        if image_exists is not None else nullcontext()
-    )
-    with probe:
-        Orchestrator(bus, ctx.reporter, executor=executor).run(_BUILD_PHASES, ctx)
+    Orchestrator(bus, ctx.reporter, executor=executor).run(_BUILD_PHASES, ctx)
     return ctx
 
 
@@ -90,23 +83,25 @@ def test_build_layer_enqueues_one_docker_build_per_plan_step():
     assert "sanity-gravity:cc-none-ssh" in ex.actions[-1].argv
 
 
-def test_no_cache_bypasses_a_hot_probe():
-    """--no-cache means the plan ignores every locally present image.
-    The surviving mechanism is probe selection at the hook edge
-    (build_plan injects NEVER_CACHED when ctx.no_cache) - this pins the
-    one line where the flag becomes behavior: with every image present,
-    no_cache=True still plans the full chain while the default path
-    skips everything but the always-built final."""
-    hot = dict(dry_run=False, image_exists=lambda image: True)
+def test_existing_layer_images_are_still_built(fake_proc):
+    """An image name says nothing about whether its Dockerfile or
+    context changed, so a locally present layer must still reach
+    ``docker build`` and let Docker's layer cache decide; skipping on
+    existence ships a stale image after a Dockerfile change. With every image
+    reported present and no dry-run, the full chain is still planned
+    and the image store is never consulted."""
+    fake_proc.script("docker image inspect", rc=0)
+    ex = _Capture()
+    ctx = _run_build(["cc-none-ssh"], executor=ex, dry_run=False)
 
-    hot_default = _layers(_run_build(["cc-none-ssh"], **hot))
-    assert hot_default == [LayerRef.of_tag(Tag.parse("cc-none-ssh"))]
-
-    hot_no_cache = _layers(_run_build(["cc-none-ssh"], no_cache=True, **hot))
-    assert len(hot_no_cache) == 4, (
-        f"--no-cache must ignore a hot cache; planned only {hot_no_cache}"
-    )
-    assert hot_no_cache[0] == LayerRef.of_base("ubuntu")
+    assert _layers(ctx) == [
+        LayerRef.of_base("ubuntu"),
+        LayerRef.of_desktop("ubuntu", "none"),
+        LayerRef.of_agent("ubuntu", "none", "cc"),
+        LayerRef.of_tag(Tag.parse("cc-none-ssh")),
+    ]
+    assert [a.argv[:2] for a in ex.actions] == [("docker", "build")] * 4
+    fake_proc.assert_never_ran("docker image inspect")
 
 
 def test_no_cache_passes_the_docker_flag():

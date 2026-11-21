@@ -1,16 +1,16 @@
 """Build plan = topological closure over LayerRef parents.
 
 Nothing here renders a name and nothing here talks to Docker: the
-closure is pure structure, the cache probe is an injected predicate,
-and the :class:`LayerBinding` arrives as a callable from the hook
-layer - the only module that knows about the filesystem.
+closure is pure structure, and the :class:`LayerBinding` arrives as a
+callable from the hook layer - the only module that knows about the
+filesystem.
 """
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
-from sanity_gravity.domain.layers import LayerKind, LayerRef
+from sanity_gravity.domain.layers import LayerRef
 from sanity_gravity.domain.tags import Tag
 
 
@@ -41,20 +41,6 @@ class PlanNode:
         return self.layer.parent
 
 
-CacheProbe = Callable[[LayerRef], bool]
-
-
-def NEVER_CACHED(ref: LayerRef) -> bool:
-    """--no-cache and --dry-run both mean "assume nothing is built"."""
-    return False
-
-
-#: Kinds rebuilt even when present locally. The final image only,
-#: matching the historical "final tag always rebuilds" rule. Planner
-#: policy, not request data: no call site has ever varied it.
-_ALWAYS_BUILD: frozenset[LayerKind] = frozenset({LayerKind.CONNECTOR})
-
-
 def closure(roots: Sequence[LayerRef]) -> list[LayerRef]:
     """Every root plus all of its ancestors, deduped, parents first.
 
@@ -82,20 +68,13 @@ def plan(
     roots: Sequence[LayerRef],
     *,
     bind: Callable[[LayerRef], LayerBinding],
-    probe: CacheProbe = NEVER_CACHED,
-    on_cache_hit: Callable[[LayerRef], None] = lambda ref: None,
 ) -> list[PlanNode]:
-    """The whole planner: one loop, one cache probe site.
+    """Every layer in the closure, each bound to its build inputs.
 
-    Whether cache is consulted at all is the caller's decision, made
-    once by choosing ``probe`` (--no-cache / --dry-run inject
-    :func:`NEVER_CACHED`); there is deliberately no second flag here
-    for the same fact to drift against.
+    No layer is skipped because its image already exists: an image
+    name says nothing about whether its Dockerfile or context changed
+    since it was built. Docker's layer cache compares the inputs, so
+    every layer goes to ``docker build`` and an unchanged one costs
+    only a cache lookup.
     """
-    nodes: list[PlanNode] = []
-    for ref in closure(roots):
-        if ref.kind not in _ALWAYS_BUILD and probe(ref):
-            on_cache_hit(ref)
-            continue
-        nodes.append(PlanNode(layer=ref, binding=bind(ref)))
-    return nodes
+    return [PlanNode(layer=ref, binding=bind(ref)) for ref in closure(roots)]

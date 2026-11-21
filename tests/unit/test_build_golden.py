@@ -1,10 +1,10 @@
 """Golden master: the docker command sequences ARE the build contract.
 
-Every (case x cache state) below runs through the real kernel (the
-BUILD phases with the builtin hooks) with the docker probe faked, and
-the resulting command sequence - plus the cache-hit report stream, which
-is where one historical copy drifted - is compared byte-for-byte against
-a checked-in fixture.
+Every case below runs through the real kernel (the BUILD phases with
+the builtin hooks), and the resulting command sequence is compared
+byte-for-byte against a checked-in fixture. There is no cache state to
+vary: the plan never consults the local image store, so one recording
+per case is the whole contract.
 
 Discipline:
 - a fixture diff in a refactor commit is a bug report (refactors must
@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -29,33 +28,15 @@ from sanity_gravity.core.eventbus import EventBus
 from sanity_gravity.core.orchestrator import _BUILD_PHASES, BuildContext, Orchestrator
 from sanity_gravity.core.registry import OFFICIAL_TAGS
 from sanity_gravity.core.reporter import Reporter
-from sanity_gravity.events import Info
 from sanity_gravity.hooks.build import register_builtin_build_hooks
 from sanity_gravity.verbs.build import generate_intermediates
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE = _REPO_ROOT / "tests" / "fixtures" / "build_golden.txt"
 
-# Derived through the production naming code, so these sets only choose
-# which images the fake probe reports as present. The independent witness
-# of the names is the checked-in fixture text.
-_INTERMEDIATE_IMAGES = frozenset(
-    f"sanity-gravity:{name}" for name in generate_intermediates()
-)
-_FINAL_IMAGES = frozenset(f"sanity-gravity:{t}" for t in OFFICIAL_TAGS)
-
 # Non-default bases are community tier, so OFFICIAL_TAGS never reaches
-# them: one headless and one desktop chain pin the debian build path. The
-# warm and hot sets hold no debian layer, so only the cold build is
-# recorded; the cache probe does not depend on the base and the official
-# cases cover it.
+# them: one headless and one desktop chain pin the debian build path.
 _OTHER_BASE_TAGS = ("cc-none-ssh-debian", "cc-xfce-kasm-debian")
-
-CACHE_STATES: dict[str, frozenset[str]] = {
-    "cold": frozenset(),
-    "warm": _INTERMEDIATE_IMAGES,
-    "hot": _INTERMEDIATE_IMAGES | _FINAL_IMAGES,
-}
 
 
 def _cases():
@@ -69,20 +50,9 @@ def _cases():
     yield "multi:ag-xfce-kasm+ag-xfce-vnc", dict(
         targets=["ag-xfce-kasm", "ag-xfce-vnc"]
     )
-    # --no-cache disables the probe, so one cache state suffices (see
-    # _render_all); these two pin the flag's argv effect.
+    # These two pin the --no-cache flag's argv effect.
     yield "all:no-cache", dict(targets=["all"], no_cache=True)
     yield "tag:ag-xfce-kasm:no-cache", dict(targets=["ag-xfce-kasm"], no_cache=True)
-
-
-class _Events:
-    """Reporter sink recording every event (the cache-hit channel)."""
-
-    def __init__(self) -> None:
-        self.events: list = []
-
-    def consume(self, event) -> None:
-        self.events.append(event)
 
 
 class _Capture:
@@ -101,38 +71,22 @@ def _norm(s: str) -> str:
     return s.replace(str(_REPO_ROOT), "<REPO>")
 
 
-def _record(case_kw: dict, cached: frozenset[str]) -> list[str]:
-    sink = _Events()
-    reporter = Reporter(sinks=[sink], run_id="golden")
+def _record(case_kw: dict) -> list[str]:
+    reporter = Reporter(sinks=[], run_id="golden")
     bus = EventBus()
     register_builtin_build_hooks(bus)
     ctx = BuildContext(reporter=reporter, dry_run=False, **case_kw)
     ex = _Capture()
-    with patch(
-        "sanity_gravity.hooks.build._image_exists",
-        side_effect=lambda image: image in cached,
-    ):
-        Orchestrator(bus, reporter, executor=ex).run(_BUILD_PHASES, ctx)
-    # The cache-hit stream is part of the contract: the historical drift
-    # (one copy skipping the report) is only visible on this channel.
-    lines = [
-        "! cache-hit " + e.message.split("Cache hit: ", 1)[1]
-        for e in sink.events
-        if isinstance(e, Info) and "Cache hit: " in e.message
-    ]
-    lines += [_norm(a.explain()) for a in ex.actions]
-    return lines
+    Orchestrator(bus, reporter, executor=ex).run(_BUILD_PHASES, ctx)
+    return [_norm(a.explain()) for a in ex.actions]
 
 
 def _render_all() -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for case_key, kw in _cases():
-        cold_only = kw.get("no_cache") or kw["targets"][0] in _OTHER_BASE_TAGS
-        states = ("cold",) if cold_only else tuple(CACHE_STATES)
-        for state in states:
-            out[f"{case_key}|{state}"] = _record(dict(kw), CACHE_STATES[state])
+        out[case_key] = _record(dict(kw))
     # --list-intermediates is a user-visible string list; pin it too.
-    out["list-intermediates|-"] = list(generate_intermediates())
+    out["list-intermediates"] = list(generate_intermediates())
     return out
 
 
@@ -179,5 +133,5 @@ def test_golden_covers_the_whole_matrix():
     """Enumeration growth must be a deliberate act: a new official tag
     red-lights until the fixture is regenerated."""
     expected = _parse(FIXTURE.read_text(encoding="utf-8"))
-    missing_tags = {f"tag:{t}|cold" for t in OFFICIAL_TAGS} - set(expected)
+    missing_tags = {f"tag:{t}" for t in OFFICIAL_TAGS} - set(expected)
     assert not missing_tags, f"golden fixture lacks cases: {sorted(missing_tags)}"

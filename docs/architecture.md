@@ -85,7 +85,7 @@ A base plugin's manifest points its build context at the shared `sandbox/` tree 
 
 ## Cache Behavior
 
-- `./sanity-cli build` checks for existing local images before building each layer. If a layer already exists, it's reported as a cache hit and skipped.
+- `./sanity-cli build` runs `docker build` for every layer in the requested chain, even when its image already exists locally, so a changed Dockerfile or rootfs always reaches the image. Docker's layer cache decides what actually rebuilds; an unchanged layer costs a few seconds.
 - Use `--no-cache` to force a full rebuild from scratch.
 - Building a specific tag (e.g. `./sanity-cli build cc-none-ssh`) builds only the layers in that tag's chain.
 

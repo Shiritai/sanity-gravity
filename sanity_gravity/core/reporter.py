@@ -28,7 +28,6 @@ from sanity_gravity.events import (
     ActionFailed,
     ActionFinished,
     ActionStarted,
-    CacheHit,
     CommandIssued,
     ErrorEvent,
     Event,
@@ -141,7 +140,7 @@ class AnsiSink:
                 out.write(f"    stderr:  {event.stderr_tail}\n")
         elif isinstance(event, WouldExecute):
             out.write(f"{_OKCYAN}» would: {event.explain_str}{_ENDC}\n")
-        elif isinstance(event, (CacheHit, LayerBuilding, LayerBuilt)):
+        elif isinstance(event, (LayerBuilding, LayerBuilt)):
             # These are domain-specific narrations; the legacy code
             # surfaced them via print_info / print_success. We keep the
             # same shape so nothing visually changes when callers route
@@ -176,9 +175,7 @@ class AnsiSink:
 
     def _render_build(self, event: Event) -> None:
         out = self._out
-        if isinstance(event, CacheHit):
-            out.write(f"{_OKCYAN}ℹ   Cache hit: {event.image}{_ENDC}\n")
-        elif isinstance(event, LayerBuilding):
+        if isinstance(event, LayerBuilding):
             prefix = (
                 f"  [{event.index}/{event.total}] "
                 if event.index and event.total

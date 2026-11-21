@@ -5,14 +5,13 @@ layer is a standalone Dockerfile with ``ARG BASE_IMAGE`` / ``FROM
 ${BASE_IMAGE}``. Planning is a topological closure over
 :class:`~sanity_gravity.domain.layers.LayerRef` parents
 (:mod:`sanity_gravity.domain.plan`); this module contributes only the
-two edges the pure planner cannot own - binding a layer to its
-filesystem artifacts, and probing the local docker image store - plus
-the rendering of names at the ``docker`` argv edge
+edge the pure planner cannot own - binding a layer to its filesystem
+artifacts - plus the rendering of names at the ``docker`` argv edge
 via :class:`~sanity_gravity.domain.naming.Naming`.
 
 Phase split:
 - ``BUILD_PLAN`` - resolve the request to LayerRef roots, close over
-  parents, apply the cache probe once, fill ``ctx.plan``.
+  parents, fill ``ctx.plan``.
 - ``BUILD_LAYER`` - for each plan node, enqueue a ``RunSubprocess``
   Action invoking ``docker build``.
 - ``BUILD_DONE`` - emit the success summary.
@@ -24,7 +23,6 @@ from collections.abc import Sequence
 
 from sanity_gravity.core.command import CommandBuilder
 from sanity_gravity.core.eventbus import EventBus, get_default_bus
-from sanity_gravity.core.proc import try_run
 from sanity_gravity.core.registry import (
     OFFICIAL_TAG_VALUES,
     get_registry,
@@ -34,19 +32,9 @@ from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.domain.layers import LayerError, LayerKind, LayerRef
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.phase import Phase
-from sanity_gravity.domain.plan import NEVER_CACHED, LayerBinding, plan
+from sanity_gravity.domain.plan import LayerBinding, plan
 from sanity_gravity.domain.tags import Tag
 from sanity_gravity.effects.actions import RunSubprocess
-
-
-def _image_exists(tag: str) -> bool:
-    """Local image existence check (skipped in dry-run upstream)."""
-    return try_run(("docker", "image", "inspect", tag)).ok
-
-
-def _docker_probe(ref: LayerRef) -> bool:
-    return _image_exists(Naming.layer_image(ref))
-
 
 _PLUGIN_KIND: dict[LayerKind, str] = {
     LayerKind.BASE: "base-image",
@@ -100,17 +88,7 @@ def build_plan(ctx) -> None:
     A bad request surfaces as LayerError / TagError from _roots -- both
     SanityError, rendered once at the CLI boundary (exit 1 unchanged).
     """
-    roots = _roots(ctx)
-
-    use_probe = not ctx.no_cache and not ctx.dry_run
-    ctx.plan = plan(
-        tuple(roots),
-        bind=_bind,
-        probe=_docker_probe if use_probe else NEVER_CACHED,
-        on_cache_hit=lambda ref: ctx.reporter.info(
-            f"  Cache hit: {Naming.layer_image(ref)}"
-        ),
-    )
+    ctx.plan = plan(tuple(_roots(ctx)), bind=_bind)
 
 
 def build_layers(ctx) -> None:
@@ -144,9 +122,6 @@ def build_layers(ctx) -> None:
 
 def build_done(ctx) -> None:
     """BUILD_DONE/100: emit success line(s)."""
-    if not ctx.plan:
-        ctx.reporter.info("Nothing to build (everything cached).")
-        return
     targets = ctx.targets or []
     if "all" in targets:
         ctx.reporter.success("All builds complete!")
