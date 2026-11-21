@@ -42,7 +42,10 @@ An "Instance" is uniquely identified by the combination of its **Project Name** 
 **Scenario B: I ran `down` yesterday. Today I run `up` with the same name. What happens?**
 * **Result**: Because you used `down` and not `clean`, the volume was saved. Today's `up` command will automatically find the orphaned volume and mount it. **You will inherit yesterday's entire state.**
 
-**Scenario C: I want a completely fresh environment for a new task.**
+**Scenario C: I ran `ide update`, then `down` and `up`. Which IDE do I get?**
+* **Result**: The one the image pins. `ide update` changes the container, not the volume, so it lasts through `stop`, `start` and `restart` but not through `down`. Software comes from the image and data from the volume; to keep a newer IDE, pull or build a newer image and `up` from it.
+
+**Scenario D: I want a completely fresh environment for a new task.**
 * **Result**: Either use a brand new project name (`-n fresh-task`), or if you want to reuse an old name, run `sanity-cli clean -n old-task` first to vaporize the leftover volume before running `up`.
 
 ## The Explicit Isolation Guarantee
