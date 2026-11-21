@@ -108,3 +108,16 @@ class TestSandboxFullIntegration:
         # "agy --hub" would match su itself while the backend is down.
         res_ls = docker_cli.exec(test_kasm_container, f"su - {user} -c 'pgrep -f \"[a]gy --hub\"'")
         assert res_ls.returncode == 0, "Antigravity's agy backend (Chat backend) crashed or is not running"
+
+        # The backend is a child of the extension host, so it carries the
+        # environment the extension decides agy updates by. Without the
+        # wrapper's value the extension asks Google and swaps agy. Read as
+        # the process's own user: root here has no CAP_SYS_PTRACE, which
+        # another user's environ needs.
+        for pid in res_ls.stdout.split():
+            environ = docker_cli.exec(
+                test_kasm_container, f"su - {user} -c 'cat /proc/{pid}/environ'",
+            ).stdout
+            assert "AGY_RELEASE_BASE_URL=http://127.0.0.1:9" in environ.split("\0"), (
+                f"agy backend {pid} runs without the wrapper's AGY_RELEASE_BASE_URL"
+            )

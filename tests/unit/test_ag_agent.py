@@ -36,7 +36,15 @@ from tests.support import REPO_ROOT, dockerfile_lines
 _PLUGINS_DIR = REPO_ROOT / "plugins"
 _AG_DIR = _PLUGINS_DIR / "agents" / "ag"
 _DOCKERFILE = _AG_DIR / "Dockerfile"
-_GRAVITY_CLI = _AG_DIR / "rootfs" / "usr" / "local" / "bin" / "gravity-cli"
+_ROOTFS = _AG_DIR / "rootfs"
+_GRAVITY_CLI = _ROOTFS / "usr" / "local" / "bin" / "gravity-cli"
+_AG_CONF = _ROOTFS / "usr" / "local" / "etc" / "antigravity.conf"
+#: Everything that sources antigravity.conf.
+_CONF_CONSUMERS = (
+    _GRAVITY_CLI,
+    _ROOTFS / "etc" / "entrypoint.d" / "10-ag-startup.sh",
+    _ROOTFS / "usr" / "local" / "bin" / "chrome-cleanup.sh",
+)
 _TAGS_DOC = REPO_ROOT / "docs" / "tags.md"
 
 #: Spot-check literal, deliberately not the full ag-* list: one desktop
@@ -84,6 +92,11 @@ def dockerfile() -> str:
 @pytest.fixture(scope="module")
 def gravity_cli() -> str:
     return _GRAVITY_CLI.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def ag_conf() -> str:
+    return _AG_CONF.read_text(encoding="utf-8")
 
 
 def _args(dockerfile: str) -> dict[str, str]:
@@ -134,6 +147,8 @@ def test_ag_declares_the_ide_maintenance_contract(reg):
     assert ide is not None
     assert ide.command == ("/usr/local/bin/gravity-cli", "ide")
     assert "usr/local/bin/gravity-cli" in ide.inject
+    # gravity-cli sources it, so an old container needs the current one.
+    assert "usr/local/etc/antigravity.conf" in ide.inject
     for rel in ide.inject:
         assert (_AG_DIR / "rootfs" / rel).is_file(), (
             f"[ide] inject names {rel}, which is not in the plugin rootfs"
@@ -192,11 +207,12 @@ def test_both_architectures_carry_their_own_sha256(dockerfile):
         )
 
 
-def test_the_download_is_verified_before_it_is_used(gravity_cli, dockerfile):
+def test_the_download_is_verified_before_it_is_used(gravity_cli, ag_conf,
+                                                     dockerfile):
     """``sha256sum -c`` is the whole point of the pin. Its absence turns
     a pinned URL back into "whatever the network handed us"."""
     assert "sha256sum -c" in gravity_cli
-    assert IMMUTABLE_URL_PATH in gravity_cli, (
+    assert IMMUTABLE_URL_PATH in ag_conf, (
         "the download URL no longer spells the immutable "
         f"{IMMUTABLE_URL_PATH} path"
     )
@@ -204,7 +220,7 @@ def test_the_download_is_verified_before_it_is_used(gravity_cli, dockerfile):
         "the artifact is named 'Antigravity IDE.tar.gz' - the space has to "
         "be encoded or curl gets two arguments"
     )
-    assert UPDATER_API_HOST in gravity_cli, (
+    assert UPDATER_API_HOST in ag_conf, (
         "nothing cross-checks the pin against the sha256 Google publishes"
     )
     # The Dockerfile hands its pin to the same installer, so there is one
@@ -248,20 +264,23 @@ def test_agy_carries_one_sha512_per_architecture(dockerfile):
     )
 
 
-def test_the_agy_download_is_checked_against_a_sha512(gravity_cli):
+def test_the_agy_download_is_checked_against_a_sha512(gravity_cli, ag_conf):
     assert "sha512sum -c" in gravity_cli
-    assert AGY_DOWNLOAD_BASE in gravity_cli
-    assert AGY_UPDATER_HOST in gravity_cli, (
+    assert AGY_DOWNLOAD_BASE in ag_conf
+    assert AGY_UPDATER_HOST in ag_conf, (
         "nothing cross-checks the agy pin against the sha512 Google publishes"
     )
 
 
-def test_the_agy_update_url_is_pointed_at_nothing(gravity_cli):
+def test_the_agy_update_url_is_pointed_at_nothing(gravity_cli, ag_conf):
     """The extension's own downloader is pointed at a loopback port that
     refuses, so its update check fails at once and it keeps the binary
-    it found - the pinned one."""
-    assert "antigravity.releaseBaseUrl" in gravity_cli
-    assert "http://127.0.0.1:9" in gravity_cli
+    it found - the pinned one. The wrapper sets it for every IDE process,
+    and the install fails if the extension stops reading it."""
+    assert "AGY_RELEASE_ENV=AGY_RELEASE_BASE_URL" in ag_conf
+    assert "AGY_RELEASE_OFF=http://127.0.0.1:9" in ag_conf
+    assert "export $AGY_RELEASE_ENV=$AGY_RELEASE_OFF" in gravity_cli
+    assert '"$AGY_RELEASE_ENV" "$staged/$AGY_EXTENSION_MAIN"' in gravity_cli
 
 
 def test_the_pinned_agy_version_is_the_one_the_docs_name(dockerfile):
@@ -316,13 +335,14 @@ def test_the_wrapper_keeps_the_flags_the_container_needs(gravity_cli):
         assert flag in gravity_cli, f"the wrapper no longer passes {flag}"
 
 
-def test_the_updater_is_cut_off_at_the_root(gravity_cli):
+def test_the_updater_is_cut_off_at_the_root(gravity_cli, ag_conf):
     """Upstream's own releases page says these builds auto-update by
     default, and the update that fires is the one that moves users onto
     the separate 2.0 app. VS Code's update service reports
     MissingConfiguration and stays off when product.json names no URL -
     a switch the sandbox user cannot flip back."""
-    assert "del(.updateUrl" in gravity_cli, (
+    assert 'AG_UPDATE_KEYS="updateUrl backupUpdateUrl"' in ag_conf
+    assert '"$AG_UPDATE_KEYS" \'delpaths(' in gravity_cli, (
         "product.json keeps its update URL: the IDE can replace itself "
         "inside the sandbox"
     )
@@ -331,13 +351,14 @@ def test_the_updater_is_cut_off_at_the_root(gravity_cli):
 # -- sign-in: the deep link ---------------------------------------------
 
 
-def test_the_url_scheme_handler_is_registered(gravity_cli):
+def test_the_url_scheme_handler_is_registered(gravity_cli, ag_conf):
     """2.x sign-in does not come back on a localhost port any more.
     antigravity.google/auth-success hands the browser an
     ``antigravity-ide://oauth-success`` link, so without a handler the
     last step of the login lands nowhere - and the symptom is a login
     that simply never completes."""
-    assert "x-scheme-handler/antigravity-ide" in gravity_cli
+    assert "AG_URL_SCHEME=antigravity-ide" in ag_conf
+    assert 'URL_SCHEME="x-scheme-handler/$AG_URL_SCHEME"' in gravity_cli
     assert "--open-url" in gravity_cli, (
         "the handler entry must exec the IDE with --open-url %U"
     )
@@ -365,3 +386,74 @@ def test_the_desktop_entries_exec_the_wrapper_not_the_path_command(gravity_cli):
     while the sed meant to patch ``Exec=/usr/bin/...`` matched nothing."""
     for line in ("Exec=$AG_WRAPPER %F", "Exec=$AG_WRAPPER --open-url %U"):
         assert line in gravity_cli, f"a .desktop entry no longer has {line}"
+
+
+# -- antigravity.conf ---------------------------------------------------
+
+_CONF_HEADING = re.compile(r"^## IDE (1\.x|(\d+)\.(\d+)\.(\d+)\+)(?: \(.*\))?$")
+_CONF_ASSIGNMENT = re.compile(r"^([A-Z][A-Za-z0-9_]*)=(\S.*)$")
+
+
+def _conf_sections(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """``[(heading, [(name, value), ...]), ...]``; fails on anything
+    that is not a heading, a comment, a blank line or an assignment."""
+    sections: list[tuple[str, list[tuple[str, str]]]] = []
+    for n, line in enumerate(text.splitlines(), 1):
+        if line.startswith("## "):
+            sections.append((line, []))
+        elif not line or line.startswith("#"):
+            continue
+        elif (m := _CONF_ASSIGNMENT.match(line)):
+            assert sections, f"antigravity.conf:{n} sits under no heading"
+            sections[-1][1].append((m[1], m[2].strip('"')))
+        else:
+            raise AssertionError(f"antigravity.conf:{n} is not a value: {line}")
+    return sections
+
+
+def test_the_conf_holds_values_only_under_version_headings(ag_conf):
+    """Each heading names the oldest IDE version its entries hold for,
+    and the headings run oldest first, so the file reads as the order in
+    which upstream introduced what the plugin depends on."""
+    keys = []
+    for heading, entries in _conf_sections(ag_conf):
+        m = _CONF_HEADING.match(heading)
+        assert m, f"not an IDE version heading: {heading!r}"
+        assert entries, f"{heading!r} has no entries"
+        keys.append((0, 0, 0) if m[1] == "1.x" else tuple(int(g) for g in m.groups()[1:]))
+    assert keys == sorted(keys), "antigravity.conf sections are not oldest first"
+    assert len(set(keys)) == len(keys), "two sections share a version"
+
+
+def test_every_conf_entry_is_used_and_no_consumer_spells_one(ag_conf):
+    """A value nobody reads is a value nobody keeps true, and a URL or
+    home path spelled again in a script is a second copy that a bump
+    leaves behind. Per-architecture entries are read as <name>_$arch."""
+    consumers = [p.read_text(encoding="utf-8") for p in _CONF_CONSUMERS]
+    code = [
+        "\n".join(
+            line for line in text.splitlines()
+            if not line.lstrip().startswith("#")
+        )
+        for text in consumers
+    ]
+    for text in consumers:
+        assert ". /usr/local/etc/antigravity.conf" in text or (
+            '. "$AG_CONF"' in text and "AG_CONF=/usr/local/etc/antigravity.conf" in text
+        )
+    for _heading, entries in _conf_sections(ag_conf):
+        for name, value in entries:
+            stem = re.sub(r"_(amd64|arm64)$", "_", name)
+            pattern = (
+                re.escape(stem) + r"\$arch" if stem != name
+                else r"\$\{?" + re.escape(name) + r"\b"
+            )
+            assert any(re.search(pattern, c) for c in code), (
+                f"antigravity.conf sets {name}, which nothing reads"
+            )
+            if "://" in value or value.startswith("."):
+                for path, c in zip(_CONF_CONSUMERS, code):
+                    assert value not in c, (
+                        f"{path.name} spells {value} instead of ${name}"
+                    )
+

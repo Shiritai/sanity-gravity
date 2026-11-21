@@ -172,6 +172,7 @@ def test_ag_declares_ide_maintenance():
         inject=(
             "usr/local/bin/gravity-cli",
             "usr/local/bin/chrome-cleanup.sh",
+            "usr/local/etc/antigravity.conf",
         ),
     )
     # Every injected file must actually exist under the plugin's rootfs.

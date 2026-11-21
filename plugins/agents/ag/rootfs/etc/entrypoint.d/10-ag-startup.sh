@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# The names Google defines, with the IDE versions each holds for.
+. /usr/local/etc/antigravity.conf
+
 # Cleanup Stale Antigravity Runtime Locks (Safely)
 # Instead of deleting entire directories (which breaks TLS/CSRF states),
 # we only remove the actual Singleton locks that prevent startup.
@@ -9,16 +12,16 @@
 # standalone 2.x IDE writes ~/.config/Antigravity IDE. The home is a
 # persistent volume, so a sandbox upgraded in place has both.
 echo "Cleaning up stale Antigravity/Chrome locks..."
-find "/home/$USER_NAME/.config/Antigravity IDE" -name "Singleton*" -delete 2>/dev/null || true
-find "/home/$USER_NAME/.config/Antigravity" -maxdepth 1 -name "Singleton*" -delete 2>/dev/null || true
-find "/home/$USER_NAME/.gemini/antigravity-browser-profile" -name "Singleton*" -delete 2>/dev/null || true
+find "/home/$USER_NAME/$AG_USER_DATA" -name "Singleton*" -delete 2>/dev/null || true
+find "/home/$USER_NAME/$AG_1X_USER_DATA" -maxdepth 1 -name "Singleton*" -delete 2>/dev/null || true
+find "/home/$USER_NAME/$AG_BROWSER_PROFILE" -name "Singleton*" -delete 2>/dev/null || true
 
 # Keep the IDE from replacing itself. product.json has already lost its
 # update URL at build time, which the user cannot undo; this is the
 # documented switch on top of it (upstream's releases page names
 # "Update: Mode" -> none as the way to stay on a version). Seed-once: the
 # file is the user's from here on.
-AG_USER_DIR="/home/$USER_NAME/.config/Antigravity IDE/User"
+AG_USER_DIR="/home/$USER_NAME/$AG_USER_DATA/User"
 AG_SETTINGS="$AG_USER_DIR/settings.json"
 if [ ! -f "$AG_SETTINGS" ]; then
     echo "Seeding Antigravity IDE user settings (updates disabled)..."
@@ -41,7 +44,7 @@ fi
 # (written by gravity-cli); this covers the per-user list, which reads
 # first - including a home volume created before the 2.x layer existed.
 # Only when the user has recorded no choice of their own.
-AG_SCHEME=x-scheme-handler/antigravity-ide
+AG_SCHEME="x-scheme-handler/$AG_URL_SCHEME"
 AG_HANDLER=antigravity-ide-url-handler.desktop
 if command -v xdg-mime >/dev/null 2>&1; then
     current=$(runuser -u "$USER_NAME" -- env HOME="/home/$USER_NAME" \
@@ -55,12 +58,9 @@ if command -v xdg-mime >/dev/null 2>&1; then
     fi
 fi
 
-# The IDE runs agy from ~/.gemini/bin, which lives on the home volume:
-# a home from an older image, or one where the IDE downloaded its own
-# agy, would otherwise keep that binary. Re-linked on every start so the
-# backend is always the one this image pinned (gravity-cli installs it).
-AGY_LINK="/home/$USER_NAME/.gemini/bin/agy"
-mkdir -p "$(dirname "$AGY_LINK")"
-ln -sfn /usr/local/bin/agy "$AGY_LINK"
-chown -h "$HOST_UID":"$HOST_GID" "/home/$USER_NAME/.gemini" \
-    "/home/$USER_NAME/.gemini/bin" "$AGY_LINK" || true
+# The IDE runs agy from the home volume, which outlives the image.
+# Re-linked on every start so the backend is always the agy this image
+# pinned; gravity-cli owns the details. A hook that fails stops the
+# entrypoint, and a missing link is not worth a sandbox that will not boot.
+/usr/local/bin/gravity-cli agy link \
+    || echo "WARNING: could not link the pinned agy into the home" >&2

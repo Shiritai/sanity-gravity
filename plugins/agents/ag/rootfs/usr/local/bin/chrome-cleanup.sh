@@ -2,6 +2,9 @@
 # chrome-cleanup.sh
 # Shared cleanup logic for Chrome & Antigravity Agent to ensure Snapshot stability.
 
+# The names Google defines, with the IDE versions each holds for.
+. /usr/local/etc/antigravity.conf
+
 # 1. Standard Locks (Prevent "Profile in use")
 # Resolve Chrome config directory for the current user
 CHROME_CONFIG="${HOME}/.config/google-chrome"
@@ -19,7 +22,7 @@ rm -f "$CHROME_CONFIG/Last Version"
 
 # 3. Antigravity Agent Profile (Fixes Agent failure in Snapshots)
 # We ONLY remove the lock file. Removing the whole profile causes CSRF/TLS issues.
-AGENT_PROFILE="$HOME/.gemini/antigravity-browser-profile"
+AGENT_PROFILE="$HOME/$AG_BROWSER_PROFILE"
 if [ -d "$AGENT_PROFILE" ]; then
     echo "$(date): [chrome-cleanup] Cleaning up locks in Agent Profile at $AGENT_PROFILE" >> /tmp/chrome-cleanup.log
     rm -f "$AGENT_PROFILE/SingletonLock"
@@ -45,7 +48,7 @@ find /tmp -name ".org.chromium.Chromium*" -user "${USER:-$(id -un)}" -delete 2>/
 # home volume that predates the 2.x layer. The main socket carries the
 # editor's version in its name, so it is matched by glob rather than
 # spelled - the hard-coded 1.10-main.sock had stopped matching anything.
-for ag_config in "$HOME/.config/Antigravity IDE" "$HOME/.config/Antigravity"; do
+for ag_config in "$HOME/$AG_USER_DATA" "$HOME/$AG_1X_USER_DATA"; do
     [ -d "$ag_config" ] || continue
     rm -f "$ag_config"/*-main.sock
     rm -f "$ag_config/SingletonSocket"
