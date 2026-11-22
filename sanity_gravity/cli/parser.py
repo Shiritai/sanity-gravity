@@ -269,18 +269,22 @@ def build_parser():
     p_ide.add_argument("--name", "-n", default="sanity-gravity",
                        help="Project name (default: sanity-gravity)")
     ide_subparsers = p_ide.add_subparsers(dest="ide_command", required=True)
+    # ``--name`` is accepted on both sides of the action word. argparse
+    # copies every subparser default over the parent's namespace, so a
+    # real default here would clobber ``ide -n X update`` back to
+    # sanity-gravity; SUPPRESS leaves the parent's value (or default).
 
     ide_update = ide_subparsers.add_parser(
         "update", help="Download and verify the current IDE build, then install it",
     )
-    ide_update.add_argument("--name", "-n", default="sanity-gravity",
+    ide_update.add_argument("--name", "-n", default=argparse.SUPPRESS,
                             help="Project name")
     ide_update.set_defaults(func=ide_cmd, ide_command="update")
 
     ide_reinstall = ide_subparsers.add_parser(
         "reinstall", help="Reinstall the IDE and clear its caches to fix crashes",
     )
-    ide_reinstall.add_argument("--name", "-n", default="sanity-gravity",
+    ide_reinstall.add_argument("--name", "-n", default=argparse.SUPPRESS,
                                help="Project name")
     ide_reinstall.set_defaults(func=ide_cmd, ide_command="reinstall")
 
