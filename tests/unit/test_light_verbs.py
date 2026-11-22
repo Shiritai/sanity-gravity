@@ -167,7 +167,11 @@ class TestProxyVerbs:
 
 
 class TestIdeVerb:
-    """Cover the early-return paths and the docker-cp injection failure."""
+    """Cover the precondition failures and the docker-cp injection failure.
+
+    Every precondition failure must raise SanityError so the CLI exits
+    non-zero; print_error + return used to exit 0.
+    """
 
     def _args(self, name="sanity-gravity", ide_command="diag"):
         args = {"ide_command": ide_command}
@@ -176,49 +180,46 @@ class TestIdeVerb:
         return argparse.Namespace(**args)
 
     def test_no_active_projects(self):
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import ide as ide_mod
 
         with patch.object(ide_mod, "get_active_projects", return_value=[]), \
-             patch.object(ide_mod, "print_error") as err:
+             pytest.raises(SanityError, match="No active managed projects"):
             ide_mod.ide_cmd(self._args(name=None))
-            err.assert_called_once()
-            assert "No active managed projects" in err.call_args[0][0]
 
     def test_multiple_active_projects_requires_name(self):
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import ide as ide_mod
 
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["p1", "p2"]), \
-             patch.object(ide_mod, "print_error") as err:
+             pytest.raises(SanityError, match="Multiple active projects"):
             ide_mod.ide_cmd(self._args(name=None))
-            err.assert_called_once()
-            assert "Multiple active projects" in err.call_args[0][0]
 
     def test_named_project_not_active(self):
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import ide as ide_mod
 
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["other"]), \
-             patch.object(ide_mod, "print_error") as err:
+             pytest.raises(SanityError, match="not active or managed"):
             ide_mod.ide_cmd(self._args(name="missing"))
-            err.assert_called_once()
-            assert "not active or managed" in err.call_args[0][0]
 
     def test_no_running_container(self):
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import ide as ide_mod
 
         with patch.object(ide_mod, "get_active_projects",
                           return_value=["proj1"]), \
              patch.object(ide_mod, "find_project_containers",
                           return_value=[]), \
-             patch.object(ide_mod, "print_error") as err:
+             pytest.raises(SanityError, match="No running containers"):
             ide_mod.ide_cmd(self._args(name="proj1"))
-            err.assert_called_once()
-            assert "No running containers" in err.call_args[0][0]
 
     def test_agent_slug_derived_from_service_tag(self):
         """The agent lookup key is the agent dimension of the discovered
         service tag - not a prefix split of the raw string."""
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import ide as ide_mod
 
         registry = MagicMock()
@@ -230,14 +231,14 @@ class TestIdeVerb:
                           return_value=[container_record("gc-none-ssh")]), \
              patch("sanity_gravity.core.registry.get_registry",
                    return_value=registry), \
-             patch.object(ide_mod, "print_error") as err:
+             pytest.raises(SanityError, match="Agent 'gc'"):
             ide_mod.ide_cmd(self._args(name="proj1"))
-            assert "Agent 'gc'" in err.call_args_list[0][0][0]
 
     def test_provides_ide_without_manifest_section_errors(self):
         """An agent may claim the 'ide' capability yet ship no [ide]
         contract; the verb must fail with a clear message instead of
         falling back to another plugin's tooling."""
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.plugins.manifest import PluginManifest
         from sanity_gravity.verbs import ide as ide_mod
 
@@ -254,12 +255,10 @@ class TestIdeVerb:
                           return_value=[container_record("ag-xfce-kasm")]), \
              patch("sanity_gravity.core.registry.get_registry",
                    return_value=registry), \
-             patch.object(ide_mod.subprocess, "check_call") as check_call, \
-             patch.object(ide_mod, "print_error") as err:
-            ide_mod.ide_cmd(self._args(name="proj1"))
+             patch.object(ide_mod.subprocess, "check_call") as check_call:
+            with pytest.raises(SanityError, match=r"\[ide\]"):
+                ide_mod.ide_cmd(self._args(name="proj1"))
             check_call.assert_not_called()
-            err.assert_called_once()
-            assert "[ide]" in err.call_args[0][0]
 
     def test_inject_failure_raises(self):
         from sanity_gravity.domain.errors import SanityError

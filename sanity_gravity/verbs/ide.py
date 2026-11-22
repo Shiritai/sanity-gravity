@@ -10,10 +10,8 @@ from __future__ import annotations
 import subprocess
 
 from sanity_gravity.cli.io import (
-    print_error,
     print_header,
     print_info,
-    print_plain,
 )
 from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.verbs.lifecycle import find_project_containers, get_active_projects
@@ -28,26 +26,28 @@ def ide_cmd(args):
     
     if getattr(args, "name", None) is None:
         if not active:
-            print_error("No active managed projects found.")
-            print_plain("Tip: Use --name <project> to specify a project.")
-            return
+            raise SanityError(
+                "No active managed projects found.",
+                hint="Use --name <project> to specify a project.",
+            )
         if len(active) > 1:
-            print_error(f"Multiple active projects found: {', '.join(active)}")
-            print_plain("Please specify a project with --name.")
-            return
+            raise SanityError(
+                f"Multiple active projects found: {', '.join(active)}",
+                hint="Please specify a project with --name.",
+            )
         project_name = active[0]
     else:
         project_name = args.name
 
+    # A precondition failure must raise: print_error + return would end
+    # the process with exit 0 (the dispatcher drops the return value).
     active = get_active_projects()
     if project_name not in active:
-        print_error(f"Project '{project_name}' is not active or managed.")
-        return
+        raise SanityError(f"Project '{project_name}' is not active or managed.")
 
     matches = find_project_containers(project_name)
     if not matches:
-        print_error(f"No running containers found for {project_name}.")
-        return
+        raise SanityError(f"No running containers found for {project_name}.")
     target_tag = matches[0]["tag"]
     container_name = matches[0]["name"]
 
@@ -58,17 +58,17 @@ def ide_cmd(args):
     agent_plugin = registry.agents.get(agent_slug)
     
     if not agent_plugin or "ide" not in agent_plugin.provides:
-        print_error(f"Agent '{agent_slug}' does not provide an IDE capability.")
-        print_error("IDE maintenance commands are not applicable.")
-        return
+        raise SanityError(
+            f"Agent '{agent_slug}' does not provide an IDE capability.",
+            hint="IDE maintenance commands are not applicable.",
+        )
 
     ide_spec = agent_plugin.ide
     if ide_spec is None:
-        print_error(
+        raise SanityError(
             f"Agent '{agent_slug}' provides 'ide' but its manifest has "
             "no [ide] section describing the maintenance contract."
         )
-        return
 
     print_header(f"IDE Maintenance ({project_name})")
     print_info(f"Executing {ide_spec.command[0]} {subcommand} in {container_name}...")

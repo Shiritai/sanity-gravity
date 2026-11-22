@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
+from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.verbs import ide as ide_verb
 from tests.conftest import container_record
 
@@ -77,21 +78,11 @@ class TestIdeCommand:
         assert mock_check_call.call_args_list == _expected_calls(cname, "reinstall")
 
     @patch("sanity_gravity.verbs.ide.get_active_projects")
-    @patch("sanity_gravity.verbs.ide.print_error")
-    def test_ide_container_not_found(self, mock_print_error, mock_get_active):
-        # Patch ``print_error`` at the import site (not ``builtins.print``):
-        # when the CLI is invoked via ``./sanity-cli test``, a Reporter is
-        # already installed and ``print_error`` routes through AnsiSink
-        # (out.write), not ``print(...)``. Patching the function itself is
-        # invariant to whether a reporter is set.
+    def test_ide_container_not_found(self, mock_get_active):
         mock_get_active.return_value = ["other-project"]
 
         args = argparse.Namespace(
             name="non-existent-project", ide_command="update"
         )
-        ide_verb.ide_cmd(args)
-
-        messages = [call_args[0][0] for call_args in mock_print_error.call_args_list]
-        assert any("is not active or managed" in m for m in messages), (
-            f"expected an 'is not active or managed' error; saw: {messages!r}"
-        )
+        with pytest.raises(SanityError, match="is not active or managed"):
+            ide_verb.ide_cmd(args)
