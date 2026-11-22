@@ -4,17 +4,17 @@ FROM ${BASE_IMAGE}
 
 # Upstream's debs are not interchangeable across distro codenames; a pair
 # with no pinned sum must stop the build rather than install the wrong one.
-ENV KASM_VERSION=1.5.0
+ENV KASM_VERSION=1.5.2
 RUN arch=$(dpkg --print-architecture); \
     os=$(. /etc/os-release && echo "${ID}:${VERSION_CODENAME}"); \
     case "${os}/${arch}" in \
-        ubuntu:noble/amd64)    sha256=f599fe02e2175b9817b6165f74a5d2bebdc73118dde9181ba3410963bed7ae1e ;; \
-        ubuntu:noble/arm64)    sha256=c9199cf4753208bfb69fd016a9780242bebfc43370cc38c97d61e90a3c783e04 ;; \
-        debian:bookworm/amd64) sha256=770fd3df51510beecc89666879d82faf411276e68c6e11df612f736b891b5f71 ;; \
-        debian:bookworm/arm64) sha256=aa83a1a6c9069d1a02239988b07a3a2a082a433042b4d4ee2b9e9f6b2df9643c ;; \
+        ubuntu:noble/amd64)    sha256=89a5d1fbe9e032b122202be158a2b25f15c97e0a5b8dcf92a5e6835c7b7b2acd ;; \
+        ubuntu:noble/arm64)    sha256=4d680f3d1eb77fb155ae67af7f9fa25d7fbd38a7f69ae146784c7f738e2eed1a ;; \
+        debian:bookworm/amd64) sha256=5f4bfda43e89178782eac37ae463b1d95d16ac5e45da8b7989ec75404e764993 ;; \
+        debian:bookworm/arm64) sha256=b847429cbcf95736fdd5c3be682eea38cae4d689f012eec9c2d5f221b175d1c2 ;; \
         *) echo "no pinned KasmVNC deb for '${os}/${arch}'" >&2; exit 1 ;; \
     esac; \
-    deb="kasmvncserver_${os#*:}_${KASM_VERSION}_${arch}.deb" && \
+    deb="kasmvncserver_${os%%:*}_${os#*:}_${KASM_VERSION}_${arch}.deb" && \
     curl -L -O "https://github.com/kasmtech/KasmVNC/releases/download/v${KASM_VERSION}/${deb}" && \
     echo "${sha256}  ${deb}" | sha256sum -c - && \
     apt-get update && apt-get install -y "./${deb}" ssl-cert && \
