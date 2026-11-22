@@ -35,6 +35,7 @@ import subprocess
 import sys
 
 import pytest
+from hypothesis import HealthCheck, settings
 
 from sanity_gravity.core import proc as _proc
 from sanity_gravity.core.proc import Completed
@@ -44,6 +45,17 @@ from sanity_gravity.domain.naming import Naming
 from sanity_gravity.domain.tags import Tag
 
 pytest_plugins = ["tests.hermetic"]
+
+# The property tests assert what code returns, not how fast. Hypothesis's
+# two wall-clock checks (the 200 ms per-example deadline and the too_slow
+# generation health check) fire whenever the host is starved for CPU and
+# pass on rerun, so they measure the machine, not the code.
+settings.register_profile(
+    "sanity",
+    deadline=None,
+    suppress_health_check=[HealthCheck.too_slow],
+)
+settings.load_profile("sanity")
 
 _STRICT_ENV = "SANITY_REQUIRE_IMAGES"
 _DISPOSABLE_ENV = "SANITY_DISPOSABLE_HOST"
