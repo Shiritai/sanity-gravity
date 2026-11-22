@@ -16,4 +16,4 @@ provides = ["ubuntu:noble"]
 # layer above depends on.
 dockerfile = "../../../sandbox/Dockerfile.base"
 context = "../../../sandbox"
-from = "ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c"
+from = "ubuntu:24.04@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289"
