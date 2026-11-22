@@ -1,4 +1,4 @@
-name: "Build + Verify (PR)"
+name: "Build + Verify"
 
 on:
   workflow_call:

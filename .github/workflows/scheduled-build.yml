@@ -1,0 +1,48 @@
+name: Scheduled Build
+
+# Push-triggered CI sees nothing while nobody pushes, yet the official
+# base images and the distro archives the root layer's apt-get upgrade
+# pulls from change every couple of weeks. This rebuilds the official
+# tags from scratch on both arches and runs the same tests and Trivy
+# gate as a PR, so a newly fixable HIGH/CRITICAL turns it red. It only
+# detects: nothing is pushed or published, a fix still needs a release.
+on:
+  workflow_dispatch:
+  schedule:
+    # Cron has no "every 14 days"; the 1st and 15th keep the gap at
+    # 14-17 days.
+    - cron: '0 3 1,15 * *'
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      tags_json: ${{ steps.meta.outputs.tags_json }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Discover valid tags from sanity-cli
+        id: meta
+        run: |
+          chmod +x ./sanity-cli
+          echo "tags_json=$(./sanity-cli list --json)" >> $GITHUB_OUTPUT
+
+  verify-x64:
+    needs: [setup]
+    uses: ./.github/workflows/_build-and-verify.yml
+    with:
+      arch: amd64
+      tags: ${{ needs.setup.outputs.tags_json }}
+      needs_images: true
+
+  verify-arm64:
+    needs: [setup]
+    uses: ./.github/workflows/_build-and-verify.yml
+    with:
+      arch: arm64
+      tags: ${{ needs.setup.outputs.tags_json }}
+      needs_images: true

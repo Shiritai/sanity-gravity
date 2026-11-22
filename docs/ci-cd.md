@@ -6,7 +6,7 @@ Sanity-Gravity uses a **dual-path CI architecture** to keep PRs clean and releas
 
 - **PR = zero pollution**: PR builds never push images to the registry.
 - **Release = full parallel**: release builds push, test, scan, and publish independently per architecture.
-- **Reusable workflows**: shared building blocks (`_build.yml`, `_test.yml`, `_check.yml`, `_publish.yml`) are composed by the two entry-point workflows.
+- **Reusable workflows**: shared building blocks (`_build-and-verify.yml`, `_build.yml`, `_test.yml`, `_check.yml`, `_publish.yml`) are composed by the entry-point workflows.
 
 ## Workflow Structure
 
@@ -15,6 +15,7 @@ Sanity-Gravity uses a **dual-path CI architecture** to keep PRs clean and releas
 ├── hermetic.yml            ← Every PR + every push to main: lint + hermetic tests
 ├── ci-pr.yml               ← PR entry point (no registry push)
 ├── ci-release.yml          ← Release entry point (push + publish)
+├── scheduled-build.yml     ← 1st and 15th: rebuild + test + scan, no push
 ├── _build-and-verify.yml   ← Reusable: build + test + scan on same runner
 ├── _build.yml              ← Reusable: build + push to GHCR
 ├── _check.yml              ← Reusable: Trivy security scan
@@ -68,6 +69,18 @@ setup (discover tags + generate SHA-based transient tag)
   ├── test-arm64
   └── publish      (_publish.yml: only on release/v* tag, needs all)
 ```
+
+## Scheduled Build (`scheduled-build.yml`)
+
+Runs at 03:00 UTC on the 1st and 15th of each month (cron cannot express every 14 days), and on demand via `workflow_dispatch`.
+
+```
+setup (discover valid tags via ./sanity-cli list --json)
+  ├── verify-x64   (_build-and-verify.yml, amd64)
+  └── verify-arm64  (_build-and-verify.yml, arm64)
+```
+
+The same build, tests, and Trivy gate as a PR, on the official-tier tags, built without cache on fresh runners. The base digests stay pinned, but the root layer's `apt-get upgrade` pulls the current distro fixes, so a newly fixable HIGH/CRITICAL turns this run red even when nobody has pushed. **Nothing is pushed or published**; acting on a red run means bumping what it names and cutting a release. Trivy does not match software installed outside the distro archives (Chrome from Google's repo, the KasmVNC deb) against distro advisories, so those versions are tracked by hand.
 
 ## Registry
 

@@ -140,3 +140,20 @@ def test_release_trigger_ignores_the_same_docs_only_paths():
     the PR classifier's must not drift apart."""
     push = _triggers(_load(_WORKFLOWS / "ci-release.yml"))["push"]
     assert sorted(push["paths-ignore"]) == sorted(DOCS_ONLY_PATTERNS)
+
+
+def test_scheduled_build_verifies_both_arches_without_publishing():
+    """The scheduled build is the only image check that runs while nobody
+    pushes. It must run the PR's build, tests and Trivy gate on both
+    arches and hold no permission that could reach the registry."""
+    wf = _load(_WORKFLOWS / "scheduled-build.yml")
+    triggers = _triggers(wf)
+    assert set(triggers) == {"schedule", "workflow_dispatch"}
+    assert triggers["schedule"], "scheduled-build.yml: no cron entry"
+    assert wf["permissions"] == {"contents": "read"}
+    called = {job["with"]["arch"]: job for job in wf["jobs"].values() if "uses" in job}
+    assert set(called) == {"amd64", "arm64"}
+    for arch, job in called.items():
+        assert job["uses"] == "./.github/workflows/_build-and-verify.yml", arch
+        assert job["with"]["needs_images"] is True, arch
+        assert "permissions" not in job, arch
