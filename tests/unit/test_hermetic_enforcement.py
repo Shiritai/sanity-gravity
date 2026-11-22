@@ -187,3 +187,17 @@ def test_stops_the_session():
     assert result.ret == pytest.ExitCode.INTERRUPTED
     assert os.environ["PATH"] == path
     assert tempfile.tempdir == tempdir
+
+
+@pytest.mark.parametrize("update", [False, True])
+def test_fixture_writes_are_allowed_only_while_regenerating_goldens(
+    tmp_path, monkeypatch, update
+):
+    from tests import hermetic
+
+    monkeypatch.delenv(hermetic.UPDATE_GOLDEN_ENV, raising=False)
+    if update:
+        monkeypatch.setenv(hermetic.UPDATE_GOLDEN_ENV, "1")
+    roots = hermetic._Session(tmp_path).roots
+    fixture = os.path.join(hermetic.FIXTURES_DIR, "build_golden.txt")
+    assert hermetic._allowed(fixture, roots) is update

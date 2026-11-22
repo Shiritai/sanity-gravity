@@ -74,6 +74,11 @@ _PATH_EVENTS = {
 
 _RECORD_ENV = "SANITY_HERMETIC_RECORD"
 
+#: Regenerating the golden fixtures is a deliberate write into the
+#: checkout; with this set, tests/fixtures/ joins the allowed roots.
+UPDATE_GOLDEN_ENV = "SANITY_UPDATE_GOLDEN"
+FIXTURES_DIR = os.path.realpath(Path(__file__).parent / "fixtures")
+
 
 def _stub(name: str) -> str:
     return (
@@ -91,6 +96,8 @@ class _Session:
 
     def __init__(self, basetemp: Path) -> None:
         self.roots = (os.path.realpath(basetemp),)
+        if os.environ.get(UPDATE_GOLDEN_ENV):
+            self.roots += (FIXTURES_DIR,)
         self.stubs = str(basetemp / "hermetic-stubs")
         # The stdlib tempfile default (/tmp) is pointed here during a
         # hermetic test: TemporaryDirectory users and pytester's capture
