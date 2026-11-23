@@ -230,3 +230,73 @@ def test_cli_list_visual_parity_only_recording_banner(tmp_path):
     assert "Recording to" in lines[0] and "/runs/" in lines[0]
     assert any("Dimension Matrix" in ln for ln in lines)
     assert any("ag-xfce-kasm" in ln for ln in lines)
+
+
+_NOW = 2_000_000_000.0
+_DAY = 86400.0
+
+
+def _aged(path: Path, days: float, now: float = _NOW) -> Path:
+    t = now - days * _DAY
+    os.utime(path, (t, t), follow_symlinks=False)
+    return path
+
+
+def _run_dir(base: Path, name: str, days: float, now: float = _NOW) -> Path:
+    d = base / name
+    d.mkdir(parents=True)
+    (d / "events.jsonl").write_text("{}\n")
+    return _aged(d, days, now)
+
+
+def test_prune_old_runs_deletes_only_expired_run_dirs(tmp_path):
+    from sanity_gravity.core.reporter import prune_old_runs
+
+    base = tmp_path / "runs"
+    expired = _run_dir(base, "0123abcd", 31)
+    fresh = _run_dir(base, "4567cdef", 29)
+    current = _run_dir(base, "89abcdef", 31)
+    # Old but not a run directory: wrong name shape, or not a directory.
+    run_shaped_file = base / "fedcba98"
+    run_shaped_file.write_text("a file")
+    foreign = [
+        _run_dir(base, "notes", 90),
+        _run_dir(base, "0123ABCD", 90),
+        _run_dir(base, "0123abcde", 90),
+        _aged(run_shaped_file, 90),
+    ]
+    # A run-shaped symlink to an old directory outside the base.
+    outside = _run_dir(tmp_path, "outside", 90)
+    link = base / "aaaabbbb"
+    link.symlink_to(outside)
+    _aged(link, 90)
+
+    prune_old_runs(base, keep=current.name, now=_NOW)
+
+    assert not expired.exists()
+    for p in (fresh, current, *foreign, link):
+        assert p.exists() or p.is_symlink(), p
+    assert (outside / "events.jsonl").exists()
+
+
+def test_prune_old_runs_tolerates_a_missing_base(tmp_path):
+    from sanity_gravity.core.reporter import prune_old_runs
+
+    prune_old_runs(tmp_path / "absent", keep="01234567", now=_NOW)
+    (tmp_path / "file").write_text("x")
+    prune_old_runs(tmp_path / "file", keep="01234567", now=_NOW)
+
+
+def test_file_sink_prunes_its_own_base_when_it_opens(tmp_path):
+    """The prune follows the sink's base, so a base override (as every
+    test uses) never reaches the real ~/.cache."""
+    import time
+
+    expired = _run_dir(tmp_path, "0123abcd", 31, now=time.time())
+    sink = FileSink(run_id="89abcdef", base=tmp_path)
+    try:
+        sink.consume(Info(ts=0.0, run_id="89abcdef", level="info", message="m"))
+    finally:
+        sink.close()
+    assert not expired.exists()
+    assert (tmp_path / "89abcdef" / "events.jsonl").exists()

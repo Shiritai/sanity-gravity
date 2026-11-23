@@ -7,7 +7,9 @@ persists in its own way:
 - ``AnsiSink``  — preserves the legacy ``print_*`` colourised UX.
 - ``JsonlSink`` — one JSON object per line (machine consumers / CI).
 - ``FileSink``  — always-on, best-effort, writes to
-  ``~/.cache/sanity-gravity/runs/<run_id>/events.jsonl``.
+  ``~/.cache/sanity-gravity/runs/<run_id>/events.jsonl``. When it opens,
+  run directories under the same base older than
+  :data:`RUN_RETENTION_DAYS` are deleted (see :func:`prune_old_runs`).
 
 Sinks are intentionally not abstract — they only need a ``consume``
 method. The ``Sink`` Protocol below documents that contract.
@@ -16,6 +18,9 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
+import re
+import shutil
 import sys
 import time
 import uuid
@@ -210,11 +215,55 @@ class JsonlSink:
         self._out.flush()
 
 
+#: Age after which a run directory is deleted. Nothing reads old runs
+#: back; they exist for looking into a recent failure, and without a
+#: bound one directory piles up per CLI invocation.
+RUN_RETENTION_DAYS = 30
+
+#: The shape of a generated run id (``uuid4().hex[:8]``). Only entries
+#: with this name are pruning candidates, so anything else a user keeps
+#: under the base survives.
+_RUN_ID_RE = re.compile(r"[0-9a-f]{8}")
+
+
+def prune_old_runs(
+    base: Path,
+    keep: str,
+    *,
+    max_age_s: float = RUN_RETENTION_DAYS * 86400,
+    now: float | None = None,
+) -> None:
+    """Best-effort delete of run directories under ``base`` older than
+    ``max_age_s`` by mtime; ``keep`` (the current run) is never touched.
+
+    Never raises: losing old logs is fine, failing the run is not.
+    Symlinks are skipped, not followed, and rmtree does not descend
+    through links inside a directory either.
+    """
+    cutoff = (time.time() if now is None else now) - max_age_s
+    try:
+        entries = list(os.scandir(base))
+    except OSError:
+        return
+    for entry in entries:
+        if entry.name == keep or not _RUN_ID_RE.fullmatch(entry.name):
+            continue
+        try:
+            if not entry.is_dir(follow_symlinks=False):
+                continue
+            if entry.stat(follow_symlinks=False).st_mtime >= cutoff:
+                continue
+        except OSError:
+            continue
+        shutil.rmtree(entry.path, ignore_errors=True)
+
+
 class FileSink:
     """Always-on JSONL sink at ``~/.cache/sanity-gravity/runs/<run_id>/events.jsonl``.
 
-    Lazily creates the directory on first use. Failures are non-fatal:
-    this sink is best-effort, not load-bearing.
+    Lazily creates the directory on first use, and prunes expired run
+    directories under the same base then (:func:`prune_old_runs`).
+    Failures are non-fatal: this sink is best-effort, not load-bearing.
     """
 
     def __init__(self, run_id: str, base: Path | None = None) -> None:
@@ -232,6 +281,7 @@ class FileSink:
             return None
         if self._fp is not None:
             return self._fp
+        prune_old_runs(self._base, keep=self._run_id)
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self._fp = self.path.open("a", encoding="utf-8")
