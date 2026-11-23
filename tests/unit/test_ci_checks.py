@@ -192,3 +192,13 @@ def test_only_a_final_version_moves_latest(tmp_path, ref_name, published):
     subprocess.run(["bash", "-c", script], check=True,
                    env={"GITHUB_OUTPUT": str(out), "PATH": "/usr/bin:/bin"})
     assert f"tags_csv={published}" in out.read_text().splitlines()
+
+
+def test_publish_merges_per_arch_indexes_with_imagetools():
+    """The runner's docker pushes each per-arch image as an index (image
+    plus attestation); `docker manifest create` refuses an index as a
+    source, which failed every publish job of v0.4.0's first run."""
+    steps = _load(_WORKFLOWS / "_publish.yml")["jobs"]["publish"]["steps"]
+    script = "\n".join(s.get("run", "") for s in steps)
+    assert "docker manifest" not in script
+    assert "docker buildx imagetools create" in script

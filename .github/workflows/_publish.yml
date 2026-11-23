@@ -40,31 +40,27 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Promote and Publish Multi-arch
+        # The runner's docker pushes each per-arch image as an index (the
+        # image plus its attestation), and `docker manifest create`
+        # refuses an index as a source. imagetools merges the sources'
+        # manifests into one index, registry-side, with no pull.
         run: |
           REPO_LC="${{ inputs.repo_lc }}"
           TRANSIENT_TAG="${{ inputs.transient_tag }}"
           VARIANT="${{ matrix.image_tag }}"
+          IMAGE="ghcr.io/${REPO_LC}-${VARIANT}"
 
-          # Pull x64 and arm64 transient images
-          docker pull ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-amd64 || exit 1
-          docker pull ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-arm64 || exit 1
-
-          # Loop over each target tag
           IFS=',' read -ra TAGS <<< "${{ inputs.tags_csv }}"
           for FINAL_TAG in "${TAGS[@]}"; do
             echo "Creating manifest for ${VARIANT}:${FINAL_TAG}"
-            docker manifest create ghcr.io/${REPO_LC}-${VARIANT}:${FINAL_TAG} \
-              ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-amd64 \
-              ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-arm64
+            docker buildx imagetools create -t "${IMAGE}:${FINAL_TAG}" \
+              "${IMAGE}:${TRANSIENT_TAG}-amd64" \
+              "${IMAGE}:${TRANSIENT_TAG}-arm64"
 
-            docker manifest push ghcr.io/${REPO_LC}-${VARIANT}:${FINAL_TAG}
-          done
-
-          # Tag per-arch images with persistent tags so they won't be garbage-collected
-          for FINAL_TAG in "${TAGS[@]}"; do
+            # Persistent per-arch tags, so the transient ones can be
+            # garbage-collected without losing what this tag points at.
             for arch in amd64 arm64; do
-              docker tag ghcr.io/${REPO_LC}-${VARIANT}:${TRANSIENT_TAG}-${arch} \
-                ghcr.io/${REPO_LC}-${VARIANT}:${FINAL_TAG}-${arch}
-              docker push ghcr.io/${REPO_LC}-${VARIANT}:${FINAL_TAG}-${arch}
+              docker buildx imagetools create -t "${IMAGE}:${FINAL_TAG}-${arch}" \
+                "${IMAGE}:${TRANSIENT_TAG}-${arch}"
             done
           done
