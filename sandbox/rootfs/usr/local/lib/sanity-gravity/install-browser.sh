@@ -11,6 +11,23 @@
 # recipe lives here instead of once per desktop.
 set -eu
 
+# Google's repo and the PPA answer 5xx for minutes at a time, on an index
+# or on a single .deb, so every apt-get that downloads is retried, backing
+# off from 30 s to 4 min (7.5 min in all). By default apt only warns about
+# an index it could not fetch; --error-on=any makes the update fail where
+# the cause is instead of at the install after it.
+retry() {
+    n=1
+    wait=30
+    until "$@"; do
+        [ "$n" -lt 5 ] || return 1
+        n=$((n + 1))
+        echo "install-browser: '$*' failed, attempt $n/5 in ${wait}s" >&2
+        sleep "$wait"
+        wait=$((wait * 2))
+    done
+}
+
 # Chrome ships no arm64 Linux build, so Apple Silicon hosts get chromium:
 # Debian packages it in its own archive, Ubuntu only as a snap, so Ubuntu
 # takes it from the PPA that packages it as a deb. xdg-utils carries xdg-open,
@@ -18,24 +35,24 @@ set -eu
 # the chromium route does not, so both branches ask for it by name.
 arch=$(dpkg --print-architecture)
 if [ "$arch" = "amd64" ]; then
-    apt-get update
-    apt-get install -y --no-install-recommends gnupg xdg-utils
+    retry apt-get update --error-on=any
+    retry apt-get install -y --no-install-recommends gnupg xdg-utils
     mkdir -p /etc/apt/keyrings
     wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub \
         | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
     echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
         > /etc/apt/sources.list.d/google-chrome.list
-    apt-get update
-    apt-get install -y --no-install-recommends google-chrome-stable
+    retry apt-get update --error-on=any
+    retry apt-get install -y --no-install-recommends google-chrome-stable
 else
-    apt-get update
+    retry apt-get update --error-on=any
     if [ "$(. /etc/os-release && echo "$ID")" = "debian" ]; then
-        apt-get install -y --no-install-recommends chromium xdg-utils
+        retry apt-get install -y --no-install-recommends chromium xdg-utils
     else
-        apt-get install -y --no-install-recommends software-properties-common xdg-utils
-        add-apt-repository -y ppa:xtradeb/apps
-        apt-get update
-        apt-get install -y --no-install-recommends chromium
+        retry apt-get install -y --no-install-recommends software-properties-common xdg-utils
+        add-apt-repository -y --no-update ppa:xtradeb/apps
+        retry apt-get update --error-on=any
+        retry apt-get install -y --no-install-recommends chromium
         # add-apt-repository was the only reason for it; it pulls in python3
         # and half of dbus-glib, so it leaves with the repository added.
         apt-get remove --purge -y software-properties-common

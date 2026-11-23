@@ -307,3 +307,52 @@ def test_a_mentioned_installer_is_not_an_invoked_one(tmp_path):
     from sanity_gravity.plugins.manifest import load_manifest
 
     assert not _invocations(load_manifest(tmp_path / "manifest.toml"))
+
+
+def _retry_fn() -> str:
+    script = STAGED.read_text(encoding="utf-8")
+    start = script.index("retry() {")
+    return script[start:script.index("\n}\n", start) + 3]
+
+
+@pytest.mark.parametrize(("failures", "rc", "calls"), [(2, 0, 3), (9, 1, 5)])
+def test_retry_rides_out_an_unreachable_archive(tmp_path, failures, rc, calls):
+    """A third-party archive returning 503, on an index and then on a
+    .deb, stopped three arm64 builds in one day. A download is tried up
+    to five times; past that the build fails."""
+    import subprocess
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    log = tmp_path / "calls"
+    (bindir / "apt-get").write_text(
+        "#!/bin/sh\n"
+        f'echo "$*" >> {log}\n'
+        f'[ "$(wc -l < {log})" -gt {failures} ]\n'
+    )
+    waits = tmp_path / "waits"
+    (bindir / "sleep").write_text(f'#!/bin/sh\necho "$1" >> {waits}\n')
+    for stub in bindir.iterdir():
+        stub.chmod(0o755)
+    result = subprocess.run(
+        ["sh", "-c", _retry_fn() + "retry apt-get install -y chromium"],
+        env={"PATH": f"{bindir}:/usr/bin:/bin"},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == rc
+    assert log.read_text().splitlines() == ["install -y chromium"] * calls
+    assert waits.read_text().split() == ["30", "60", "120", "240"][: calls - 1]
+
+
+def test_every_download_goes_through_the_retry():
+    """Each apt-get update or install is retried, every update fails on an
+    unfetched index, and add-apt-repository runs no update of its own."""
+    script = STAGED.read_text(encoding="utf-8")
+    body = script[script.index("\n}\n", script.index("retry() {")):]
+    for line in body.splitlines():
+        words = line.split()
+        if "apt-get" in words and {"update", "install"} & set(words):
+            assert words[0] == "retry", line.strip()
+        if "update" in words and "apt-get" in words:
+            assert "--error-on=any" in words, line.strip()
+    assert "add-apt-repository -y --no-update" in body
