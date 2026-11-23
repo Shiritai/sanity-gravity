@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
+from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.verbs import upgrade as up_mod
 
 # ---------------------------------------------------------------------------
@@ -156,23 +157,44 @@ class TestUpgradePlanning:
         recs = [{"cid": "c1", "name": "x-web-1", "project": "x", "service": "web"}]
         with patch.object(up_mod, "get_legacy_containers", return_value=recs), \
              patch.object(up_mod, "print_warning") as warn, \
-             patch.object(up_mod, "print_error") as err, \
              patch.object(up_mod, "print_header"), \
-             patch("sanity_gravity.verbs.status.status"):
+             patch("sanity_gravity.verbs.status.status"), \
+             pytest.raises(SanityError, match="Nothing migratable"):
             up_mod.upgrade(argparse.Namespace(name="sanity-gravity"))
-        # 'web' can't map to a tag → warned and then "Nothing migratable".
+        # 'web' can't map to a tag -> warned, then the verb fails.
         assert any("cannot map service" in c[0][0] for c in warn.call_args_list)
-        err.assert_called_once()
-        assert "Nothing migratable" in err.call_args[0][0]
 
     def test_named_project_with_no_records(self):
         with patch.object(up_mod, "get_legacy_containers", return_value=[]), \
-             patch.object(up_mod, "get_legacy_projects", return_value=[]), \
-             patch.object(up_mod, "print_error") as err, \
-             patch("sanity_gravity.verbs.status.status"):
+             patch.object(up_mod, "get_legacy_projects",
+                          return_value=["other"]), \
+             patch("sanity_gravity.verbs.status.status"), \
+             pytest.raises(SanityError,
+                           match="no container needing migration") as ei:
             up_mod.upgrade(argparse.Namespace(name="missing-proj"))
-        err.assert_called_once()
-        assert "no container needing migration" in err.call_args[0][0]
+        assert ei.value.hint == "Projects needing migration: other"
+
+    def test_failed_migration_is_nonzero(self):
+        """A migration that fails mid-way still prints the summary and
+        status, then exits non-zero; it used to end with exit 0."""
+        recs = [{"cid": "c1", "name": "p-ag-1", "project": "p",
+                 "service": "ag-xfce-kasm"}]
+        with patch.object(up_mod, "get_legacy_containers", return_value=recs), \
+             patch.object(up_mod, "legacy_target_tag",
+                          return_value="ag-xfce-kasm"), \
+             patch.object(up_mod, "_migrate_one",
+                          side_effect=RuntimeError("boom")), \
+             patch.object(up_mod, "get_uid_gid_user",
+                          return_value=(1000, 1000, "u")), \
+             patch.object(up_mod.sys.stdin, "isatty", return_value=False), \
+             patch.object(up_mod, "print_error"), \
+             patch.object(up_mod, "print_warning"), \
+             patch.object(up_mod, "print_header"), \
+             patch.object(up_mod, "print_plain"), \
+             patch("sanity_gravity.verbs.status.status") as status, \
+             pytest.raises(SanityError, match="p-ag-1"):
+            up_mod.upgrade(argparse.Namespace(name="sanity-gravity"))
+        status.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

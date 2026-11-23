@@ -21,7 +21,7 @@ from sanity_gravity.core.registry import (
     get_registry,
     tag_tier,
 )
-from sanity_gravity.domain.errors import CommandError
+from sanity_gravity.domain.errors import CommandError, SanityError
 from sanity_gravity.verbs.lifecycle import (
     get_active_projects,
     get_legacy_projects,
@@ -46,6 +46,7 @@ def status(args):
     if not projects_to_show and target_project == "sanity-gravity":
         print_info("No managed Sanity-Gravity instances found.")
 
+    failed = []
     for project in projects_to_show:
         print_header(f"Sandbox Status ({project})")
         try:
@@ -60,6 +61,7 @@ def status(args):
             # "No containers running." can no longer be printed for a
             # daemon that never answered.
             print_error(f"Failed to get status for {project}: {e}")
+            failed.append(project)
             continue
         if output:
             print_plain(output)
@@ -81,6 +83,13 @@ def status(args):
                 f"{Colors.BOLD}Run 'sanity-cli upgrade' to detect and migrate "
                 f"them.{Colors.ENDC}"
             )
+
+    # Reported per project above; the exit must still say it failed.
+    if failed:
+        raise SanityError(
+            f"Failed to get status for {len(failed)} of "
+            f"{len(projects_to_show)} project(s): {', '.join(failed)}"
+        )
 
 
 def _tier_marker(tier: str) -> str:

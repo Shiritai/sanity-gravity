@@ -176,8 +176,11 @@ def sync_config_cmd(args):
         if target_project in active:
             projects_to_sync = [target_project]
         else:
-            print_error(f"Project '{target_project}' is not active or managed.")
-            return
+            # Raise, not print_error + return: the dispatcher drops the
+            # return value, so that shape would exit 0.
+            raise SanityError(
+                f"Project '{target_project}' is not active or managed."
+            )
 
     print_header("Syncing Configuration")
 

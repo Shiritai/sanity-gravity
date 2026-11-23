@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 from unittest.mock import patch
 
-from sanity_gravity.domain.errors import CommandError
+import pytest
+
+from sanity_gravity.domain.errors import CommandError, SanityError
 
 
 class TestStatusEdges:
@@ -43,25 +45,29 @@ class TestStatusEdges:
         err.assert_not_called()
 
     def test_docker_compose_failure_reports_per_project(self):
-        """A ``CalledProcessError`` from the daemon must surface as a
-        per-project ``print_error`` rather than crash the whole verb."""
+        """A daemon failure is reported per project, the other projects
+        are still shown, and the verb then exits non-zero."""
         from sanity_gravity.verbs import status as status_mod
 
-        def fail(cmd, **_kw):
-            raise CommandError(tuple(cmd), 1, stderr="daemon down")
+        def ps(cmd, **_kw):
+            if "proj1" in cmd:
+                raise CommandError(tuple(cmd), 1, stderr="daemon down")
+            return "proj2-row"
 
         with patch.object(status_mod, "get_active_projects",
-                          return_value=["proj1"]), \
+                          return_value=["proj1", "proj2"]), \
              patch.object(status_mod, "get_legacy_projects", return_value=[]), \
-             patch.object(status_mod, "capture", side_effect=fail), \
+             patch.object(status_mod, "capture", side_effect=ps), \
              patch.object(status_mod, "print_error") as err, \
+             patch.object(status_mod, "print_plain") as plain, \
              patch.object(status_mod, "print_info"), \
              patch.object(status_mod, "print_header"), \
-             patch.object(status_mod, "print_warning"):
-            # Must not raise — verb keeps going.
+             patch.object(status_mod, "print_warning"), \
+             pytest.raises(SanityError, match="1 of 2 project.*proj1"):
             status_mod.status(argparse.Namespace(name="sanity-gravity"))
         err.assert_called_once()
         assert "Failed to get status" in err.call_args[0][0]
+        plain.assert_any_call("proj2-row")
 
     def test_legacy_warning_emitted_when_legacy_present(self, capsys):
         from sanity_gravity.verbs import status as status_mod

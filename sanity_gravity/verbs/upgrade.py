@@ -33,6 +33,7 @@ from sanity_gravity.compose.generators import (
 )
 from sanity_gravity.core.colors import Colors
 from sanity_gravity.core.proc import try_run
+from sanity_gravity.domain.errors import SanityError
 from sanity_gravity.domain.naming import Naming
 from sanity_gravity.verbs.lifecycle import (
     get_legacy_containers,
@@ -254,13 +255,16 @@ def upgrade(args):
     if target != "sanity-gravity":
         records = [r for r in records if r["project"] == target]
         if not records:
-            print_error(
-                f"Project '{target}' has no container needing migration."
-            )
+            # Raise, not print_error + return: the dispatcher drops the
+            # return value, so that shape would exit 0.
             others = get_legacy_projects()
-            if others:
-                print_plain(f"Projects needing migration: {', '.join(others)}")
-            return
+            raise SanityError(
+                f"Project '{target}' has no container needing migration.",
+                hint=(
+                    f"Projects needing migration: {', '.join(others)}"
+                    if others else None
+                ),
+            )
 
     if not records:
         print_success(
@@ -281,8 +285,7 @@ def upgrade(args):
             continue
         plan.append({**r, "tag": tag})
     if not plan:
-        print_error("Nothing migratable.")
-        return
+        raise SanityError("Nothing migratable.")
 
     print_header("Lossless Migration Plan")
     print_plain(
@@ -342,8 +345,6 @@ def upgrade(args):
     print_header("Migration Summary")
     if ok:
         print_success(f"Migrated: {', '.join(ok)}")
-    if failed:
-        print_error(f"Failed/aborted: {', '.join(failed)}")
     if ok and not failed:
         print_info(
             "Verify the agents work, then sanity-migrate/* images can be "
@@ -353,3 +354,6 @@ def upgrade(args):
     # Late import to avoid a circular dependency with the status module.
     from sanity_gravity.verbs.status import status
     status(args)
+
+    if failed:
+        raise SanityError(f"Migration failed/aborted: {', '.join(failed)}")

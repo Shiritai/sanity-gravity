@@ -23,26 +23,27 @@ def _match(project, service):
 
 
 class TestOpenVerb:
+    """Every failure raises SanityError so the CLI exits non-zero;
+    print_error + return used to exit 0."""
+
     def test_no_active_projects(self):
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import open as open_mod
 
         with patch.object(open_mod, "get_active_projects", return_value=[]), \
-             patch.object(open_mod, "print_error") as err:
+             pytest.raises(SanityError, match="No active projects"):
             open_mod.open_cmd(argparse.Namespace(name="sanity-gravity"))
-            err.assert_called_once()
-            assert "No active projects" in err.call_args[0][0]
 
     def test_no_running_container(self):
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import open as open_mod
 
         with patch.object(open_mod, "get_active_projects",
                           return_value=["proj1"]), \
              patch.object(open_mod, "find_project_containers",
                           return_value=[]), \
-             patch.object(open_mod, "print_error") as err:
+             pytest.raises(SanityError, match="No running containers"):
             open_mod.open_cmd(argparse.Namespace(name="proj1"))
-            err.assert_called_once()
-            assert "No running containers" in err.call_args[0][0]
 
     def test_kasm_variant_opens_https_url(self, fake_proc):
         from sanity_gravity.verbs import open as open_mod
@@ -69,6 +70,7 @@ class TestOpenVerb:
         "no port bound": the rc drives an explicit warning (the old
         except-CalledProcessError arm was dead code -- check=False
         never raised)."""
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import open as open_mod
 
         fake_proc.script("compose -p proj1 port ag-xfce-kasm 8444",
@@ -79,26 +81,25 @@ class TestOpenVerb:
              patch.object(open_mod, "find_project_containers",
                           return_value=_match("proj1", "ag-xfce-kasm")), \
              patch.object(open_mod.webbrowser, "open") as wb, \
-             patch.object(open_mod, "print_warning") as warn, \
-             patch.object(open_mod, "print_error") as err:
-            open_mod.open_cmd(argparse.Namespace(name="proj1"))
+             patch.object(open_mod, "print_warning") as warn:
+            with pytest.raises(SanityError, match="accessible URL"):
+                open_mod.open_cmd(argparse.Namespace(name="proj1"))
             wb.assert_not_called()
             warn.assert_called_once()
             assert "Could not resolve" in warn.call_args[0][0]
-            err.assert_called_once()  # "Could not resolve accessible URL."
 
-    def test_ssh_variant_warns_no_web(self):
+    def test_ssh_variant_has_no_web_interface(self):
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import open as open_mod
 
         with patch.object(open_mod, "get_active_projects",
                           return_value=["proj1"]), \
              patch.object(open_mod, "find_project_containers",
                           return_value=_match("proj1", "gc-none-ssh")), \
-             patch.object(open_mod.webbrowser, "open") as wb, \
-             patch.object(open_mod, "print_warning") as warn:
-            open_mod.open_cmd(argparse.Namespace(name="proj1"))
-            warn.assert_called_once()
-            assert "no web interface" in warn.call_args[0][0]
+             patch.object(open_mod.webbrowser, "open") as wb:
+            with pytest.raises(SanityError, match="no web interface") as ei:
+                open_mod.open_cmd(argparse.Namespace(name="proj1"))
+            assert "shell -n proj1" in ei.value.hint
             wb.assert_not_called()
 
 
@@ -232,6 +233,15 @@ class TestSyncVerbCmd:
             info.assert_called()
             joined = " ".join(c.args[0] for c in info.call_args_list)
             assert "No active" in joined or "no active" in joined.lower()
+
+    def test_named_project_not_active_is_nonzero(self):
+        from sanity_gravity.domain.errors import SanityError
+        from sanity_gravity.verbs import sync as sync_mod
+
+        with patch("sanity_gravity.verbs.lifecycle.get_active_projects",
+                   return_value=["other"]), \
+             pytest.raises(SanityError, match="not active or managed"):
+            sync_mod.sync_config_cmd(argparse.Namespace(name="missing"))
 
     def test_per_project_failure_fails_the_verb(self):
         """A project failing to sync must not end in 'Sync complete.' +

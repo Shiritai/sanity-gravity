@@ -102,13 +102,16 @@ class TestCheckPrereqs:
 class TestProxyVerbs:
     """Cover the three proxy verbs: setup / status / remove."""
 
-    def test_setup_when_proxymanager_missing(self):
+    @pytest.mark.parametrize(
+        "verb", ["proxy_setup_cmd", "proxy_status_cmd", "proxy_remove_cmd"],
+    )
+    def test_proxymanager_missing_is_nonzero(self, verb):
+        from sanity_gravity.domain.errors import SanityError
         from sanity_gravity.verbs import proxy as proxy_mod
 
         with patch.object(proxy_mod, "ProxyManager", None), \
-             patch.object(proxy_mod, "print_error") as err:
-            proxy_mod.proxy_setup_cmd(argparse.Namespace())
-            err.assert_called_once_with("ProxyManager library not found.")
+             pytest.raises(SanityError, match="ProxyManager library not found"):
+            getattr(proxy_mod, verb)(argparse.Namespace())
 
     def test_setup_success_path(self):
         from sanity_gravity.verbs import proxy as proxy_mod
@@ -116,14 +119,12 @@ class TestProxyVerbs:
         fake_pm = MagicMock()
         fake_pm.get_socket_path.return_value = "/tmp/sock"
         with patch.object(proxy_mod, "ProxyManager", return_value=fake_pm), \
-             patch.object(proxy_mod, "print_error") as err, \
              patch.object(proxy_mod, "print_success") as ok, \
              patch.object(proxy_mod, "print_header"), \
              patch.object(proxy_mod, "print_info"):
             proxy_mod.proxy_setup_cmd(argparse.Namespace())
             fake_pm.setup.assert_called_once()
             ok.assert_called_once()
-            err.assert_not_called()
 
     def test_status_renders_each_section(self, capsys):
         from sanity_gravity.verbs import proxy as proxy_mod
@@ -144,21 +145,6 @@ class TestProxyVerbs:
         assert "Service:" in out and "Active:" in out
         assert "Socket:" in out and "Agent:" in out
 
-    def test_status_when_proxymanager_missing(self):
-        from sanity_gravity.verbs import proxy as proxy_mod
-
-        with patch.object(proxy_mod, "ProxyManager", None), \
-             patch.object(proxy_mod, "print_error") as err:
-            proxy_mod.proxy_status_cmd(argparse.Namespace())
-            err.assert_called_once()
-
-    def test_remove_when_proxymanager_missing(self):
-        from sanity_gravity.verbs import proxy as proxy_mod
-
-        with patch.object(proxy_mod, "ProxyManager", None), \
-             patch.object(proxy_mod, "print_error") as err:
-            proxy_mod.proxy_remove_cmd(argparse.Namespace())
-            err.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

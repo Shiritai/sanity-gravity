@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from sanity_gravity.cli.io import (
-    print_error,
     print_header,
     print_info,
     print_plain,
@@ -17,11 +16,16 @@ except ImportError:  # pragma: no cover - lib is shipped with the repo
     ProxyManager = None
 
 
+def _require_proxy_manager() -> None:
+    # Raise, not print_error + return: the dispatcher drops the return
+    # value, so that shape would exit 0.
+    if not ProxyManager:
+        raise SanityError("ProxyManager library not found.")
+
+
 def proxy_setup_cmd(args):
     """Set up the SSH Proxy."""
-    if not ProxyManager:
-        print_error("ProxyManager library not found.")
-        return
+    _require_proxy_manager()
 
     pm = ProxyManager()
     print_header("Setting up SSH Proxy...")
@@ -38,9 +42,7 @@ def proxy_setup_cmd(args):
 
 def proxy_status_cmd(args):
     """Check SSH Proxy status."""
-    if not ProxyManager:
-        print_error("ProxyManager library not found.")
-        return
+    _require_proxy_manager()
 
     pm = ProxyManager()
     status = pm.get_status()
@@ -79,9 +81,7 @@ def proxy_status_cmd(args):
 
 def proxy_remove_cmd(args):
     """Remove the SSH Proxy."""
-    if not ProxyManager:
-        print_error("ProxyManager library not found.")
-        return
+    _require_proxy_manager()
 
     pm = ProxyManager()
     print_header("Removing SSH Proxy...")

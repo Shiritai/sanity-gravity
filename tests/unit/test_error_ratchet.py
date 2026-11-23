@@ -335,3 +335,95 @@ def test_verbs_do_not_import_subprocess_directly():
         "verb modules no longer import subprocess -- shrink "
         f"KNOWN_DIRECT_SUBPROCESS: {sorted(stale)}"
     )
+
+
+_LOOPS = (ast.For, ast.AsyncFor, ast.While)
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
+
+def _is_print_error(stmt: ast.stmt) -> bool:
+    return (
+        isinstance(stmt, ast.Expr)
+        and isinstance(stmt.value, ast.Call)
+        and node_name(stmt.value.func) == "print_error"
+    )
+
+
+def _report_and_carry_on(tree: ast.AST) -> list[int]:
+    """Lines of print_error calls that let the verb end with exit 0.
+
+    The dispatcher drops a verb's return value, so the only way to fail
+    is to raise. A print_error is legitimate solely as the per-item
+    report inside a batch loop whose aggregate raises afterwards; one
+    outside any loop, or followed by a ``return`` in its block, is
+    report-and-return - a red X on an exit-0 process.
+    """
+    hits: list[int] = []
+
+    def scan(node: ast.AST, in_loop: bool) -> None:
+        for field, value in ast.iter_fields(node):
+            if not isinstance(value, list):
+                continue
+            loop = in_loop
+            if isinstance(node, _SCOPES):
+                loop = False  # a def inside a loop is not run per item
+            elif isinstance(node, _LOOPS) and field == "body":
+                loop = True
+            stmts = [v for v in value if isinstance(v, ast.stmt)]
+            for i, stmt in enumerate(stmts):
+                if _is_print_error(stmt) and (
+                    not loop
+                    or any(isinstance(s, ast.Return) for s in stmts[i + 1:])
+                ):
+                    hits.append(stmt.lineno)
+            for child in value:
+                if isinstance(child, ast.AST):
+                    scan(child, loop)
+
+    scan(tree, False)
+    return hits
+
+
+_CARRY_ON_CASES = (
+    ("report then return",
+     "def f():\n    print_error('x')\n    return\n", 1),
+    ("report then fall off",
+     "def f(a):\n    if a:\n        print_error('x')\n", 1),
+    ("attribute call", "def f():\n    io.print_error('x')\n", 1),
+    ("return inside loop",
+     "def f(xs):\n    for x in xs:\n        print_error(x)\n        return\n",
+     1),
+    ("loop else runs once",
+     "def f(xs):\n    for x in xs:\n        pass\n    else:\n"
+     "        print_error('x')\n", 1),
+    ("def inside loop",
+     "def f(xs):\n    for x in xs:\n        def g():\n"
+     "            print_error(x)\n", 1),
+    ("per-item in except",
+     "def f(xs):\n    for x in xs:\n        try:\n            pass\n"
+     "        except E:\n            print_error(x)\n            continue\n",
+     0),
+)
+
+
+@pytest.mark.parametrize(
+    "label,src,expected", _CARRY_ON_CASES,
+    ids=[c[0] for c in _CARRY_ON_CASES],
+)
+def test_report_and_carry_on_finder(label, src, expected):
+    """Guard the guard: each branch of the finder has a case that turns
+    red when that branch is removed."""
+    assert len(_report_and_carry_on(ast.parse(src))) == expected, label
+
+
+def test_verbs_fail_by_raising_not_by_print_error():
+    offenders = [
+        f"{rel}:{line}"
+        for path, rel in py_files(PKG_ROOT / "verbs")
+        for line in _report_and_carry_on(parse(path))
+    ]
+    assert not offenders, (
+        f"print_error then return/fall-through at: {offenders}. The CLI "
+        "exits 0 on that path; raise SanityError(message, hint=...) and "
+        "let cli/main.py render it and exit non-zero."
+    )
