@@ -1,5 +1,9 @@
 name: Release Pipeline
 
+# Version tags are the only publish trigger. Publishing a GitHub release
+# creates its tag, and that tag push runs this workflow; a `release`
+# trigger as well would build and publish the same version twice.
+# GitHub does not apply paths-ignore to tag pushes.
 on:
   push:
     branches: [ main ]
@@ -12,8 +16,6 @@ on:
       - 'SECURITY.md'
       - 'assets/**'
       - 'docs/**'
-  release:
-    types: [ published ]
 
 permissions:
   contents: read
@@ -47,10 +49,14 @@ jobs:
           echo "short_sha=${SHA_SHORT}" >> $GITHUB_OUTPUT
 
           TAG_LIST="sha-${SHA_SHORT}"
-          if [[ "${{ github.ref_type }}" == "tag" && "${{ github.ref_name }}" == v* ]]; then
-            TAG_LIST="${TAG_LIST},latest,${{ github.ref_name }}"
-          elif [[ "${{ github.event_name }}" == "release" ]]; then
-            TAG_LIST="${TAG_LIST},latest,${{ github.event.release.tag_name }}"
+          REF_NAME="${{ github.ref_name }}"
+          if [[ "${{ github.ref_type }}" == "tag" && "${REF_NAME}" == v* ]]; then
+            TAG_LIST="${TAG_LIST},${REF_NAME}"
+            # A pre-release (v1.2.0-rc.1) is published under its own name
+            # only; latest is what README users pull.
+            if [[ "${REF_NAME}" != *-* ]]; then
+              TAG_LIST="${TAG_LIST},latest"
+            fi
           fi
           echo "tags_csv=${TAG_LIST}" >> $GITHUB_OUTPUT
 
@@ -113,7 +119,7 @@ jobs:
     secrets: inherit
 
   publish:
-    if: github.event_name == 'release' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [setup, test-x64, test-arm64, check-x64, check-arm64]
     uses: ./.github/workflows/_publish.yml
     with:

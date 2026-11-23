@@ -157,3 +157,38 @@ def test_scheduled_build_verifies_both_arches_without_publishing():
         assert job["uses"] == "./.github/workflows/_build-and-verify.yml", arch
         assert job["with"]["needs_images"] is True, arch
         assert "permissions" not in job, arch
+
+
+def test_release_pipeline_has_one_trigger_per_version():
+    """Publishing a GitHub release pushes its tag, so a release trigger
+    next to the tag trigger would build and publish one version twice."""
+    wf = _load(_WORKFLOWS / "ci-release.yml")
+    triggers = _triggers(wf)
+    assert set(triggers) == {"push"}
+    assert triggers["push"]["tags"] == ["v*"]
+    assert wf["jobs"]["publish"]["if"] == "startsWith(github.ref, 'refs/tags/v')"
+
+
+@pytest.mark.parametrize(
+    ("ref_name", "published"),
+    [
+        ("v0.4.0", "sha-abc1234,v0.4.0,latest"),
+        ("v0.4.0-rc.1", "sha-abc1234,v0.4.0-rc.1"),
+    ],
+)
+def test_only_a_final_version_moves_latest(tmp_path, ref_name, published):
+    """Runs the workflow's own tag-list script with the expressions filled
+    in, so the rule is checked as bash executes it."""
+    import subprocess
+
+    steps = _load(_WORKFLOWS / "ci-release.yml")["jobs"]["setup"]["steps"]
+    script = next(s["run"] for s in steps if s.get("id") == "vars")
+    script = (
+        script.replace("$(git rev-parse --short HEAD)", "abc1234")
+        .replace("${{ github.ref_type }}", "tag")
+        .replace("${{ github.ref_name }}", ref_name)
+    )
+    out = tmp_path / "out"
+    subprocess.run(["bash", "-c", script], check=True,
+                   env={"GITHUB_OUTPUT": str(out), "PATH": "/usr/bin:/bin"})
+    assert f"tags_csv={published}" in out.read_text().splitlines()

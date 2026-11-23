@@ -57,7 +57,7 @@ Each `_build-and-verify.yml` run:
 
 ## Release Pipeline (`ci-release.yml`)
 
-Triggers on push to `main` (ignoring docs-only changes), version tags (`v*`), or published GitHub releases.
+Triggers on push to `main` (ignoring docs-only changes) and on version tags (`v*`). Publishing a GitHub release creates its tag, and that tag push is what runs the pipeline; there is no separate `release` trigger, so a version is built and published once.
 
 ```
 setup (discover tags + generate SHA-based transient tag)
@@ -67,7 +67,7 @@ setup (discover tags + generate SHA-based transient tag)
   ├── check-arm64
   ├── test-x64     (_test.yml: pull from GHCR, run pytest, needs build)
   ├── test-arm64
-  └── publish      (_publish.yml: only on release/v* tag, needs all)
+  └── publish      (_publish.yml: only on a v* tag, needs all)
 ```
 
 ## Scheduled Build (`scheduled-build.yml`)
@@ -103,8 +103,8 @@ For example:
 | Tag | When |
 |:----|:-----|
 | `sha-{short_sha}-{arch}` | Every release build (transient, per-arch) |
-| `latest` | Multi-arch manifest, published on release |
-| `v{version}` | Multi-arch manifest, published on version tag release |
+| `latest` | Multi-arch manifest, published on a version tag without `-` (not on pre-releases such as `v0.4.0-rc.1`) |
+| `v{version}` | Multi-arch manifest, published on every version tag |
 
 ## Tag Discovery
 
