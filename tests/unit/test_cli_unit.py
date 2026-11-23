@@ -336,6 +336,7 @@ class TestConfigSync:
         for rel in (
             "GEMINI.md",
             "antigravity-browser-profile/SingletonLock",
+            "antigravity-browser-profile-bak/SingletonLock",
             "bin/agy",
             "bin/agy.version.json",
             "antigravity/brain/note.md",

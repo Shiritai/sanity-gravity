@@ -27,13 +27,14 @@ from sanity_gravity.domain.errors import SanityError
 
 #: tar --exclude flags for ``./config`` -> ``~/.gemini``: machine-local
 #: state that a copy of a host's whole ~/.gemini would otherwise carry in.
-#: - antigravity-browser-profile: the IDE's Chrome profile; its Singleton
-#:   lock names the host, and Chrome refuses a profile locked elsewhere.
+#: - antigravity-browser-profile*: the IDE's Chrome profile and any copies
+#:   of it (e.g. -bak); a Singleton lock names the host, and Chrome refuses
+#:   a profile locked elsewhere.
 #: - bin/agy*: the agy the IDE runs; the entrypoint links it to the
 #:   image's pinned build, and a host copy (another build, maybe another
 #:   OS) would replace that link until the next restart.
 SYNC_EXCLUDES = (
-    "--exclude=antigravity-browser-profile",
+    "--exclude=antigravity-browser-profile*",
     "--exclude=bin/agy*",
 )
 
